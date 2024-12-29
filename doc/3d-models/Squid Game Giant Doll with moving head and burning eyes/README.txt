@@ -1,0 +1,1 @@
+Squid Game Giant Doll with moving head and burning eyes 魷魚遊戲-123木頭人（轉頭+灼眼） by fm7809 on Thingiverse: https://www.thingiverse.com/thing:5020863
