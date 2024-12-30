@@ -10,3 +10,7 @@
 * Esempi funzionanti https://pyimagesearch.com/2024/06/17/object-tracking-with-yolov8-and-python/
 * Spiegazioni modelli [https://www.thinkautonomous.ai/blog/computer-vision-for-tracking/]
 * NVIDIA models [https://developer.nvidia.com/blog/state-of-the-art-real-time-multi-object-trackers-with-nvidia-deepstream-sdk-6-2/]
+
+## Modelli 3D
+
+* Pan & tilt SG90 : https://www.thingiverse.com/thing:6008663
