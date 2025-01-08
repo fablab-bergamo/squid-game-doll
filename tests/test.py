@@ -265,7 +265,7 @@ if __name__ == '__main__':
                         type=int,
                         help='Hue Minimum Threshold')
     parser.add_argument('-U', '--huemax',
-                        default=200,
+                        default=250,
                         type=int,
                         help='Hue Maximum Threshold')
     parser.add_argument('-s', '--satmin',
