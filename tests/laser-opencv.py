@@ -2,23 +2,59 @@
 
 import cv2
 import numpy as np
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 768)
+cap.set(cv2.CAP_PROP_EXPOSURE, -7)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+cap.set(cv2.CAP_PROP_FPS, 10.0)
 
 pts = []
-while (1):
+cpt = 0
+last_pos = None
 
+while (1):
+    cpt += 1
     # Take each frame
     ret, frame = cap.read()
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    _ , _ ,channel=cv2.split(frame)
+    #cv2.GaussianBlur(g, (5,5), 0, g)
 
-    lower_red = np.array([0, 0, 240])
-    upper_red = np.array([255, 255, 255])
-    mask = cv2.inRange(hsv, lower_red, upper_red)
-    (minVal, maxVal, minLoc, maxLoc) = cv2.minMaxLoc(mask)
+    r,diff_thr = cv2.threshold(channel, 200, 255, cv2.THRESH_BINARY)
+    
+    masked_channel = cv2.bitwise_and(channel, channel, None, diff_thr)
+    
+    cv2.imshow('masked_channel', masked_channel)
 
-    cv2.circle(frame, maxLoc, 20, (0, 0, 255), 2, cv2.LINE_AA)
-    cv2.imshow('Track Laser', frame)
+    output = frame.copy()
 
+    circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
+                             param1=50,param2=2,minRadius=2,maxRadius=10)
+
+    if circles is not None and len(circles) > 0 and len(circles[0]) > 0:
+        circle = circles[0]
+
+        if last_pos is None:
+            last_pos = (int(circle[0]),int(circle[0]))
+        
+        if len(circles) > 1:
+            #find the position closest to the last position
+            min_dist = 100000
+            best_pos = last_pos
+            for circle in circles[0,:]:
+                dist = np.linalg.norm(np.array([circle[0],circle[1]]) - np.array(last_pos))
+                if dist < min_dist:
+                    min_dist = dist
+                    best_pos = np.array([circle[0],circle[1]])
+            last_pos = best_pos
+
+        cv2.circle(img=output, center=last_pos, radius=1, color=(0,255,0), thickness=2)
+        print(f"Laser position={last_pos}")
+        
+    
+    cv2.imshow('Output', output)
+    
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
