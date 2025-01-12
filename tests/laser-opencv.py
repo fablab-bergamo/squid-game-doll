@@ -2,18 +2,36 @@
 
 import cv2
 import numpy as np
+from time import sleep
+from numpy.linalg import norm
+
+def brightness(img):
+    if len(img.shape) == 3:
+        # Colored RGB or BGR (*Do Not* use HSV images with this function)
+        # create brightness with euclidean norm
+        return np.average(norm(img, axis=2)) / np.sqrt(3)
+    else:
+        # Grayscale
+        return np.average(img)
+    
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1680)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1200)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 cap.set(cv2.CAP_PROP_FPS, 5.0)
+
+# Configure exposure so that the laser is the brightest object in the image
+ret, frame = cap.read()
+cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3) # auto mode
+cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) # manual mode
 cap.set(cv2.CAP_PROP_EXPOSURE, -7)
+sleep(1)
 
 pts = []
 cpt = 0
 last_pos = (512,369)
 
-while (1):
+while True:
     cpt += 1
     # Take each frame
     ret, frame = cap.read()
@@ -25,11 +43,12 @@ while (1):
     cv2.imshow("Blue", cv2.merge([B, zeros, zeros]))
     channel = G.copy()
 
-    #cv2.GaussianBlur(g, (5,5), 0, g)
-
-    r,diff_thr = cv2.threshold(channel, 200, 255, cv2.THRESH_TOZERO)
+    #channel = cv2.GaussianBlur(channel, (3,3), 0)
+    
+    r,diff_thr = cv2.threshold(channel, 180, 255, cv2.THRESH_TOZERO)
     
     masked_channel = cv2.bitwise_and(channel, channel, None, diff_thr)
+    masked_channel = cv2.dilate(masked_channel, None, iterations=4)
     
     cv2.imshow('masked_channel', masked_channel)
 
@@ -48,7 +67,7 @@ while (1):
             dist = np.linalg.norm(np.array([circle[0],circle[1]]) - np.array(last_pos))
             if dist < min_dist:
                 min_dist = dist
-                best_pos = np.array([circle[0]+circle[2]/2,circle[1]+circle[2]/2])
+                best_pos = np.array([circle[0],circle[1]])
         last_pos = (int(best_pos[0]), int(best_pos[1]))
         found = True
     else:
