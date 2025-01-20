@@ -41,7 +41,7 @@ while True:
     cv2.imshow("Red", cv2.merge([zeros, zeros, R]))
     cv2.imshow("Green", cv2.merge([zeros, G, zeros]))
     cv2.imshow("Blue", cv2.merge([B, zeros, zeros]))
-    channel = G.copy()
+    channel = R.copy()
 
     #channel = cv2.GaussianBlur(channel, (3,3), 0)
     
