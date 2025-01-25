@@ -169,3 +169,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+Scripts/
+share/
+yolov8s.pt
+yolov8m.pt
+output.mp4
