@@ -1,9 +1,14 @@
+import os
+os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+
+from time import sleep
 import cv2
 import random
 import numpy as np
 from numpy.linalg import norm
 
 FILE_NAME = "pictures\\frame-10.jpg"
+last_render = 0
 
 def add_laser_dot(img: cv2.UMat, pos: tuple):
     output = img.copy()
@@ -76,25 +81,34 @@ def brightness(img):
     else:
         # Grayscale
         return np.average(img)
-    
+
+def draw_visor_at_coord(img: cv2.UMat, coord: tuple) -> cv2.UMat:
+    cv2.line(img, (coord[0] - 10, coord[1]), (coord[0] - 5, coord[1]), (0, 255, 0), 2)
+    cv2.line(img, (coord[0] + 5, coord[1]), (coord[0] + 10, coord[1]), (0, 255, 0), 2)
+    cv2.line(img, (coord[0], coord[1] - 10), (coord[0], coord[1] - 5), (0, 255, 0), 2)
+    cv2.line(img, (coord[0], coord[1] + 5), (coord[0], coord[1] + 10), (0, 255, 0), 2)
+    cv2.rectangle(img, (coord[0] -14, coord[1] - 14), (coord[0] + 14, coord[1] + 14), (0, 255, 0), 2)
+    return img
+  
 def find_laser(img: cv2.UMat) -> (tuple, cv2.UMat):
     strategies = [find_laser_by_red_color, find_laser_by_grayscale, find_laser_by_green_color]
     for strategy in strategies:
         print(f"Trying strategy {strategy.__name__}")   
         (coord, output) = strategy(img.copy())
         if coord is not None:
+            print(f"Found laser at {coord}")
             cv2.putText(output, 
                 text = strategy.__name__, 
-                org=(10, 70),
+                org=(10, 40),
                 fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                fontScale=1,
-                color=(255, 255, 255))
+                fontScale=.5,
+                color=(0, 255, 0))
             cv2.putText(output, 
                 text = f"Brightness={int(brightness(img))}", 
-                org=(10, 110),
+                org=(10, 60),
                 fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                fontScale=1,
-                color=(255, 255, 255))
+                fontScale=.5,
+                color=(0, 255, 0))
             return (coord, output)
     return (None, None)
 
@@ -117,7 +131,7 @@ def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
             circles_cpt = len(circles[0,:])
         
         if circles_cpt == 0:
-            step = (threshold - 100) // 2
+            step = (threshold - MIN_THRESHOLD) // 2
             if step == 0:
                 step = 1
             threshold -= step 
@@ -128,7 +142,7 @@ def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
             continue
             
         if circles_cpt > 1:
-            step = (255 - threshold) // 2
+            step = (MAX_THRESHOLD - threshold) // 2
             if step == 0:
                 step = 1
             threshold += step
@@ -139,20 +153,20 @@ def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
             continue
         
         print(f"Found 1 circle, threshold={threshold}")
-        done = True
+
         # draw circles found
         output = cv2.cvtColor(masked_channel, cv2.COLOR_GRAY2BGR)
-    
+        background = cv2.cvtColor(channel, cv2.COLOR_GRAY2BGR)
+
         for circle in circles[0,:]:
             center = (int(circle[0]), int(circle[1]))
-            output = cv2.addWeighted(img, 0.2, output, 0.5, 0)
-            cv2.circle(img=output, center=center, radius=5, color=(255,255,255), thickness=2)
+            output = cv2.addWeighted(background, 0.2, output, 0.5, 0)
             cv2.putText(output, 
                         text = "THR="+ str(threshold), 
-                        org=(10, 30),
+                        org=(10, 20),
                         fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                        fontScale=1,
-                        color=(255, 255, 255))
+                        fontScale=0.5,
+                        color=(0, 255, 0))
             return (center, output)
         
     return (None, None)
@@ -171,31 +185,123 @@ def find_laser_by_green_color(img: cv2.UMat) -> (tuple, cv2.UMat):
     return find_laser_by_threshold(G)
 
 
+def set_exposure(cap: cv2.VideoCapture, exposure: int):
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3) # auto mode
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) # manual mode
+    cap.set(cv2.CAP_PROP_EXPOSURE, exposure)
+    sleep(1)
 
-num = int(input("Enter the number of images to generate: "))
-outputs = []
-items = generate_test_images(num)
-for i in range(len(items["images"])):
-    img = items["images"][i]
-    true_pos = items["coords"][i]
-    (pos, output) = find_laser(img)
-    if pos is not None:
-        print(f"True position={true_pos}, found position={pos}")
-        error = int(norm(np.array(true_pos) - np.array(pos)))
-        if error > 10:
-            color = (0, 0, 255)
+def setup_webcam(index: int) -> cv2.VideoCapture:
+    cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
+    cap.set(cv2.CAP_PROP_FPS, 10.0)
+    return cap
+
+def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
+    global last_render
+    if last_render == 0:
+        last_render = cv2.getTickCount()
+    
+    # compute fps
+    current_time = cv2.getTickCount()
+    time_diff = (current_time - last_render) / cv2.getTickFrequency()
+    last_render = current_time
+    fps = int(1.0 / time_diff)
+
+    cv2.putText(frame,
+                text = f"FPS={fps}", 
+                org=(10, 100),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+
+    cv2.putText(frame,
+                text = f"Picture={int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}", 
+                org=(10, 20),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+    cv2.putText(frame,
+                text = f"FPS={cap.get(cv2.CAP_PROP_FPS)}", 
+                org=(10, 40),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+    cv2.putText(frame,
+                text = f"Exposure={cap.get(cv2.CAP_PROP_EXPOSURE)}", 
+                org=(10, 60),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+    cv2.putText(frame,
+                text = f"Auto exposure={cap.get(cv2.CAP_PROP_AUTO_EXPOSURE)}", 
+                org=(10, 80),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+    return frame
+
+def webcam_test():
+    cap = setup_webcam(0)
+    exposure = -7
+    set_exposure(cap, exposure)
+    cpt = 0
+    while True:
+        cpt += 1
+        # Take each frame
+        ret, frame = cap.read()
+        (coord, picture) = find_laser(frame)
+        if coord is None:
+            picture = np.zeros(frame.shape, dtype="uint8")
         else:
-            color = (0, 255, 0)
-            
-        cv2.putText(output,
-            text = f"Error={error}", 
-                    org=(10, 160),
-                    fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                    fontScale=1,
-                    color=color)
-        outputs.append(output)
+            draw_visor_at_coord(frame, coord)
+        add_camera_settings(cap, frame)
+        result = cv2.hconcat([frame, picture])
+        cv2.imshow('Result', result)
+        key = cv2.waitKey(2) & 0xFF
+        if key == ord('q'):
+            break
+        if key == ord('p'):
+            exposure += 1
+            set_exposure(cap, exposure)
+            sleep(1)
+        if key == ord('m'):
+            exposure -= 1
+            set_exposure(cap, exposure)
+            sleep(1)
+    cap.release()
+    cv2.destroyAllWindows()
 
-cv2.imshow("Inputs", compose_images(items["images"]))
-cv2.imshow("Results", compose_images(outputs))
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+def file_test():
+    num = int(input("Enter the number of images to generate: "))
+    outputs = []
+    items = generate_test_images(num)
+    for i in range(len(items["images"])):
+        img = items["images"][i]
+        true_pos = items["coords"][i]
+        (pos, output) = find_laser(img)
+        if pos is not None:
+            print(f"True position={true_pos}, found position={pos}")
+            error = int(norm(np.array(true_pos) - np.array(pos)))
+            if error > 10:
+                color = (0, 0, 255)
+            else:
+                color = (0, 255, 0)
+                
+            cv2.putText(output,
+                text = f"Error={error}", 
+                        org=(10, 160),
+                        fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                        fontScale=1,
+                        color=color)
+            outputs.append(output)
+
+    cv2.imshow("Inputs", compose_images(items["images"]))
+    cv2.imshow("Results", compose_images(outputs))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+#file_test()
+webcam_test()
