@@ -120,10 +120,10 @@ def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
     tries = 0
     while tries < MAX_TRIES:
         _, diff_thr = cv2.threshold(channel, threshold, 255, cv2.THRESH_TOZERO)
-        cv2.imshow("Threshold", cv2.cvtColor(diff_thr, cv2.COLOR_GRAY2BGR))
+        #cv2.imshow("Threshold", cv2.cvtColor(diff_thr, cv2.COLOR_GRAY2BGR))
         
         masked_channel = cv2.dilate(diff_thr, None, iterations=4)
-        cv2.imshow("Dilate", cv2.cvtColor(masked_channel, cv2.COLOR_GRAY2BGR))
+        #cv2.imshow("Dilate", cv2.cvtColor(masked_channel, cv2.COLOR_GRAY2BGR))
 
         circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
                                 param1=50,param2=2,minRadius=3,maxRadius=10)
@@ -214,8 +214,8 @@ def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
     fps = int(1.0 / time_diff)
 
     cv2.putText(frame,
-                text = f"FPS={fps}", 
-                org=(10, 100),
+                text = f"Act. FPS={fps}", 
+                org=(10, 80),
                 fontFace=cv2.FONT_HERSHEY_COMPLEX,
                 fontScale=0.5,
                 color=(255, 255, 255))
@@ -227,7 +227,7 @@ def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
                 fontScale=0.5,
                 color=(255, 255, 255))
     cv2.putText(frame,
-                text = f"FPS={cap.get(cv2.CAP_PROP_FPS)}", 
+                text = f"Webcam FPS={cap.get(cv2.CAP_PROP_FPS)}", 
                 org=(10, 40),
                 fontFace=cv2.FONT_HERSHEY_COMPLEX,
                 fontScale=0.5,
@@ -235,12 +235,6 @@ def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
     cv2.putText(frame,
                 text = f"Exposure={cap.get(cv2.CAP_PROP_EXPOSURE)}", 
                 org=(10, 60),
-                fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                fontScale=0.5,
-                color=(255, 255, 255))
-    cv2.putText(frame,
-                text = f"Auto exposure={cap.get(cv2.CAP_PROP_AUTO_EXPOSURE)}", 
-                org=(10, 80),
                 fontFace=cv2.FONT_HERSHEY_COMPLEX,
                 fontScale=0.5,
                 color=(255, 255, 255))
