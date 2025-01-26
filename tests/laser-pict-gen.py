@@ -120,8 +120,11 @@ def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
     tries = 0
     while tries < MAX_TRIES:
         _, diff_thr = cv2.threshold(channel, threshold, 255, cv2.THRESH_TOZERO)
-        masked_channel = cv2.bitwise_and(channel, channel, None, diff_thr)
-        masked_channel = cv2.dilate(masked_channel, None, iterations=4)
+        cv2.imshow("Threshold", cv2.cvtColor(diff_thr, cv2.COLOR_GRAY2BGR))
+        
+        masked_channel = cv2.dilate(diff_thr, None, iterations=4)
+        cv2.imshow("Dilate", cv2.cvtColor(masked_channel, cv2.COLOR_GRAY2BGR))
+
         circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
                                 param1=50,param2=2,minRadius=3,maxRadius=10)
         
