@@ -9,6 +9,8 @@ from numpy.linalg import norm
 
 FILE_NAME = "pictures\\frame-10.jpg"
 last_render = 0
+#This variable we use to store the pixel location
+target = ()
 
 def add_laser_dot(img: cv2.UMat, pos: tuple):
     output = img.copy()
@@ -89,12 +91,26 @@ def draw_visor_at_coord(img: cv2.UMat, coord: tuple) -> cv2.UMat:
     cv2.line(img, (coord[0], coord[1] + 5), (coord[0], coord[1] + 10), (0, 255, 0), 2)
     cv2.rectangle(img, (coord[0] -14, coord[1] - 14), (coord[0] + 14, coord[1] + 14), (0, 255, 0), 2)
     return img
+
+def draw_target_at_coord(img: cv2.UMat, coord: list) -> cv2.UMat:
+    if coord is None or len(coord) != 2:
+        return img
+    cv2.line(img, (coord[0] - 5, coord[1]), (coord[0] - 1, coord[1]), (0, 0, 255), 1)
+    cv2.line(img, (coord[0] + 1, coord[1]), (coord[0] + 5, coord[1]), (0, 0, 255), 1)
+    cv2.line(img, (coord[0], coord[1] - 5), (coord[0], coord[1] - 1), (0, 0, 255), 1)
+    cv2.line(img, (coord[0], coord[1] + 1), (coord[0], coord[1] + 5), (0, 0, 255), 1)
+    return img
   
-def find_laser(img: cv2.UMat) -> (tuple, cv2.UMat):
+def find_laser(img: cv2.UMat, strategy_hint: str, threshold_hint: int) -> (tuple, cv2.UMat, str, int):
     strategies = [find_laser_by_red_color, find_laser_by_grayscale, find_laser_by_green_color]
+    
+    if strategy_hint is not None:
+        # sort strategies by hint
+        strategies.sort(key=lambda x: x.__name__ == strategy_hint, reverse=True)
+
     for strategy in strategies:
         print(f"Trying strategy {strategy.__name__}")   
-        (coord, output) = strategy(img.copy())
+        (coord, output, threshold) = strategy(img.copy(), threshold_hint)
         if coord is not None:
             print(f"Found laser at {coord}")
             cv2.putText(output, 
@@ -109,14 +125,18 @@ def find_laser(img: cv2.UMat) -> (tuple, cv2.UMat):
                 fontFace=cv2.FONT_HERSHEY_COMPLEX,
                 fontScale=.5,
                 color=(0, 255, 0))
-            return (coord, output)
-    return (None, None)
+            return (coord, output, strategy.__name__, threshold)
+    return (None, None, None, None)
 
-def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
+def find_laser_by_threshold(channel: cv2.UMat, threshold_hint:int) -> (tuple, cv2.UMat, int):
     MAX_TRIES = 7
     MIN_THRESHOLD = 100
     MAX_THRESHOLD = 255
     threshold = (MIN_THRESHOLD + MAX_THRESHOLD) // 2
+    
+    if (threshold_hint is not None and threshold_hint > MIN_THRESHOLD and threshold_hint < MAX_THRESHOLD):
+        threshold = threshold_hint
+
     tries = 0
     while tries < MAX_TRIES:
         _, diff_thr = cv2.threshold(channel, threshold, 255, cv2.THRESH_TOZERO)
@@ -140,7 +160,7 @@ def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
             threshold -= step 
             print(f"Found no circles, decreasing threshold to {threshold}")
             if threshold < MIN_THRESHOLD:
-                return (None, None)
+                return (None, None, None)
             tries += 1
             continue
             
@@ -151,7 +171,7 @@ def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
             threshold += step
             print(f"Found {circles_cpt} circles, increasing threshold to {threshold}")
             if threshold > MAX_THRESHOLD:
-                return (None, None)
+                return (None, None, None)
             tries += 1
             continue
         
@@ -170,22 +190,22 @@ def find_laser_by_threshold(channel: cv2.UMat) -> (tuple, cv2.UMat):
                         fontFace=cv2.FONT_HERSHEY_COMPLEX,
                         fontScale=0.5,
                         color=(0, 255, 0))
-            return (center, output)
+            return (center, output, threshold)
         
-    return (None, None)
+    return (None, None, None)
 
-def find_laser_by_grayscale(img: cv2.UMat) -> (tuple, cv2.UMat):
+def find_laser_by_grayscale(img: cv2.UMat, hint:int) -> (tuple, cv2.UMat, int):
     gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     normalized_gray_image = cv2.normalize(gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-    return find_laser_by_threshold(normalized_gray_image)
+    return find_laser_by_threshold(normalized_gray_image, hint)
 
-def find_laser_by_red_color(img: cv2.UMat) -> (tuple, cv2.UMat):
+def find_laser_by_red_color(img: cv2.UMat, hint:int) -> (tuple, cv2.UMat, int):
     (_, _, R) = cv2.split(img)
-    return find_laser_by_threshold(R)
+    return find_laser_by_threshold(R, hint)
    
-def find_laser_by_green_color(img: cv2.UMat) -> (tuple, cv2.UMat):
+def find_laser_by_green_color(img: cv2.UMat, hint:int) -> (tuple, cv2.UMat, int):
     (_, G, _) = cv2.split(img)
-    return find_laser_by_threshold(G)
+    return find_laser_by_threshold(G, hint)
 
 
 def set_exposure(cap: cv2.VideoCapture, exposure: int):
@@ -240,24 +260,111 @@ def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
                 color=(255, 255, 255))
     return frame
 
+def click_event(event, x, y, flags, param):
+    global target
+    if event == cv2.EVENT_LBUTTONDOWN:
+        print(f"Click registered at ({x}, {y})")
+        target = (x,y)
+
 def webcam_test():
+    WINDOW_NAME = "OpenCV"
     cap = setup_webcam(0)
     exposure = -7
     set_exposure(cap, exposure)
     cpt = 0
+    thr_hint = None
+    str_hint = None
     while True:
         cpt += 1
         # Take each frame
         ret, frame = cap.read()
-        (coord, picture) = find_laser(frame)
+        (coord, picture, str_hint, thr_hint) = find_laser(frame, str_hint, thr_hint)
         if coord is None:
             picture = np.zeros(frame.shape, dtype="uint8")
         else:
             draw_visor_at_coord(frame, coord)
         add_camera_settings(cap, frame)
         result = cv2.hconcat([frame, picture])
-        cv2.imshow('Result', result)
+        cv2.imshow(WINDOW_NAME, result)
         key = cv2.waitKey(2) & 0xFF
+        if key == ord('q'):
+            break
+        if key == ord('p'):
+            exposure += 1
+            set_exposure(cap, exposure)
+            sleep(1)
+        if key == ord('m'):
+            exposure -= 1
+            set_exposure(cap, exposure)
+            sleep(1)
+    cap.release()
+    cv2.destroyAllWindows()
+
+def track_target(laser:tuple, target:tuple, frame:cv2.UMat):
+    # compute the positionning error in abs distance
+    error = norm(np.array(laser) - np.array(target))
+
+    # add error info to the frame
+    cv2.putText(frame,
+                text = f"Laser pos. error ={int(error)} px", 
+                org=(10, 100),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(0, 255, 255))
+    
+    vertical_error = laser[0] - target[0]
+    horizontal_error = laser[1] - target[1]
+
+    if error < 10:
+        # good enough
+        return
+    
+    if vertical_error < -10:
+        print("Move up")
+    elif vertical_error > 10:
+        print("Move down")
+
+    if horizontal_error < -10:
+        print("Move left")
+    elif horizontal_error > 10:
+        print("Move right")
+
+    # Send the updated angles to ESP32
+    return
+
+
+def point_and_shoot():
+    WINDOW_NAME = "OpenCV"
+    cap = setup_webcam(0)
+    exposure = -7
+    set_exposure(cap, exposure)
+    cpt = 0
+    thr_hint = None
+    str_hint = None
+    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)  # Create the window outside the loop
+    cv2.setMouseCallback(WINDOW_NAME, click_event)  # Set mouse callback once
+
+    while True:
+        cpt += 1
+        # Take each frame
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to capture frame")
+            break
+        (coord, _, str_hint, thr_hint) = find_laser(frame, str_hint, thr_hint)
+        
+        if coord is not None:
+            draw_visor_at_coord(frame, coord)
+        
+        if len(target) == 2:
+            draw_target_at_coord(frame, target)
+
+        if coord is not None and len(target) == 2:
+            track_target(coord, target, frame)
+
+        add_camera_settings(cap, frame)
+        cv2.imshow(WINDOW_NAME, frame)
+        key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
         if key == ord('p'):
@@ -300,5 +407,7 @@ def file_test():
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+
 #file_test()
-webcam_test()
+#webcam_test()
+point_and_shoot()
