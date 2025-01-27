@@ -1,0 +1,88 @@
+import cv2
+
+last_render = 0
+
+def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
+    """
+    Adds camera settings information to the given frame.
+
+    Parameters:
+    cap (cv2.VideoCapture): The video capture device.
+    frame (cv2.UMat): The frame to which the settings information will be added.
+
+    Returns:
+    cv2.UMat: The frame with the added settings information.
+    """
+    global last_render
+    if last_render == 0:
+        last_render = cv2.getTickCount()
+    
+    # compute fps
+    current_time = cv2.getTickCount()
+    time_diff = (current_time - last_render) / cv2.getTickFrequency()
+    last_render = current_time
+    fps = int(1.0 / time_diff)
+
+    cv2.putText(frame,
+                text = f"Act. FPS={fps}", 
+                org=(10, 80),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+
+    cv2.putText(frame,
+                text = f"Picture={int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}", 
+                org=(10, 20),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+    cv2.putText(frame,
+                text = f"Webcam FPS={cap.get(cv2.CAP_PROP_FPS)}", 
+                org=(10, 40),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+    cv2.putText(frame,
+                text = f"Exposure={cap.get(cv2.CAP_PROP_EXPOSURE)}", 
+                org=(10, 60),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+    return frame
+
+def draw_visor_at_coord(img: cv2.UMat, coord: tuple) -> cv2.UMat:
+    """
+    Draws a visor at the specified coordinates on the given image.
+
+    Parameters:
+    img (cv2.UMat): The image on which to draw the visor.
+    coord (tuple): The (x, y) coordinates where the visor will be drawn.
+
+    Returns:
+    cv2.UMat: The image with the drawn visor.
+    """
+    cv2.line(img, (coord[0] - 10, coord[1]), (coord[0] - 5, coord[1]), (0, 255, 0), 2)
+    cv2.line(img, (coord[0] + 5, coord[1]), (coord[0] + 10, coord[1]), (0, 255, 0), 2)
+    cv2.line(img, (coord[0], coord[1] - 10), (coord[0], coord[1] - 5), (0, 255, 0), 2)
+    cv2.line(img, (coord[0], coord[1] + 5), (coord[0], coord[1] + 10), (0, 255, 0), 2)
+    cv2.rectangle(img, (coord[0] -14, coord[1] - 14), (coord[0] + 14, coord[1] + 14), (0, 255, 0), 2)
+    return img
+
+def draw_target_at_coord(img: cv2.UMat, coord: tuple) -> cv2.UMat:
+    """
+    Draws a target at the specified coordinates on the given image.
+
+    Parameters:
+    img (cv2.UMat): The image on which to draw the target.
+    coord (tuple): The (x, y) coordinates where the target will be drawn.
+
+    Returns:
+    cv2.UMat: The image with the drawn target.
+    """
+    if coord is None or len(coord) != 2:
+        return img
+    cv2.line(img, (coord[0] - 5, coord[1]), (coord[0] - 1, coord[1]), (0, 0, 255), 1)
+    cv2.line(img, (coord[0] + 1, coord[1]), (coord[0] + 5, coord[1]), (0, 0, 255), 1)
+    cv2.line(img, (coord[0], coord[1] - 5), (coord[0], coord[1] - 1), (0, 0, 255), 1)
+    cv2.line(img, (coord[0], coord[1] + 1), (coord[0], coord[1] + 5), (0, 0, 255), 1)
+    return img
