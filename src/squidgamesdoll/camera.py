@@ -62,6 +62,7 @@ class Camera:
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             value_channel = hsv[:, :, 2]
             avg_value = np.mean(value_channel)
+            current_exposure = new_exposure
         
         print(f"Exposure adjusted: 1/{ int(2**(-1*current_exposure))}")
         self.exposure = current_exposure

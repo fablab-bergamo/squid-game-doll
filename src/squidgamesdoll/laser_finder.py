@@ -37,6 +37,7 @@ class LaserFinder:
             # sort strategies by hint
             strategies.sort(key=lambda x: x.__name__ == self.prev_strategy, reverse=True)
 
+        #self.find_laser_by_threshold_2(img)
         for strategy in strategies:
             print(f"Trying strategy {strategy.__name__}")   
             (coord, output) = strategy(img.copy())
@@ -144,6 +145,75 @@ class LaserFinder:
         self.laser_coord = None
         return (None, None)
 
+    def find_laser_by_threshold_2(self, channel: cv2.UMat) -> (tuple, cv2.UMat):
+        """
+        Finds the laser in the given channel using a thresholding strategy.
+
+        Parameters:
+        channel (cv2.UMat): The input channel.
+
+        Returns:
+        tuple: The coordinates of the laser, the output image, and the threshold value.
+        """
+        MAX_TRIES = 100
+        MIN_THRESHOLD = 50
+        MAX_THRESHOLD = 255
+        threshold = (MIN_THRESHOLD + MAX_THRESHOLD) // 2
+        step = (MIN_THRESHOLD + MAX_THRESHOLD) // 4
+
+        if (self.prev_threshold is not None and self.prev_threshold > MIN_THRESHOLD and self.prev_threshold < MAX_THRESHOLD):
+            threshold = self.prev_threshold
+
+        tries = 0
+        while tries < MAX_TRIES:
+            _, diff_thr = cv2.threshold(channel, threshold, 255, cv2.THRESH_TOZERO)
+            #cv2.imshow("Threshold", cv2.cvtColor(diff_thr, cv2.COLOR_GRAY2BGR))
+            img_conv = cv2.cvtColor(diff_thr, cv2.COLOR_BGR2GRAY)
+
+            pixels = cv2.countNonZero(img_conv)
+            
+            if pixels == 0:
+                step = 1
+                if step == 0:
+                    step = 1
+                threshold -= step 
+                print(f"Found no pixels, decreasing threshold to {threshold}")
+                if threshold < MIN_THRESHOLD:
+                    self.laser_coord = None
+                    self.prev_threshold = None
+                    return (None, None)
+                tries += 1
+                continue
+                
+            if pixels > 100:
+                step = 1
+                if step == 0:
+                    step = 1
+                threshold += step
+                print(f"Found {pixels} pixels, increasing threshold to {threshold}")
+                if threshold > MAX_THRESHOLD:
+                    self.laser_coord = None
+                    self.prev_threshold = None
+                    return (None, None)
+                tries += 1
+                continue
+            
+            print(f"Found <100 highest pixels, threshold={threshold}")
+
+            # find countours
+            circles = cv2.HoughCircles(img_conv, cv2.HOUGH_GRADIENT, 1, minDist=50,
+                                    param1=50,param2=2,minRadius=3,maxRadius=10)
+            
+            if circles is not None:
+                for circle in circles[0,:]:
+                    cv2.circle(img_conv, (int(circle[0]), int(circle[1])), int(circle[2]), (255, 0, 0), 1)
+            
+            cv2.imshow("Contours", img_conv)
+            return ((1,1), img_conv)
+
+        self.laser_coord = (1,1)
+        return ((1,1),None)
+    
     def find_laser_by_grayscale(self, img: cv2.UMat) -> (tuple, cv2.UMat):
         """
         Finds the laser in the given image using a grayscale strategy.
