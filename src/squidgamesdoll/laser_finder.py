@@ -1,6 +1,12 @@
+from typing import Callable
 import cv2
-from .imgprocessing import brightness
 
+from squidgamesdoll.gradient_search import test_gradient
+from squidgamesdoll.motion_pattern import motion_pattern_analysis
+from .imgprocessing import brightness
+# source tbc https://stackoverflow.com/questions/9860667/writing-robust-color-and-size-invariant-circle-detection-with-opencv-based-on
+# source tbc https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/
+# source tbc https://www.pyimagesearch.com/2016/02/15/determining-object-color-with-opencv/
 class LaserFinder:
     def __init__(self):
         """
@@ -9,6 +15,8 @@ class LaserFinder:
         self.prev_strategy = None
         self.prev_threshold = None
         self.laser_coord = None
+        self.prev_img = None
+        self.prev_candidates = []
     
     def laser_found(self) -> bool:
         return self.laser_coord is not None
@@ -31,13 +39,14 @@ class LaserFinder:
         Returns:
         tuple: The coordinates of the laser, the output image, the strategy used, and the threshold value.
         """
-        strategies = [self.find_laser_by_red_color, self.find_laser_by_grayscale, self.find_laser_by_green_color]
+        strategies = [self.find_laser_by_red_color_motion, self.find_laser_by_red_color, self.find_laser_by_grayscale, self.find_laser_by_green_color]
         
+        # Retry last successfull strategy first
         if self.prev_strategy is not None:
             # sort strategies by hint
             strategies.sort(key=lambda x: x.__name__ == self.prev_strategy, reverse=True)
 
-        #self.find_laser_by_threshold_2(img)
+
         for strategy in strategies:
             print(f"Trying strategy {strategy.__name__}")   
             (coord, output) = strategy(img.copy())
@@ -63,7 +72,7 @@ class LaserFinder:
         
         return (None, None)
 
-    def find_laser_by_threshold(self, channel: cv2.UMat) -> (tuple, cv2.UMat):
+    def find_laser_by_threshold(self, channel: cv2.UMat, searchfunction: Callable[[cv2.UMat], list]) -> (tuple, cv2.UMat):
         """
         Finds the laser in the given channel using a thresholding strategy.
 
@@ -89,13 +98,9 @@ class LaserFinder:
             masked_channel = cv2.dilate(diff_thr, None, iterations=4)
             #cv2.imshow("Dilate", cv2.cvtColor(masked_channel, cv2.COLOR_GRAY2BGR))
 
-            circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
-                                    param1=50,param2=2,minRadius=3,maxRadius=10)
+            circles = searchfunction(masked_channel)
             
-            if circles is None:
-                circles_cpt = 0
-            else:
-                circles_cpt = len(circles[0,:])
+            circles_cpt = len(circles)
             
             if circles_cpt == 0:
                 step = (threshold - MIN_THRESHOLD) // 2
@@ -123,13 +128,12 @@ class LaserFinder:
                 tries += 1
                 continue
             
-            print(f"Found 1 circle, threshold={threshold}")
-
+            
             # draw circles found
             output = cv2.cvtColor(masked_channel, cv2.COLOR_GRAY2BGR)
             background = cv2.cvtColor(channel, cv2.COLOR_GRAY2BGR)
 
-            for circle in circles[0,:]:
+            for circle in circles:
                 center = (int(circle[0]), int(circle[1]))
                 output = cv2.addWeighted(background, 0.2, output, 0.5, 0)
                 cv2.putText(output, 
@@ -144,6 +148,40 @@ class LaserFinder:
         
         self.laser_coord = None
         return (None, None)
+
+    def search_by_hough_circles(self, channel: cv2.UMat) -> list:
+        circles = cv2.HoughCircles(channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
+                                param1=50,param2=2,minRadius=3,maxRadius=10)
+        
+        if circles is None:
+            return []
+        
+        return circles[0,:]
+    
+    def search_by_modified_gradiant(self, channel: cv2.UMat) -> list:
+        
+        circles = test_gradient(channel)
+        
+        if circles is None or len(circles) == 0:
+            return []
+        
+        self.prev_img = channel
+        self.prev_candidates = circles
+        return [x['position'] for x in circles]
+    
+    def search_by_motion_analysis(self, channel: cv2.UMat) -> list:
+        
+        candidates = test_gradient(channel)
+
+        _, best_candidate = motion_pattern_analysis(candidates, self.prev_candidates, channel, self.prev_img, C1=2.0, C2=0.2, assoc_thresh=10.0)
+                
+        self.prev_img = channel
+        self.prev_candidates = candidates
+
+        if best_candidate is None:
+            return []
+
+        return best_candidate['position']
 
     def find_laser_by_threshold_2(self, channel: cv2.UMat) -> (tuple, cv2.UMat):
         """
@@ -226,7 +264,7 @@ class LaserFinder:
         """
         gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         normalized_gray_image = cv2.normalize(gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-        return self.find_laser_by_threshold(normalized_gray_image)
+        return self.find_laser_by_threshold(normalized_gray_image, searchfunction=self.search_by_hough_circles)
 
     def find_laser_by_red_color(self, img: cv2.UMat) -> (tuple, cv2.UMat):
         """
@@ -240,7 +278,7 @@ class LaserFinder:
         tuple: The coordinates of the laser, the output image, and the threshold value.
         """
         (_, _, R) = cv2.split(img)
-        return self.find_laser_by_threshold(R)
+        return self.find_laser_by_threshold(R, searchfunction=self.search_by_hough_circles)
     
     def find_laser_by_green_color(self, img: cv2.UMat) -> (tuple, cv2.UMat):
         """
@@ -254,4 +292,20 @@ class LaserFinder:
         tuple: The coordinates of the laser, the output image, and the threshold value.
         """
         (_, G, _) = cv2.split(img)
-        return self.find_laser_by_threshold(G)
+        return self.find_laser_by_threshold(G, searchfunction=self.search_by_hough_circles)
+
+
+    def find_laser_by_red_color_motion(self, img: cv2.UMat) -> (tuple, cv2.UMat):
+        """
+        Finds the laser in the given image using the red color channel.
+
+        Parameters:
+        img (cv2.UMat): The input image.
+        hint (int): The threshold hint to use for the strategy.
+
+        Returns:
+        tuple: The coordinates of the laser, the output image, and the threshold value.
+        """
+        (_, _, R) = cv2.split(img)
+        return self.find_laser_by_threshold(R, searchfunction=self.search_by_motion_analysis)
+        
