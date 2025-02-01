@@ -39,7 +39,7 @@ class LaserFinder:
         Returns:
         tuple: The coordinates of the laser, the output image, the strategy used, and the threshold value.
         """
-        strategies = [self.find_laser_by_red_color_motion, self.find_laser_by_red_color, self.find_laser_by_grayscale, self.find_laser_by_green_color]
+        strategies = [self.find_laser_by_gray_centroids, self.find_laser_by_red_color, self.find_laser_by_grayscale, self.find_laser_by_green_color]
         
         # Retry last successfull strategy first
         if self.prev_strategy is not None:
@@ -182,6 +182,38 @@ class LaserFinder:
             return []
 
         return best_candidate['position']
+    
+    def search_by_contours(self, channel:cv2.UMat) -> list:
+        max_radius = 20
+        # Find contours
+        contours, _ = cv2.findContours(channel, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Convert grayscale image to BGR for visualization
+        result = cv2.cvtColor(channel, cv2.COLOR_GRAY2BGR)
+
+        detected_centroids = []
+
+        for contour in contours:
+            # Fit a minimum enclosing circle to estimate the size
+            (x, y), radius = cv2.minEnclosingCircle(contour)
+            radius = int(radius)
+
+            # Filter based on the maximum allowed radius
+            if radius <= max_radius:
+                M = cv2.moments(contour)
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    detected_centroids.append((cx, cy))
+
+                    # Draw contour and centroid for visualization
+                    cv2.drawContours(result, [contour], -1, (0, 255, 0), 2)
+                    cv2.circle(result, (cx, cy), 5, (0, 0, 255), -1)
+                    cv2.putText(result, f"({cx},{cy})", (cx+10, cy-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        
+        cv2.imshow("Contours", result)
+        return detected_centroids
+
 
     def find_laser_by_threshold_2(self, channel: cv2.UMat) -> (tuple, cv2.UMat):
         """
@@ -308,4 +340,18 @@ class LaserFinder:
         """
         (_, _, R) = cv2.split(img)
         return self.find_laser_by_threshold(R, searchfunction=self.search_by_motion_analysis)
-        
+    
+    def find_laser_by_gray_centroids(self, img: cv2.UMat) -> (tuple, cv2.UMat):
+        """
+        Finds the laser in the given image using the red color channel.
+
+        Parameters:
+        img (cv2.UMat): The input image.
+        hint (int): The threshold hint to use for the strategy.
+
+        Returns:
+        tuple: The coordinates of the laser, the output image, and the threshold value.
+        """
+        gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        normalized_gray_image = cv2.normalize(gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        return self.find_laser_by_threshold(normalized_gray_image, searchfunction=self.search_by_contours)
