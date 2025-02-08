@@ -1,5 +1,5 @@
 from squidgamesdoll.display import add_camera_settings, draw_visor_at_coord, draw_target_at_coord, ExclusionRect, add_exclusion_rectangles
-from squidgamesdoll.tracker import track_target
+from squidgamesdoll.tracker import track_target, track_target_PID
 from squidgamesdoll.laser_finder import LaserFinder
 from squidgamesdoll.camera import Camera
 from time import sleep
@@ -17,7 +17,7 @@ def click_event(event, x, y, flags, param):
         print(f"Click registered at ({x}, {y})")
         target = (x,y)
     if event == cv2.EVENT_RBUTTONDOWN:
-        if rect.top_left == (0,0):
+        if rect.top_left == ExclusionRect.UNDEFINED:
             rect.top_left = (x,y)
         else:
             rect.bottom_right = (x,y)
@@ -28,7 +28,7 @@ def click_event(event, x, y, flags, param):
 def point_and_shoot():
     global rectangles
     WINDOW_NAME = "OpenCV"
-    camera = Camera(2)
+    camera = Camera(0)
     camera.auto_exposure()
     
     cpt = 0

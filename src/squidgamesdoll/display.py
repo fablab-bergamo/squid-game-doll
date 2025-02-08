@@ -3,13 +3,15 @@ import cv2
 last_render = 0
 
 class ExclusionRect:
+    UNDEFINED = (-1, -1)
     def __init__(self):
-        self.top_left = (0,0)
-        self.bottom_right = (0,0)
+        self.top_left = ExclusionRect.UNDEFINED
+        self.bottom_right = ExclusionRect.UNDEFINED
 
 def add_exclusion_rectangles(frame: cv2.UMat, rectangles: list, color = (128,64,64)) -> cv2.UMat:
     for rect in rectangles:
-        cv2.rectangle(frame, rect.top_left, rect.bottom_right, color, -1)
+        if rect.top_left != ExclusionRect.UNDEFINED and rect.bottom_right != ExclusionRect.UNDEFINED:
+            cv2.rectangle(frame, rect.top_left, rect.bottom_right, color, -1)
     return frame
 
 def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
