@@ -11,7 +11,7 @@ class Camera:
         index (int): The index of the webcam to use.
         """
         self.cap = self.__setup_webcam(index)
-        self.exposure = -7
+        self.exposure = -1
     
     def __del__(self):
         """
@@ -55,7 +55,7 @@ class Camera:
 
         # Adjust exposure if the average value is too high
         while avg_value > AIV1:
-            new_exposure = max(current_exposure - 1, -10)  # Adjust exposure step (limit to -10 for safety)
+            new_exposure = max(current_exposure - 1, -16)  # Adjust exposure step (limit to -10 for safety)
             self.set_exposure(new_exposure)
             print(f"Exposure adjusted: {current_exposure} -> {new_exposure}")
             _, frame = self.read()
@@ -63,6 +63,8 @@ class Camera:
             value_channel = hsv[:, :, 2]
             avg_value = np.mean(value_channel)
             current_exposure = new_exposure
+            if new_exposure <= -16:
+                break
         
         print(f"Exposure adjusted: 1/{ int(2**(-1*current_exposure))}")
         self.exposure = current_exposure

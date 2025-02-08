@@ -3,7 +3,9 @@ import cv2
 
 from squidgamesdoll.gradient_search import test_gradient
 from squidgamesdoll.motion_pattern import motion_pattern_analysis
+from squidgamesdoll.display import add_exclusion_rectangles
 from .imgprocessing import brightness
+
 # source tbc https://stackoverflow.com/questions/9860667/writing-robust-color-and-size-invariant-circle-detection-with-opencv-based-on
 # source tbc https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/
 # source tbc https://www.pyimagesearch.com/2016/02/15/determining-object-color-with-opencv/
@@ -29,7 +31,7 @@ class LaserFinder:
             return f"{self.prev_strategy}(THR={self.prev_threshold})"
         return ""
     
-    def find_laser(self, img: cv2.UMat) -> (tuple, cv2.UMat):
+    def find_laser(self, img: cv2.UMat, rects: list) -> (tuple, cv2.UMat):
         """
         Finds the laser in the given image using different strategies.
 
@@ -39,7 +41,8 @@ class LaserFinder:
         Returns:
         tuple: The coordinates of the laser, the output image, the strategy used, and the threshold value.
         """
-        strategies = [self.find_laser_by_gray_centroids, self.find_laser_by_red_color, self.find_laser_by_grayscale, self.find_laser_by_green_color]
+        add_exclusion_rectangles(img, rects)
+        strategies = [self.find_laser_by_red_color, self.find_laser_by_grayscale, self.find_laser_by_green_color, self.find_laser_by_gray_centroids]
         
         # Retry last successfull strategy first
         if self.prev_strategy is not None:

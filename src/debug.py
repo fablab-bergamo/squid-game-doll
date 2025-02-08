@@ -1,4 +1,4 @@
-from squidgamesdoll.display import add_camera_settings, draw_visor_at_coord, draw_target_at_coord
+from squidgamesdoll.display import add_camera_settings, draw_visor_at_coord, draw_target_at_coord, ExclusionRect, add_exclusion_rectangles
 from squidgamesdoll.tracker import track_target
 from squidgamesdoll.laser_finder import LaserFinder
 from squidgamesdoll.camera import Camera
@@ -8,16 +8,27 @@ import cv2
 
 target = ()
 
+rect = ExclusionRect()
+rectangles = []
 
 def click_event(event, x, y, flags, param):
-    global target
+    global target, rect, rectangles
     if event == cv2.EVENT_LBUTTONDOWN:
         print(f"Click registered at ({x}, {y})")
         target = (x,y)
+    if event == cv2.EVENT_RBUTTONDOWN:
+        if rect.top_left == (0,0):
+            rect.top_left = (x,y)
+        else:
+            rect.bottom_right = (x,y)
+            rectangles.append(rect)
+            rect = ExclusionRect()
+            print(f"Added 1 exclusion rectangle")
 
 def point_and_shoot():
+    global rectangles
     WINDOW_NAME = "OpenCV"
-    camera = Camera(0)
+    camera = Camera(2)
     camera.auto_exposure()
     
     cpt = 0
@@ -34,7 +45,7 @@ def point_and_shoot():
         if not ret:
             print("Failed to capture frame")
             break
-        finder.find_laser(frame)
+        finder.find_laser(frame, rectangles)
         
         if finder.laser_found():
             draw_visor_at_coord(frame, finder.get_laser_coord())
@@ -51,7 +62,8 @@ def point_and_shoot():
                         fontFace=cv2.FONT_HERSHEY_COMPLEX,
                         fontScale=0.5,
                         color=(0, 255, 255))
-
+        
+        add_exclusion_rectangles(frame, rectangles)
         add_camera_settings(camera.getVideoCapture(), frame)
         # add winning strategy info
         cv2.putText(frame,
