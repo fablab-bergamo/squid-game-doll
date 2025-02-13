@@ -4,6 +4,7 @@ from squidgamesdoll.display import add_camera_settings, draw_visor_at_coord, dra
 from squidgamesdoll.tracker import track_target
 from squidgamesdoll.laser import find_laser
 from time import sleep
+import numpy as np
 
 import cv2
 
@@ -18,7 +19,7 @@ def click_event(event, x, y, flags, param):
 
 def point_and_shoot():
     WINDOW_NAME = "OpenCV"
-    cap = setup_webcam(0)
+    cap = setup_webcam(2)
     exposure = -7
     set_exposure(cap, exposure)
     cpt = 0
@@ -34,11 +35,16 @@ def point_and_shoot():
         if not ret:
             print("Failed to capture frame")
             break
-        (coord, _, str_hint, thr_hint) = find_laser(frame, str_hint, thr_hint)
+        if frame.shape[1] != 960 or frame.shape[0] != 720:
+            cv2.resize(frame, (960, 720))
+            
+        (coord, output, str_hint, thr_hint) = find_laser(frame, str_hint, thr_hint)
         
         if coord is not None:
             draw_visor_at_coord(frame, coord)
-        
+        if output is None:
+            output = np.zeros(frame.shape, dtype="uint8")
+
         if len(target) == 2:
             draw_target_at_coord(frame, target)
 
@@ -53,7 +59,8 @@ def point_and_shoot():
                         color=(0, 255, 255))
 
         add_camera_settings(cap, frame)
-        cv2.imshow(WINDOW_NAME, frame)
+
+        cv2.imshow(WINDOW_NAME, cv2.vconcat([frame, output]))
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break

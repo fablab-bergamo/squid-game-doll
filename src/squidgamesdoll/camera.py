@@ -1,6 +1,9 @@
 import cv2
 from time import sleep
 
+EXPECTED_WDIM = 960
+EXPECTED_HDIM = 720
+
 def set_exposure(cap: cv2.VideoCapture, exposure: int):
     """
     Sets the exposure for the given video capture device.
@@ -27,6 +30,6 @@ def setup_webcam(index: int) -> cv2.VideoCapture:
     cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
-    cap.set(cv2.CAP_PROP_FPS, 10.0)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap.set(cv2.CAP_PROP_FPS, 5.0)
     return cap
