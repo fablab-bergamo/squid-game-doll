@@ -107,5 +107,5 @@ class Camera:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
-        cap.set(cv2.CAP_PROP_FPS, 10.0)
+        cap.set(cv2.CAP_PROP_FPS, 5.0)
         return cap

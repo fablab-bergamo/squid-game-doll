@@ -5,10 +5,10 @@ import socket
 from time import sleep, time
 from simple_pid import PID
 
-pid_v = PID(0.1, 0.01, 0.005, setpoint=0, output_limits=(105,170), starting_output=135)
-pid_h = PID(0.1, 0.01, 0.005, setpoint=0, output_limits=(90,180), starting_output=135)
-pid_h.sample_time = 0.3
-pid_v.sample_time = 0.3
+pid_v = PID(1, 0.1, 0.05, setpoint=0, output_limits=(100,180), starting_output=135)
+pid_h = PID(1, 0.1, 0.05, setpoint=0, output_limits=(90,170), starting_output=135)
+pid_h.sample_time = 0.5
+pid_v.sample_time = 0.5 
 
 def track_target(laser:tuple, target:tuple) -> float:
     """
@@ -45,11 +45,16 @@ def track_target(laser:tuple, target:tuple) -> float:
     elif horizontal_error > 10:
         right = True
 
-    step_v = min(max(1, abs(vertical_error / 100.0)), 10)
-    step_h = min(max(1, abs(horizontal_error / 100.0)), 10)
+    step_v = min(max(0.4, abs(vertical_error / 100.0)), 10)
+    step_h = min(max(0.5, abs(horizontal_error / 100.0)), 10)
+
+    print(f"Step V {step_v}, step H {step_h}")
     send_instructions(up, down, left, right, step_v, step_h)
     # Send the updated angles to ESP32
     return error
+
+prev_output_h = 100
+prev_output_v = 100
 
 def track_target_PID(laser:tuple, target:tuple) -> float:
     """
@@ -62,26 +67,51 @@ def track_target_PID(laser:tuple, target:tuple) -> float:
     Returns:
     float: The positioning error in absolute distance.
     """
+    global prev_output_v, prev_output_h
+    RATE_OF_CHANGE = 1
+
     # compute the positionning error in abs distance
     if target is None or laser is None:
         return 0
     
     error = norm(np.array(laser) - np.array(target))
 
-    vertical_error = laser[0] - target[0]
-    horizontal_error = laser[1] - target[1]
+    vertical_error = -(laser[0] - target[0])
+    horizontal_error = -(laser[1] - target[1])
 
     output_h = pid_h(horizontal_error)
     output_v = pid_v(vertical_error)
+
+    if abs(output_h - prev_output_h) > RATE_OF_CHANGE:
+        if (output_h > prev_output_h):
+            output_h = prev_output_h + RATE_OF_CHANGE
+        else:
+            output_h = prev_output_h - RATE_OF_CHANGE
+    
+    if abs(output_v - prev_output_v) > RATE_OF_CHANGE:
+        if (output_v > prev_output_v):
+            output_v = prev_output_v + RATE_OF_CHANGE
+        else:
+            output_v = prev_output_v - RATE_OF_CHANGE
+    
+
+    prev_output_h = output_h
+    prev_output_v = output_v
+    print(f"output_h {output_h}, output_v {output_v}")
 
     send_angles((output_h, output_v))
 
     return error
 
-
+DEFAULT_POS = (135.0,137.5)
 current_pos = (135.0,137.5)
 aliensocket = None
 last_sent = 0
+
+def reset_pos():
+    global current_pos, DEFAULT_POS
+    send_angles(DEFAULT_POS)
+    current_pos = DEFAULT_POS
 
 
 def send_angles(angles:tuple) -> bool:

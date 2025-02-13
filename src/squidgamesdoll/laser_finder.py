@@ -42,7 +42,7 @@ class LaserFinder:
         tuple: The coordinates of the laser, the output image, the strategy used, and the threshold value.
         """
         add_exclusion_rectangles(img, rects)
-        strategies = [self.find_laser_by_red_color, self.find_laser_by_grayscale, self.find_laser_by_green_color, self.find_laser_by_gray_centroids]
+        strategies = [self.find_laser_by_red_color] #, self.find_laser_by_grayscale, self.find_laser_by_green_color, self.find_laser_by_gray_centroids]
         
         # Retry last successfull strategy first
         if self.prev_strategy is not None:
