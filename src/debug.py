@@ -37,7 +37,7 @@ def point_and_shoot():
     cv2.setMouseCallback(WINDOW_NAME, click_event)  # Set mouse callback once
 
     finder = LaserFinder()
-    tracker = TrackerControl("192.168.2.55")
+    tracker = TrackerControl("192.168.2.55", 10, 3)
 
     while True:
         cpt += 1
