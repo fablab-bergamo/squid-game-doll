@@ -16,6 +16,7 @@ V_MAX = 170
 H_START_ANGLE = (H_MIN + H_MAX) / 2
 V_START_ANGLE = (V_MIN + V_MAX) / 2
 
+zero = (H_START_ANGLE, V_START_ANGLE)
 test_mov = True
 target_coord = (H_START_ANGLE, V_START_ANGLE)
 motor_h=Servo(pin=H_SERVO_PIN)
@@ -45,8 +46,30 @@ async def blink_laser():
             laser.value(blink)
         blink = not blink
         await asyncio.sleep_ms(100)
-        
+
+# possible commands
+
 async def handle_client(reader, writer):
+    """
+    Handles client requests and sends appropriate responses.
+
+    The function listens for various commands from the client and performs actions
+    such as updating target coordinates, starting/stopping test movements, and 
+    controlling the laser. The possible commands and their responses are:
+
+    - "(x, y)": Updates the target coordinates to (x, y). Responds with "1" if successful, "0" otherwise.
+    - "?": Requests the current servo angles. Responds with a tuple of (horizontal_angle, vertical_angle).
+    - "limits": Requests the servo limits. Responds with a tuple of ((H_MIN, H_MAX), (V_MIN, V_MAX)).
+    - "test": Starts the test movement. Responds with "1".
+    - "stop": Stops the test movement. Responds with "1".
+    - "off": Forces the laser off. Responds with "1".
+    - "on": Forces the laser on. Responds with "1".
+    - "quit": Ends the client connection.
+
+    Parameters:
+    reader (StreamReader): The stream reader to read data from the client.
+    writer (StreamWriter): The stream writer to send data to the client.
+    """
     global target_coord, test_mov, force_off, laser
     request = None
     while request != 'quit':
@@ -63,7 +86,10 @@ async def handle_client(reader, writer):
                 response = "1"
             except:
                 response = "0"
-            
+        if request == "?":
+            response = (motor_h.current_angle, motor_v.current_angle)
+        if request == "limits":
+            response = ((H_MIN,H_MAX),(V_MIN,V_MAX))
         if request == "test":
             test_mov = True
             response = "1"
@@ -92,18 +118,20 @@ async def run_server():
 
 async def stop_servo():
     global motor_h, motor_v
-    motor_v.move(V_START_ANGLE)
-    motor_h.move(H_START_ANGLE)
+    motor_h.move(zero[0])
+    motor_v.move(zero[1])
     await asyncio.sleep(0.5)
-    print(f"Stop servo (H,V)={H_START_ANGLE},{V_START_ANGLE}")
+    print(f"Stop servo, reset to (H,V)={zero}")
 
 async def test_movement():
     global test_mov
-    global motor_h, motor_v
-    h = H_START_ANGLE
-    v = V_START_ANGLE
-    motor_v.move(H_START_ANGLE)
-    motor_h.move(V_START_ANGLE)
+    global motor_h, motor_v, zero
+    h = zero[0]
+    v = zero[1]
+
+    motor_h.move(h)
+    motor_v.move(v)
+
     await asyncio.sleep(2)
     delay = 0.05
 
@@ -134,10 +162,13 @@ async def test_movement():
 async def run_tracking():
     global target_coord
     global motor_h, motor_v
-    h = H_START_ANGLE
-    v = V_START_ANGLE
-    motor_v.move(H_START_ANGLE)
-    motor_h.move(V_START_ANGLE)
+    
+    h = zero[0]
+    v = zero[1]
+    
+    motor_h.move(h)
+    motor_v.move(v)
+
     await asyncio.sleep(2)
     while True:
         if target_coord is not None:
@@ -155,7 +186,7 @@ async def run_tracking():
             if v > V_MAX:
                 v = V_MAX
                 
-            print(f"Target(H,V)={h},{v}")
+            print(f"Target(H,V) = ({h}, {v})")
             motor_h.move(h)
             motor_v.move(v)
             await asyncio.sleep_ms(50)

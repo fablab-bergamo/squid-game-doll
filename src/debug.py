@@ -1,5 +1,5 @@
 from squidgamesdoll.display import add_camera_settings, draw_visor_at_coord, draw_target_at_coord, ExclusionRect, add_exclusion_rectangles
-from squidgamesdoll.tracker import track_target, track_target_PID, reset_pos
+from squidgamesdoll.tracker import TrackerControl
 from squidgamesdoll.laser_finder import LaserFinder
 from squidgamesdoll.camera import Camera
 from time import sleep
@@ -28,7 +28,7 @@ def click_event(event, x, y, flags, param):
 def point_and_shoot():
     global rectangles
     WINDOW_NAME = "OpenCV"
-    camera = Camera(2)
+    camera = Camera(0)
     camera.auto_exposure()
     
     cpt = 0
@@ -37,6 +37,7 @@ def point_and_shoot():
     cv2.setMouseCallback(WINDOW_NAME, click_event)  # Set mouse callback once
 
     finder = LaserFinder()
+    tracker = TrackerControl("192.168.2.55")
 
     while True:
         cpt += 1
@@ -54,7 +55,7 @@ def point_and_shoot():
             draw_target_at_coord(frame, target)
 
         if finder.laser_found() is not None and len(target) == 2:
-            error = track_target_PID(finder.get_laser_coord(), target)
+            error = tracker.track_target_PID(finder.get_laser_coord(), target)
             # add error info to the frame
             cv2.putText(frame,
                         text = f"Laser pos. error ={int(error)} px", 
@@ -63,7 +64,7 @@ def point_and_shoot():
                         fontScale=0.5,
                         color=(0, 255, 255))
         else:
-            reset_pos()
+            tracker.reset_pos()
         
         add_exclusion_rectangles(frame, rectangles)
         add_camera_settings(camera.getVideoCapture(), frame)
