@@ -8,10 +8,10 @@ from Servo import Servo
 H_SERVO_PIN = 5
 V_SERVO_PIN = 4
 
-H_MIN = 90
-H_MAX = 180
-V_MIN = 105
-V_MAX = 170
+H_MIN = 45
+H_MAX = 45+90
+V_MIN = 100
+V_MAX = 150
 
 H_START_ANGLE = (H_MIN + H_MAX) / 2
 V_START_ANGLE = (V_MIN + V_MAX) / 2
@@ -72,43 +72,67 @@ async def handle_client(reader, writer):
     """
     global target_coord, test_mov, force_off, laser
     request = None
+    skipReply = False
+    
     while request != 'quit':
         try:
-            request = (await reader.read(255)).decode('utf8')
-        except:
-            await asyncio.sleep(0.1)
+            request = (await asyncio.wait_for(reader.read(128), timeout=.5)).decode('utf8').strip()
+        except asyncio.TimeoutError:
             continue
+        except Exception as e:
+            print(f"Error reading request: {e}")
+            await asyncio.sleep(0.1)
+
+        if request is None or len(request) == 0:
+            continue
+        
         print(f"<-- {request}")
         response = "?\n"
+
         if request.startswith("("):
             try:
                 target_coord = eval(request)
                 response = "1"
-            except:
+            except Exception as e:
+                print(f"Error updating target coordinates: {e}")
                 response = "0"
-        if request == "?":
-            response = (motor_h.current_angle, motor_v.current_angle)
-        if request == "limits":
-            response = ((H_MIN,H_MAX),(V_MIN,V_MAX))
-        if request == "test":
+        elif request == "angles":
+            response = (round(motor_h.current_angle,2), round(motor_v.current_angle,2))
+        elif request == "limits":
+            response = ((H_MIN, H_MAX), (V_MIN, V_MAX))
+        elif request == "test":
             test_mov = True
             response = "1"
-        if request == "stop":
+        elif request == "stop":
             test_mov = False
             response = "1"
-        if request == "off":
+        elif request == "off":
             force_off = True
             laser.value(True)
             response = "1"
-        if request == "on":
+        elif request == "on":
             force_off = False
             laser.value(False)
             response = "1"
-        print(f"--> {str(response)}")
-        writer.write(str(response).encode('utf8'))
-        await writer.drain()
-    writer.close()
+        elif request == "quit":
+            response = "Goodbye!"
+        else:
+            response = "Invalid command: "+ str(request)
+            skipReply = True
 
+        if not skipReply:
+            print(f"--> {response}")
+            try:
+                writer.write(str(response).encode('utf8'))
+                await writer.drain()
+            except Exception as e:
+                print(f"Error while responding: {e}")
+                break
+        else:
+            skipReply = False
+            
+    writer.close()
+    await writer.wait_closed()
 
 async def run_server():    
     server = await asyncio.start_server(handle_client, '192.168.2.55', 15555)
@@ -193,11 +217,21 @@ async def run_tracking():
             await asyncio.sleep_ms(50)
         target_coord = None
         await asyncio.sleep_ms(10)
-        
+
+async def test(servo):
+    servo.move(90)
+    await asyncio.sleep(1)
+    servo.move(100)
+    await asyncio.sleep(1)
+    servo.move(110)
+    await asyncio.sleep(1)
+    
 async def main():
-    asyncio.create_task(blink_laser())
+    #asyncio.create_task(blink_laser())
     asyncio.create_task(blink())
     #asyncio.create_task(test_movement())
+    await test(motor_h)
+    await test(motor_v)
     asyncio.create_task(run_server())
     track = asyncio.create_task(run_tracking())
     await asyncio.sleep(1800)

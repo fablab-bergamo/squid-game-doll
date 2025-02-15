@@ -111,7 +111,7 @@ class TrackerControl:
         Returns:
         float: The positioning error in absolute distance.
         """
-        RATE_OF_CHANGE = 1
+        RATE_OF_CHANGE = 2
 
         if not self.pid_ok:
             self.pid_ok = self.init_PID()
@@ -144,11 +144,11 @@ class TrackerControl:
             else:
                 output_v = self.prev_output_v - RATE_OF_CHANGE
             
-
-        self.prev_output_h = output_h
-        self.prev_output_v = output_v
-
-        self.send_angles((output_h, output_v))
+        if output_h != self.prev_output_h or output_v != self.prev_output_v:
+            # Send only on changes
+            self.prev_output_h = output_h
+            self.prev_output_v = output_v
+            self.send_angles((output_h, output_v))
 
         return error
 
@@ -180,14 +180,20 @@ class TrackerControl:
         if not self.__checksocket():
             return None
 
-        data = bytes("?", "utf-8")
+        data = bytes("angles", "utf-8")
         try:
+            print(f"--> {data}")
             self.aliensocket.sendall(data)
-            response = self.aliensocket.recv(64)
+            response = self.aliensocket.recv(128)
+            print(f"<-- {response}")
             self.is_online = True
             return ast.literal_eval(response.decode('utf-8'))
-        except:
-            print("get_angles: failure to contact ESP32")
+        except Exception as e:
+            print(f"get_angles: failure to contact ESP32: {e}")
+            try:
+                self.aliensocket.close()
+            except:
+                pass
             self.aliensocket = None
             self.is_online = False
             return None
@@ -203,14 +209,20 @@ class TrackerControl:
             return None
         data = bytes("limits", "utf-8")
         try:
+            print(f"--> {data}")
             self.aliensocket.sendall(data)
             response = self.aliensocket.recv(64)
+            print(f"<-- {response}")
             self.is_online = True
             retval =  ast.literal_eval(response.decode('utf-8'))
             print(f"get_limits={retval}")
             return retval
         except:
             print("get_angles: failure to contact ESP32")
+            try:
+                self.aliensocket.close()
+            except:
+                pass
             self.aliensocket = None
             self.is_online = False
             return None
@@ -220,10 +232,15 @@ class TrackerControl:
             self.aliensocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 print(f"__checksocket: connecting to {self.ip_address}:{self.port}")
-                self.aliensocket.settimeout(1)
+                self.aliensocket.settimeout(.2)
                 self.aliensocket.connect((self.ip_address, self.port))
             except Exception as e:
                 print(f"__checksocket: failure to connect : {e}")
+                try:
+                    self.aliensocket.close()
+                except:
+                    pass
+                self.aliensocket = None
                 self.is_online = False
                 return False
         return True
@@ -248,15 +265,17 @@ class TrackerControl:
 
         data = bytes(str(target), "utf-8")
         try:
+            print(f"<-- {data}")
             self.aliensocket.sendall(data)
-            self.is_online = True
+            self.aliensocket.recv(128)
         except:
             print("send_angles: failure to contact ESP32")
+            self.aliensocket.close()
             self.aliensocket = None
             self.is_online = False
             return False
-
-        self.current_pos = self.get_angles()
+        
+        self.is_online = True
         return True
 
     def send_instructions(self, up:bool, down:bool, left:bool, right:bool, step_v:float, step_h:float) -> bool:
@@ -283,7 +302,10 @@ class TrackerControl:
         self.current_pos = self.get_angles()
         
         if self.current_pos is None:
-            printf("Failure to get current angles!")
+            print(f"Failure to get current angles!")
+            return False
+        
+        if not self.isOnline():
             return False
         
         target = self.current_pos
@@ -297,10 +319,13 @@ class TrackerControl:
         if right:
             target = (self.current_pos[0] + step_h, self.current_pos[1])
         
+        if self.limits is None:
+            self.limits = self.get_limits()
+
         # Limits
         if target[0] < self.limits[0][0]:
             target = (self.limits[0][0], target[1])
-        if target[1] > self.limits[0][1]:
+        if target[0] > self.limits[0][1]:
             target = (self.limits[0][1], target[1])
         
         if target[1] < self.limits[1][0]:

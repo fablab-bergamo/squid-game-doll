@@ -110,7 +110,7 @@ class LaserFinder:
                 if step == 0:
                     step = 1
                 threshold -= step 
-                print(f"Found no circles, decreasing threshold to {threshold}")
+                #print(f"Found no circles, decreasing threshold to {threshold}")
                 if threshold < MIN_THRESHOLD:
                     self.laser_coord = None
                     self.prev_threshold = None
@@ -123,7 +123,7 @@ class LaserFinder:
                 if step == 0:
                     step = 1
                 threshold += step
-                print(f"Found {circles_cpt} circles, increasing threshold to {threshold}")
+                #print(f"Found {circles_cpt} circles, increasing threshold to {threshold}")
                 if threshold > MAX_THRESHOLD:
                     self.laser_coord = None
                     self.prev_threshold = None

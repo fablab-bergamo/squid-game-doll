@@ -46,7 +46,7 @@ def main():
     threshold_value = config.getint('Threshold', 'min_value')
     max_value = config.getint('Threshold', 'max_value')
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     if codec:

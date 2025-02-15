@@ -34,7 +34,8 @@ def point_and_shoot():
     print("Listing webcams:")
     for camera_info in enumerate_cameras(cv2.CAP_DSHOW):
         print(f'\t {camera_info.index}: {camera_info.name}')
-        index = camera_info.index
+        if camera_info.name == "HD Pro Webcam C920":
+            index = camera_info.index
 
     if index == -1:
         print("No compatible webcam found")
@@ -67,7 +68,7 @@ def point_and_shoot():
             draw_target_at_coord(frame, target)
 
         if finder.laser_found() is not None and len(target) == 2:
-            error = tracker.track_target_PID(finder.get_laser_coord(), target)
+            error = tracker.track_target(finder.get_laser_coord(), target)
             # add error info to the frame
             cv2.putText(frame,
                         text = f"Laser pos. error ={int(error)} px", 
