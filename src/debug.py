@@ -28,7 +28,19 @@ def click_event(event, x, y, flags, param):
 def point_and_shoot():
     global rectangles
     WINDOW_NAME = "OpenCV"
-    camera = Camera(0)
+    index = -1
+
+    from cv2_enumerate_cameras import enumerate_cameras
+    print("Listing webcams:")
+    for camera_info in enumerate_cameras(cv2.CAP_DSHOW):
+        print(f'\t {camera_info.index}: {camera_info.name}')
+        index = camera_info.index
+
+    if index == -1:
+        print("No compatible webcam found")
+        return
+    
+    camera = Camera(index)
     camera.auto_exposure()
     
     cpt = 0

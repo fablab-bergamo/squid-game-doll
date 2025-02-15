@@ -220,7 +220,7 @@ class TrackerControl:
             self.aliensocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 print(f"__checksocket: connecting to {self.ip_address}:{self.port}")
-                self.aliensocket.settimeout(0.5)
+                self.aliensocket.settimeout(1)
                 self.aliensocket.connect((self.ip_address, self.port))
             except Exception as e:
                 print(f"__checksocket: failure to connect : {e}")
