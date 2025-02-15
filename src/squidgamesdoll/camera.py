@@ -11,6 +11,8 @@ class Camera:
         index (int): The index of the webcam to use.
         """
         self.cap = self.__setup_webcam(index)
+        if not self.cap.isOpened():
+            print(f"Failure opening webcam idx {index}")
         self.exposure = -1
     
     def __del__(self):
