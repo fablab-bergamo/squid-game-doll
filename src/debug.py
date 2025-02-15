@@ -61,7 +61,7 @@ def point_and_shoot():
     while True:
         cpt += 1
         # Take frame
-        for _ in range(1):
+        for _ in range(2):
             frame = camera.read_resize()
             if frame is None:
                 print("Failed to capture frame")

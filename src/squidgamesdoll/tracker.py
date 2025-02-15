@@ -43,10 +43,11 @@ class TrackerControl:
 
         if self.limits is not None:
             zero = self.__getzeropos()
-            self.pid_v = PID(.1, 0.00, 0.00, setpoint=0, 
+            k = 0.1
+            self.pid_v = PID(k, k * 0.6, k * 0.3, setpoint=0, 
                              output_limits=(self.limits[1][0],self.limits[1][1]),
                               starting_output=zero[1])
-            self.pid_h = PID(.1, 0.00, 0.00, setpoint=0, 
+            self.pid_h = PID(k, k * 0.6, k * 0.3, setpoint=0, 
                              output_limits=(self.limits[0][0],self.limits[0][1]), 
                              starting_output=zero[0])
             self.pid_h.sample_time = self.min_period_S
@@ -130,6 +131,7 @@ class TrackerControl:
         if not self.pid_ok:
             self.pid_ok = self.init_PID()
             if not self.pid_ok:
+                print("PID nok")
                 return 0.0
 
         # compute the positionning error in abs distance
@@ -160,9 +162,9 @@ class TrackerControl:
             
         if output_h != self.prev_output_h or output_v != self.prev_output_v:
             # Send only on changes
-            self.prev_output_h = output_h
-            self.prev_output_v = output_v
-            self.send_angles((output_h, output_v))
+            if self.send_angles((output_h, output_v)):
+                self.prev_output_h = output_h
+                self.prev_output_v = output_v
 
         return error
 

@@ -51,7 +51,7 @@ class Camera:
         avg_value = np.mean(value_channel)
         
         # Define threshold (40% of max value 255)
-        AIV1 = 0.4 * 255  
+        AIV1 = 0.2 * 255  
         
         current_exposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
 
