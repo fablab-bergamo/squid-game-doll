@@ -8,10 +8,10 @@ from Servo import Servo
 H_SERVO_PIN = 5
 V_SERVO_PIN = 4
 
-H_MIN = 45
-H_MAX = 45+90
-V_MIN = 100
-V_MAX = 150
+H_MIN = 60
+H_MAX = 120 # H_MIN + 73
+V_MIN = 105
+V_MAX = 140
 
 H_START_ANGLE = (H_MIN + H_MAX) / 2
 V_START_ANGLE = (V_MIN + V_MAX) / 2
@@ -115,27 +115,24 @@ async def handle_client(reader, writer):
             laser.value(False)
             response = "1"
         elif request == "quit":
-            response = "Goodbye!"
+            response = "1"
         else:
-            response = "Invalid command: "+ str(request)
-            skipReply = True
-
-        if not skipReply:
-            print(f"--> {response}")
-            try:
-                writer.write(str(response).encode('utf8'))
-                await writer.drain()
-            except Exception as e:
-                print(f"Error while responding: {e}")
-                break
-        else:
-            skipReply = False
+            response = "0"
+            
+        print(f"--> {response}")
+        try:
+            writer.write(str(response).encode('utf8'))
+            await writer.drain()
+        except Exception as e:
+            print(f"Error while responding: {e}")
+            break
             
     writer.close()
     await writer.wait_closed()
 
-async def run_server():    
-    server = await asyncio.start_server(handle_client, '192.168.2.55', 15555)
+async def run_server():
+    #wlan.ifconfig()
+    server = await asyncio.start_server(handle_client, '0.0.0.0', 15555)
     print('Server started')
     async with server:
         await shutdown_event.wait()
@@ -214,9 +211,13 @@ async def run_tracking():
             print(f"Target(H,V) = ({h}, {v})")
             motor_h.move(h)
             motor_v.move(v)
-            await asyncio.sleep_ms(50)
-        target_coord = None
-        await asyncio.sleep_ms(10)
+            target_coord = None
+            await asyncio.sleep_ms(200)
+        else:
+            motor_h.move(h + random.uniform(-1,1))
+            motor_v.move(v + random.uniform(-1,1))
+            await asyncio.sleep_ms(100)
+        await asyncio.sleep_ms(25)
 
 async def test(servo):
     servo.move(90)
@@ -225,7 +226,26 @@ async def test(servo):
     await asyncio.sleep(1)
     servo.move(110)
     await asyncio.sleep(1)
-    
+
+async def check_limits():
+    global motor_h, motor_v
+    motor_v.move(V_MIN)
+    motor_h.move(H_MIN)
+    DELAY_MS = 50
+    while True:
+        for i in range(H_MIN, H_MAX+1):
+            motor_h.move(i)
+            await asyncio.sleep_ms(DELAY_MS)
+        for i in range(V_MIN, V_MAX+1):
+            motor_v.move(i)
+            await asyncio.sleep_ms(DELAY_MS)
+        for i in range(H_MAX, H_MIN, -1):
+            motor_h.move(i)
+            await asyncio.sleep_ms(DELAY_MS)
+        for i in range(V_MAX, V_MIN, -1):
+            motor_v.move(i)
+            await asyncio.sleep_ms(DELAY_MS)
+        
 async def main():
     #asyncio.create_task(blink_laser())
     asyncio.create_task(blink())
@@ -234,7 +254,8 @@ async def main():
     await test(motor_v)
     asyncio.create_task(run_server())
     track = asyncio.create_task(run_tracking())
-    await asyncio.sleep(1800)
+    #asyncio.create_task(check_limits())
+    await asyncio.sleep(18000)
     
 try:
     asyncio.run(main())

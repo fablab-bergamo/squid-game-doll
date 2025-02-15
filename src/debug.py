@@ -3,6 +3,7 @@ from squidgamesdoll.tracker import TrackerControl
 from squidgamesdoll.laser_finder import LaserFinder
 from squidgamesdoll.camera import Camera
 from time import sleep
+from squidgamesdoll.calibration import Calibrator
 
 import cv2
 
@@ -50,7 +51,12 @@ def point_and_shoot():
     cv2.setMouseCallback(WINDOW_NAME, click_event)  # Set mouse callback once
 
     finder = LaserFinder()
-    tracker = TrackerControl("192.168.2.55", 10, 3)
+    tracker = TrackerControl("192.168.45.66", 10, 4)
+
+    coeffs = (30.0, 9.0)
+    calibrator = Calibrator(camera, finder, tracker)
+    #if calibrator.calibrate():
+    #    coeffs = (calibrator.px_per_angle_h, calibrator.px_per_angle_v)
 
     while True:
         cpt += 1

@@ -50,8 +50,8 @@ class Camera:
         # Compute the average brightness
         avg_value = np.mean(value_channel)
         
-        # Define threshold (30% of max value 255)
-        AIV1 = 0.3 * 255  # Approximately 77
+        # Define threshold (40% of max value 255)
+        AIV1 = 0.4 * 255  
         
         current_exposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
 

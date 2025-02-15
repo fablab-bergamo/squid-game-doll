@@ -25,6 +25,11 @@ class TrackerControl:
         self.min_period_S = 1.0 / max_frequency_hz
         self.limits = self.get_limits()
         self.pid_ok = self.init_PID()
+        self.coeffs = (30.0, 9.0)
+
+    def set_coeffs(self, px_per_degree: tuple):
+        if px_per_degree is not None:
+            self.coeffs = px_per_degree
 
     def init_PID(self) -> bool:
         """
@@ -73,8 +78,8 @@ class TrackerControl:
         
         error = norm(np.array(laser) - np.array(target))
 
-        vertical_error = laser[0] - target[0]
-        horizontal_error = laser[1] - target[1]
+        vertical_error = laser[1] - target[1]
+        horizontal_error = laser[0] - target[0]
 
         up = False
         down = False
@@ -82,19 +87,21 @@ class TrackerControl:
         right = False
 
         if vertical_error < -1 * self.deadband:
-            up = True
-        elif vertical_error > self.deadband:
             down = True
+        elif vertical_error > self.deadband:
+            up = True
 
         if horizontal_error < -1 * self.deadband:
-            left = True
-        elif horizontal_error > self.deadband:
             right = True
+        elif horizontal_error > self.deadband:
+            left = True
 
-        step_v = min(max(0.4, abs(vertical_error / 100.0)), 10)
-        step_h = min(max(0.5, abs(horizontal_error / 100.0)), 10)
+        step_v = min(max(0.8, abs(vertical_error / self.coeffs[1])), 20)
+        step_h = min(max(0.8, abs(horizontal_error / self.coeffs[0])), 20)
 
-        print(f"-> Step V {step_v}, step H {step_h}")
+        print(f"Laser {laser} Target {target}")
+        print(f"Up:{up}, Down:{down}, Left:{left}, Right:{right}")
+        print(f"Step V {step_v}, step H {step_h}")
 
         self.send_instructions(up, down, left, right, step_v, step_h)
         # Send the updated angles to ESP32
@@ -255,13 +262,13 @@ class TrackerControl:
         Returns:
         bool: True if the angles are successfully sent, False otherwise.
         """
-        print(f"send_angles: target (H,V)=({angles[0]}, {angles[1]})")
+        print(f"send_angles: target (H,V)=({round(angles[0],2)}, {round(angles[1],2)})")
         
         if not self.__checksocket():
             return False
         
         # Round angles to 2 decimals, servos will not be able to do better than 0.1° anyways
-        target = (round(angles[0], 2), round(angles[1], 1))
+        target = (round(angles[0], 2), round(angles[1], 2))
 
         data = bytes(str(target), "utf-8")
         try:
@@ -298,26 +305,23 @@ class TrackerControl:
         else:
             # Avoid sending instructions too quickly
             return True
-
+        
         self.current_pos = self.get_angles()
         
         if self.current_pos is None:
             print(f"Failure to get current angles!")
-            return False
-        
-        if not self.isOnline():
-            return False
+            return False        
         
         target = self.current_pos
 
         if up:
-            target = (self.current_pos[0], self.current_pos[1] - step_v)
-        if down:
             target = (self.current_pos[0], self.current_pos[1] + step_v)
+        if down:
+            target = (self.current_pos[0], self.current_pos[1] - step_v)
         if left:
-            target = (self.current_pos[0] - step_h, self.current_pos[1])
-        if right:
             target = (self.current_pos[0] + step_h, self.current_pos[1])
+        if right:
+            target = (self.current_pos[0] - step_h, self.current_pos[1])
         
         if self.limits is None:
             self.limits = self.get_limits()
@@ -333,4 +337,9 @@ class TrackerControl:
         if target[1] > self.limits[1][1]:
             target = (target[0] , self.limits[1][1])
 
-        return self.send_angles(target)
+        result = self.send_angles(target)
+        
+        # Update position from ESP32
+        # self.current_pos = self.get_angles()
+
+        return result
