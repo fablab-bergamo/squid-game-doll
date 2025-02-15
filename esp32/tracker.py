@@ -78,7 +78,7 @@ async def handle_client(reader, writer):
         except:
             await asyncio.sleep(0.1)
             continue
-        print(f"Received={request}")
+        print(f"<-- {request}")
         response = "?\n"
         if request.startswith("("):
             try:
@@ -104,7 +104,8 @@ async def handle_client(reader, writer):
             force_off = False
             laser.value(False)
             response = "1"
-        writer.write(response.encode('utf8'))
+        print(f"--> {str(response)}")
+        writer.write(str(response).encode('utf8'))
         await writer.drain()
     writer.close()
 
@@ -205,3 +206,5 @@ try:
     asyncio.run(main())
 finally:
     asyncio.new_event_loop()  # Clear retained state
+
+

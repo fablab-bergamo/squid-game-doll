@@ -3,6 +3,7 @@ import numpy as np
 import socket
 from time import time
 from simple_pid import PID
+import ast
 
 class TrackerControl:
     
@@ -33,15 +34,14 @@ class TrackerControl:
         bool: True if PID initialization is successful, False otherwise.
         """
         if self.limits is not None:
-            start_v = (self.limits[1][1] - self.limits[1][0]) / 2
-            start_h = (self.limits[0][1] - self.limits[0][0]) / 2
-            self.pid_v = PID(0.01, 0.005, 0.002, setpoint=0, output_limits=(self.limits[1][0],self.limits[1][1]), starting_output=start_v)
-            self.pid_h = PID(0.01, 0.005, 0.002, setpoint=0, output_limits=(self.limits[0][0],self.limits[0][1]), starting_output=start_h)
+            zero = self.__getzeropos()
+            self.pid_v = PID(0.01, 0.005, 0.002, setpoint=0, output_limits=(self.limits[1][0],self.limits[1][1]), starting_output=zero[0])
+            self.pid_h = PID(0.01, 0.005, 0.002, setpoint=0, output_limits=(self.limits[0][0],self.limits[0][1]), starting_output=zero[1])
             self.pid_h.sample_time = self.min_period_S
             self.pid_v.sample_time = self.min_period_S
-            self.send_angles((start_h, start_v))
-            self.prev_output_h = start_h
-            self.prev_output_v = start_v
+            self.send_angles(zero)
+            self.prev_output_h = zero[0]
+            self.prev_output_v = zero[1]
             return True
         
         print("PID init failure")
@@ -152,6 +152,13 @@ class TrackerControl:
 
         return error
 
+    def __getzeropos(self) -> tuple:
+        if self.limits is not None:
+            start_v = (self.limits[1][1] - self.limits[1][0]) / 2 + self.limits[1][0]
+            start_h = (self.limits[0][1] - self.limits[0][0]) / 2 + self.limits[0][0]
+            return (start_h, start_v)
+        return None
+    
     def reset_pos(self) -> bool:
         """
         Resets the position of the servos to the center of their limits.
@@ -160,9 +167,7 @@ class TrackerControl:
         bool: True if the position is successfully reset, False otherwise.
         """
         if self.limits is not None:
-            start_v = (self.limits[1][1] - self.limits[1][0]) / 2
-            start_h = (self.limits[0][1] - self.limits[0][0]) / 2
-            return self.send_angles((start_h, start_v))
+            return self.send_angles(self.__getzeropos())
         return False
 
     def get_angles(self) -> tuple:
@@ -172,12 +177,15 @@ class TrackerControl:
         Returns:
         tuple: The current angles of the servos, or None if the ESP32 is not reachable.
         """
+        if not self.__checksocket():
+            return None
+
         data = bytes("?", "utf-8")
         try:
             self.aliensocket.sendall(data)
             response = self.aliensocket.recv(64)
             self.is_online = True
-            return eval(str(response))
+            return ast.literal_eval(response.decode('utf-8'))
         except:
             print("get_angles: failure to contact ESP32")
             self.aliensocket = None
@@ -191,17 +199,34 @@ class TrackerControl:
         Returns:
         tuple: The servo limits, or None if the ESP32 is not reachable.
         """
+        if not self.__checksocket():
+            return None
         data = bytes("limits", "utf-8")
         try:
             self.aliensocket.sendall(data)
             response = self.aliensocket.recv(64)
             self.is_online = True
-            return eval(str(response))
+            retval =  ast.literal_eval(response.decode('utf-8'))
+            print(f"get_limits={retval}")
+            return retval
         except:
             print("get_angles: failure to contact ESP32")
             self.aliensocket = None
             self.is_online = False
             return None
+    
+    def __checksocket(self) -> bool:
+        if self.aliensocket is None:
+            self.aliensocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                print(f"__checksocket: connecting to {self.ip_address}:{self.port}")
+                self.aliensocket.settimeout(0.5)
+                self.aliensocket.connect((self.ip_address, self.port))
+            except Exception as e:
+                print(f"__checksocket: failure to connect : {e}")
+                self.is_online = False
+                return False
+        return True
     
     def send_angles(self, angles:tuple) -> bool:
         """
@@ -215,16 +240,8 @@ class TrackerControl:
         """
         print(f"send_angles: target (H,V)=({angles[0]}, {angles[1]})")
         
-        if self.aliensocket is None:
-            self.aliensocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                print(f"send_angles: connecting to {self.ip_address}:{self.port}")
-                self.aliensocket.settimeout(0.5)
-                self.aliensocket.connect((self.ip_address, self.port))
-            except:
-                print("send_angles: failure to connect!")
-                self.is_online = False
-                return False
+        if not self.__checksocket():
+            return False
         
         # Round angles to 2 decimals, servos will not be able to do better than 0.1° anyways
         target = (round(angles[0], 2), round(angles[1], 1))
