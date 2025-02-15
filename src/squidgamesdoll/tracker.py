@@ -25,7 +25,7 @@ class TrackerControl:
         self.min_period_S = 1.0 / max_frequency_hz
         self.limits = self.get_limits()
         self.pid_ok = self.init_PID()
-        self.coeffs = (30.0, 9.0)
+        self.coeffs = (50.0, 15.0)
 
     def set_coeffs(self, px_per_degree: tuple):
         if px_per_degree is not None:
@@ -38,10 +38,17 @@ class TrackerControl:
         Returns:
         bool: True if PID initialization is successful, False otherwise.
         """
+        if self.limits is None:
+            self.limits = self.get_limits()
+
         if self.limits is not None:
             zero = self.__getzeropos()
-            self.pid_v = PID(0.01, 0.005, 0.002, setpoint=0, output_limits=(self.limits[1][0],self.limits[1][1]), starting_output=zero[0])
-            self.pid_h = PID(0.01, 0.005, 0.002, setpoint=0, output_limits=(self.limits[0][0],self.limits[0][1]), starting_output=zero[1])
+            self.pid_v = PID(.1, 0.00, 0.00, setpoint=0, 
+                             output_limits=(self.limits[1][0],self.limits[1][1]),
+                              starting_output=zero[1])
+            self.pid_h = PID(.1, 0.00, 0.00, setpoint=0, 
+                             output_limits=(self.limits[0][0],self.limits[0][1]), 
+                             starting_output=zero[0])
             self.pid_h.sample_time = self.min_period_S
             self.pid_v.sample_time = self.min_period_S
             self.send_angles(zero)
@@ -118,7 +125,7 @@ class TrackerControl:
         Returns:
         float: The positioning error in absolute distance.
         """
-        RATE_OF_CHANGE = 2
+        RATE_OF_CHANGE = 100
 
         if not self.pid_ok:
             self.pid_ok = self.init_PID()
@@ -131,8 +138,8 @@ class TrackerControl:
         
         error = norm(np.array(laser) - np.array(target))
 
-        vertical_error = -(laser[0] - target[0])
-        horizontal_error = -(laser[1] - target[1])
+        vertical_error = -1 * (laser[1] - target[1])
+        horizontal_error = -1 * (laser[0] - target[0])
 
         output_h = self.pid_h(horizontal_error)
         output_v = self.pid_v(vertical_error)

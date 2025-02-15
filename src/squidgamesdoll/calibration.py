@@ -8,7 +8,7 @@ class Calibrator:
     def __init__(self, camera:Camera, finder:LaserFinder, tracker:TrackerControl):
         self.finder = finder
         self.tracker = tracker
-        self.cam = camera.getVideoCapture()
+        self.cam = camera
         if not self.cam.isOpened():
             raise Exception("Invalid camera state")
         
@@ -36,13 +36,13 @@ class Calibrator:
                 
                 # Skip a few frames
                 for _ in range(5):
-                    ret, frame = self.cam.read()
+                    frame = self.cam.read_resize()
                     sleep(0.1)
                 
                 # Now try to find the laser
                 for _ in range(3):
-                    ret, frame = self.cam.read()
-                    if not ret:
+                    frame = self.cam.read_resize()
+                    if frame is None:
                         return False
                     cv2.imshow("Calibration", frame)
                     cv2.waitKey(1)

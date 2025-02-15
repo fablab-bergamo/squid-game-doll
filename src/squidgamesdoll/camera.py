@@ -36,8 +36,8 @@ class Camera:
         Sets the exposure using average brightness
         See https://www.researchgate.net/profile/Stefan-Toth-3/publication/350124875_Laser_spot_detection/links/605289e092851cd8ce4b5945/Laser-spot-detection.pdf
         """
-        ret, frame = self.read()
-        if not ret:
+        frame = self.read_resize()
+        if frame is not None:
             print("Error: Unable to capture frame.")
             return
         
@@ -60,7 +60,7 @@ class Camera:
             new_exposure = max(current_exposure - 1, -16)  # Adjust exposure step (limit to -10 for safety)
             self.set_exposure(new_exposure)
             print(f"Exposure adjusted: {current_exposure} -> {new_exposure}")
-            _, frame = self.read()
+            frame = self.read_resize()
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             value_channel = hsv[:, :, 2]
             avg_value = np.mean(value_channel)
@@ -85,15 +85,6 @@ class Camera:
         self.cap.set(cv2.CAP_PROP_EXPOSURE, exposure)
         self.exposure = exposure
         sleep(0.5)
-
-    def read(self) -> tuple:
-        """
-        Reads a frame from the video capture device.
-
-        Returns:
-        tuple: A tuple containing the return value and the frame.
-        """
-        return self.cap.read()
     
     def __setup_webcam(self, index: int) -> cv2.VideoCapture:
         """
@@ -106,8 +97,22 @@ class Camera:
         cv2.VideoCapture: The video capture object for the webcam.
         """
         cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
-        cap.set(cv2.CAP_PROP_FPS, 5.0)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        cap.set(cv2.CAP_PROP_FPS, 1.0)
         return cap
+    
+    def isOpened(self) -> bool:
+        return self.cap.isOpened()
+    
+    def read_resize(self) -> cv2.UMat:
+        if not self.isOpened():
+            return None
+        
+        res, frame = self.cap.read()
+        if res:
+            height, width, _ = frame.shape
+            return cv2.resize(frame, (width // 2, height // 2))
+        
+        return None

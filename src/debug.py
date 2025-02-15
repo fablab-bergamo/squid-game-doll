@@ -51,20 +51,22 @@ def point_and_shoot():
     cv2.setMouseCallback(WINDOW_NAME, click_event)  # Set mouse callback once
 
     finder = LaserFinder()
-    tracker = TrackerControl("192.168.45.66", 10, 4)
+    tracker = TrackerControl("192.168.2.11", 10, 5)
 
-    coeffs = (30.0, 9.0)
+    coeffs = (20.0, 5.0)
     calibrator = Calibrator(camera, finder, tracker)
     #if calibrator.calibrate():
     #    coeffs = (calibrator.px_per_angle_h, calibrator.px_per_angle_v)
 
     while True:
         cpt += 1
-        # Take each frame
-        ret, frame = camera.read()
-        if not ret:
-            print("Failed to capture frame")
-            break
+        # Take frame
+        for _ in range(1):
+            frame = camera.read_resize()
+            if frame is None:
+                print("Failed to capture frame")
+                break
+        
         finder.find_laser(frame, rectangles)
         
         if finder.laser_found():
@@ -74,7 +76,7 @@ def point_and_shoot():
             draw_target_at_coord(frame, target)
 
         if finder.laser_found() is not None and len(target) == 2:
-            error = tracker.track_target(finder.get_laser_coord(), target)
+            error = tracker.track_target_PID(finder.get_laser_coord(), target)
             # add error info to the frame
             cv2.putText(frame,
                         text = f"Laser pos. error ={int(error)} px", 

@@ -8,7 +8,7 @@ from Servo import Servo
 H_SERVO_PIN = 5
 V_SERVO_PIN = 4
 
-H_MIN = 60
+H_MIN = 70
 H_MAX = 120 # H_MIN + 73
 V_MIN = 105
 V_MAX = 140
@@ -35,7 +35,6 @@ async def blink():
         np.write()
         await asyncio.sleep_ms(1000)
 
-@micropython.native
 async def blink_laser():
     global force_off, laser
     blink = True
@@ -70,9 +69,10 @@ async def handle_client(reader, writer):
     reader (StreamReader): The stream reader to read data from the client.
     writer (StreamWriter): The stream writer to send data to the client.
     """
-    global target_coord, test_mov, force_off, laser
+    global target_coord, test_mov, force_off, laser, shutdown_event
     request = None
     skipReply = False
+    print("Handle client started")
     
     while request != 'quit':
         try:
@@ -129,14 +129,17 @@ async def handle_client(reader, writer):
             
     writer.close()
     await writer.wait_closed()
+    print("handle_client terminating.")
+    shutdown_event.set()
 
 async def run_server():
-    #wlan.ifconfig()
-    server = await asyncio.start_server(handle_client, '0.0.0.0', 15555)
-    print('Server started')
-    async with server:
-        await shutdown_event.wait()
-    print('leaving run_server')
+    while True:
+        shutdown_event.clear()
+        server = await asyncio.start_server(handle_client, '0.0.0.0', 15555)
+        print('Server started')
+        async with server:
+            await shutdown_event.wait()
+        print('leaving run_server')
 
 async def stop_servo():
     global motor_h, motor_v
@@ -193,32 +196,38 @@ async def run_tracking():
 
     await asyncio.sleep(2)
     while True:
-        if target_coord is not None:
-            (h,v) = target_coord
-            
-            if h < H_MIN:
-                h = H_MIN
-            
-            if h > H_MAX:
-                h = H_MAX
-            
-            if v < V_MIN:
-                v = V_MIN
-            
-            if v > V_MAX:
-                v = V_MAX
+        try:
+            if target_coord is not None:
+                (h,v) = target_coord
                 
-            print(f"Target(H,V) = ({h}, {v})")
-            motor_h.move(h)
-            motor_v.move(v)
-            target_coord = None
-            await asyncio.sleep_ms(200)
-        else:
-            motor_h.move(h + random.uniform(-1,1))
-            motor_v.move(v + random.uniform(-1,1))
-            await asyncio.sleep_ms(100)
-        await asyncio.sleep_ms(25)
-
+                if h < H_MIN:
+                    h = H_MIN
+                
+                if h > H_MAX:
+                    h = H_MAX
+                
+                if v < V_MIN:
+                    v = V_MIN
+                
+                if v > V_MAX:
+                    v = V_MAX
+                    
+                print(h,v)
+                motor_h.move(h)
+                motor_v.move(v)
+                target_coord = None
+                await asyncio.sleep_ms(100)
+            else:
+                v2 = v + random.uniform(-1.5, 1.5)
+                h2 = h + random.uniform(-1.5, 1.5)
+                print(h2,v2)
+                motor_h.move(h2)
+                motor_v.move(v2)
+                await asyncio.sleep_ms(250)
+        except Exception as e:
+            print(f"Error:{e}")
+            
+    print("Run tracking terminating")
 async def test(servo):
     servo.move(90)
     await asyncio.sleep(1)
@@ -252,14 +261,13 @@ async def main():
     #asyncio.create_task(test_movement())
     await test(motor_h)
     await test(motor_v)
-    asyncio.create_task(run_server())
-    track = asyncio.create_task(run_tracking())
-    #asyncio.create_task(check_limits())
-    await asyncio.sleep(18000)
-    
+    await asyncio.gather(run_server(), run_tracking())
 try:
     asyncio.run(main())
+except Exception as e:
+    print(f"Error: {e}")
 finally:
     asyncio.new_event_loop()  # Clear retained state
+
 
 
