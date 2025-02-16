@@ -35,7 +35,7 @@ def point_and_shoot():
     print("Listing webcams:")
     for camera_info in enumerate_cameras(cv2.CAP_DSHOW):
         print(f'\t {camera_info.index}: {camera_info.name}')
-        if camera_info.name == "HD Pro Webcam C920":
+        if camera_info.name == "HD Pro Webcam C920" or camera_info.name == "Logi C270 HD WebCam":
             index = camera_info.index
 
     if index == -1:
@@ -57,6 +57,7 @@ def point_and_shoot():
     calibrator = Calibrator(camera, finder, tracker)
     #if calibrator.calibrate():
     #    coeffs = (calibrator.px_per_angle_h, calibrator.px_per_angle_v)
+    DEBUG = True
 
     while True:
         cpt += 1
@@ -67,7 +68,9 @@ def point_and_shoot():
                 print("Failed to capture frame")
                 break
         
-        finder.find_laser(frame, rectangles)
+        _, output = finder.find_laser(frame, rectangles)
+        if DEBUG and output is not None:
+            cv2.imshow("Laser finder", output)
         
         if finder.laser_found():
             draw_visor_at_coord(frame, finder.get_laser_coord())

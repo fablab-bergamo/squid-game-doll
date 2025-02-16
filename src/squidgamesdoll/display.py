@@ -12,6 +12,10 @@ def add_exclusion_rectangles(frame: cv2.UMat, rectangles: list, color = (128,64,
     for rect in rectangles:
         if rect.top_left != ExclusionRect.UNDEFINED and rect.bottom_right != ExclusionRect.UNDEFINED:
             cv2.rectangle(frame, rect.top_left, rect.bottom_right, color, -1)
+    
+    # Add 2 px around frame
+    height, width, _ = frame.shape
+    cv2.rectangle(frame, (1,1), (width-1, height-1), (0,0,0), thickness=2)
     return frame
 
 def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
@@ -34,23 +38,18 @@ def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
     time_diff = (current_time - last_render) / cv2.getTickFrequency()
     last_render = current_time
     fps = int(1.0 / time_diff)
+    height, width, _ = frame.shape
 
     cv2.putText(frame,
-                text = f"Act. FPS={fps}", 
-                org=(10, 80),
-                fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                fontScale=0.5,
-                color=(255, 255, 255))
-
-    cv2.putText(frame,
-                text = f"Picture={int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}", 
-                org=(10, 20),
-                fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                fontScale=0.5,
-                color=(255, 255, 255))
-    cv2.putText(frame,
-                text = f"Webcam FPS={cap.get(cv2.CAP_PROP_FPS)}", 
+                text = f"Act. FPS={fps} (camera:{cap.get(cv2.CAP_PROP_FPS)})", 
                 org=(10, 40),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=0.5,
+                color=(255, 255, 255))
+
+    cv2.putText(frame,
+                text = f"Picture={height}x{width}", 
+                org=(10, 20),
                 fontFace=cv2.FONT_HERSHEY_COMPLEX,
                 fontScale=0.5,
                 color=(255, 255, 255))

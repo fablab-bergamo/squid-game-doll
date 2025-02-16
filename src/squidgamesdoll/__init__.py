@@ -1,2 +1,4 @@
 import os
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+
+DEBUG_LASER_FIND = True

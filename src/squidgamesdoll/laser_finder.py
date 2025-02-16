@@ -1,6 +1,7 @@
 from typing import Callable
 import cv2
 
+from squidgamesdoll import DEBUG_LASER_FIND
 from squidgamesdoll.gradient_search import test_gradient
 from squidgamesdoll.motion_pattern import motion_pattern_analysis
 from squidgamesdoll.display import add_exclusion_rectangles
@@ -41,17 +42,13 @@ class LaserFinder:
         Returns:
         tuple: The coordinates of the laser, the output image, the strategy used, and the threshold value.
         """
-        add_exclusion_rectangles(img, rects)
+        add_exclusion_rectangles(img, rects, (0,0,0))
         strategies = [self.find_laser_by_red_color, self.find_laser_by_grayscale] #, self.find_laser_by_green_color, self.find_laser_by_gray_centroids]
         
-        # Retry last successfull strategy first
-        if self.prev_strategy is not None:
-            # sort strategies by hint
-            strategies.sort(key=lambda x: x.__name__ == self.prev_strategy, reverse=True)
-
-
         for strategy in strategies:
-            print(f"Trying strategy {strategy.__name__}")   
+            if DEBUG_LASER_FIND:
+                print(f"Trying strategy {strategy.__name__}")   
+
             (coord, output) = strategy(img.copy())
             if coord is not None:
                 print(f"Found laser at {coord}")
@@ -72,6 +69,9 @@ class LaserFinder:
                 return (coord, output)
         
         self.laser_coord = None
+
+        if DEBUG_LASER_FIND:
+            print("No laser found")
         
         return (None, None)
 
@@ -95,6 +95,9 @@ class LaserFinder:
 
         tries = 0
         while tries < MAX_TRIES:
+            if DEBUG_LASER_FIND:
+                print(f"Try: {tries}/{MAX_TRIES}")
+                
             _, diff_thr = cv2.threshold(channel, threshold, 255, cv2.THRESH_TOZERO)
             #cv2.imshow("Threshold", cv2.cvtColor(diff_thr, cv2.COLOR_GRAY2BGR))
             
@@ -109,8 +112,11 @@ class LaserFinder:
                 step = (threshold - MIN_THRESHOLD) // 2
                 if step == 0:
                     step = 1
-                threshold -= step 
-                #print(f"Found no circles, decreasing threshold to {threshold}")
+                threshold -= step
+                
+                if DEBUG_LASER_FIND:
+                    print(f"Found no circles, decreasing threshold to {threshold}")
+                
                 if threshold < MIN_THRESHOLD:
                     self.laser_coord = None
                     self.prev_threshold = None
@@ -118,12 +124,15 @@ class LaserFinder:
                 tries += 1
                 continue
                 
-            if circles_cpt > 1:
+            if circles_cpt > 1 or (self.laser_coord is not None and circles_cpt > 5):
                 step = (MAX_THRESHOLD - threshold) // 2
                 if step == 0:
                     step = 1
                 threshold += step
-                #print(f"Found {circles_cpt} circles, increasing threshold to {threshold}")
+
+                if DEBUG_LASER_FIND:
+                    print(f"Found {circles_cpt} circles, increasing threshold to {threshold}")
+                
                 if threshold > MAX_THRESHOLD:
                     self.laser_coord = None
                     self.prev_threshold = None
@@ -136,27 +145,39 @@ class LaserFinder:
             output = cv2.cvtColor(masked_channel, cv2.COLOR_GRAY2BGR)
             background = cv2.cvtColor(channel, cv2.COLOR_GRAY2BGR)
 
-            for circle in circles:
-                center = (int(circle[0]), int(circle[1]))
-                output = cv2.addWeighted(background, 0.2, output, 0.5, 0)
-                cv2.putText(output, 
-                            text = "THR="+ str(threshold), 
-                            org=(10, 20),
-                            fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                            fontScale=0.5,
-                            color=(0, 255, 0))
-                self.prev_threshold = threshold
-                self.laser_coord = center
-                return (center, output)
+            if self.laser_coord and circles_cpt > 1:
+                if DEBUG_LASER_FIND:
+                    print(f"Selected closest circle to previous position")
+                circles.sort(key=lambda c: (c[0] - self.laser_coord[0])**2 + (c[1] - self.laser_coord[1])**2)
+            
+            center = (int(circles[0][0]), int(circles[0][1]))
+            output = cv2.addWeighted(background, 0.2, output, 0.5, 0)
+            cv2.putText(output, 
+                        text = "THR="+ str(threshold), 
+                        org=(10, 20),
+                        fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                        fontScale=0.5,
+                        color=(0, 255, 0))
+            self.prev_threshold = threshold
+            self.laser_coord = center
+            return (center, output)
         
         self.laser_coord = None
         return (None, None)
 
     def search_by_hough_circles(self, channel: cv2.UMat) -> list:
-        circles = cv2.HoughCircles(channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
-                                param1=50,param2=2,minRadius=3,maxRadius=10)
+        
+        if DEBUG_LASER_FIND:
+            cv2.imshow("HoughCircles", channel)
+            cv2.waitKey(1)
+
+        circles = cv2.HoughCircles(image=channel, method=cv2.HOUGH_GRADIENT, dp=1, minDist=50,
+                                param1=50,param2=2,minRadius=4,maxRadius=10)
         
         if circles is None:
+            if DEBUG_LASER_FIND:
+                print("no circle found")
+
             return []
         
         return circles[0,:]
@@ -250,7 +271,7 @@ class LaserFinder:
                 if step == 0:
                     step = 1
                 threshold -= step 
-                print(f"Found no pixels, decreasing threshold to {threshold}")
+                #print(f"Found no pixels, decreasing threshold to {threshold}")
                 if threshold < MIN_THRESHOLD:
                     self.laser_coord = None
                     self.prev_threshold = None
@@ -263,7 +284,7 @@ class LaserFinder:
                 if step == 0:
                     step = 1
                 threshold += step
-                print(f"Found {pixels} pixels, increasing threshold to {threshold}")
+                #print(f"Found {pixels} pixels, increasing threshold to {threshold}")
                 if threshold > MAX_THRESHOLD:
                     self.laser_coord = None
                     self.prev_threshold = None

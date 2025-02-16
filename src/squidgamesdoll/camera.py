@@ -37,7 +37,7 @@ class Camera:
         See https://www.researchgate.net/profile/Stefan-Toth-3/publication/350124875_Laser_spot_detection/links/605289e092851cd8ce4b5945/Laser-spot-detection.pdf
         """
         frame = self.read_resize()
-        if frame is not None:
+        if frame is None:
             print("Error: Unable to capture frame.")
             return
         
@@ -50,8 +50,8 @@ class Camera:
         # Compute the average brightness
         avg_value = np.mean(value_channel)
         
-        # Define threshold (40% of max value 255)
-        AIV1 = 0.2 * 255  
+        # Define threshold (30% of max value 255)
+        AIV1 = 0.3 * 255  
         
         current_exposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
 
@@ -100,7 +100,7 @@ class Camera:
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-        cap.set(cv2.CAP_PROP_FPS, 1.0)
+        cap.set(cv2.CAP_PROP_FPS, 10.0)
         return cap
     
     def isOpened(self) -> bool:
@@ -113,6 +113,6 @@ class Camera:
         res, frame = self.cap.read()
         if res:
             height, width, _ = frame.shape
-            return cv2.resize(frame, (width // 2, height // 2))
+            return cv2.resize(frame, (960, 540))
         
         return None
