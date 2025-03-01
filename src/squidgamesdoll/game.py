@@ -10,7 +10,7 @@ from display_players import display_players
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 1600, 900
+WIDTH, HEIGHT = 1600, 1200
 FONT = pygame.font.Font(None, 36)
 
 # Colors
@@ -23,6 +23,7 @@ FONT_COLOR = BLACK
 
 # Initialize screen
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
+#pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 pygame.display.set_caption("Squid Game - Green Light Red Light")
 
 # Load sounds
