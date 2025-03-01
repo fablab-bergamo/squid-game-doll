@@ -42,7 +42,7 @@ intro_sound.play()
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
 # OpenCV webcam setup
-cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
 while pygame.mixer.get_busy():
     pygame.event.get()
@@ -129,6 +129,7 @@ while running:
             green_light = not green_light
             last_switch_time = time.time()
             game_state = GREEN_LIGHT if green_light else RED_LIGHT
+            (red_sound if green_light else green_sound).stop()
             (green_sound if green_light else red_sound).play()
 
         # New player positions (simulating new detections)

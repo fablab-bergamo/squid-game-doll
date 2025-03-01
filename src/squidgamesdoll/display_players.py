@@ -11,7 +11,7 @@ BG_COLOR = (0, 0, 0)
 GREEN = (0, 255, 0)
 FADE_COLOR = (80, 80, 80)
 RED_TINT = (180, 0, 0)
-PLAYER_SIZE = 150  # Size of each player tile
+PLAYER_SIZE = 200  # Size of each player tile
 
 # Load player images (without blur)
 def load_player_image(image_path):
@@ -25,7 +25,7 @@ def get_player_positions(players):
     positions = []
     start_x, start_y = SCREEN_WIDTH // 2, -PLAYER_SIZE // 2 + 20
     index = 0
-    for row in range(1, 6):  # Adjust rows to fit 15 players
+    for row in range(1, 5):  # Adjust rows to fit 15 players
         x = start_x - (row * PLAYER_SIZE // 2)
         y = start_y + (row * (PLAYER_SIZE // 2 + 10))
         for col in range(row):
