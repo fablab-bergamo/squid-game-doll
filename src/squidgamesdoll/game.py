@@ -22,8 +22,8 @@ BLACK = (0, 0, 0)
 FONT_COLOR = BLACK
 
 # Initialize screen
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-#pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((WIDTH, HEIGHT), flags=pygame.FULLSCREEN, display=1)
+
 pygame.display.set_caption("Squid Game - Green Light Red Light")
 
 # Load sounds
@@ -43,7 +43,7 @@ intro_sound.play()
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
 # OpenCV webcam setup
-cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 while pygame.mixer.get_busy():
     pygame.event.get()
