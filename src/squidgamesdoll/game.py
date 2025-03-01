@@ -12,6 +12,7 @@ pygame.init()
 # Constants
 WIDTH, HEIGHT = 1600, 1200
 FONT = pygame.font.Font(None, 36)
+FONT_FINE = pygame.font.Font(None, 85)
 
 # Colors
 GREEN = (0, 255, 0)
@@ -22,8 +23,7 @@ BLACK = (0, 0, 0)
 FONT_COLOR = BLACK
 
 # Initialize screen
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_mode((0, 0), pygame.FULLSCREEN + pygame.RESIZABLE)
+screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Squid Game - Green Light Red Light")
 
 # Load sounds
@@ -49,7 +49,7 @@ while pygame.mixer.get_busy():
     pygame.event.get()
 
 # Game States
-INIT, GREEN_LIGHT, RED_LIGHT, VICTORY = "INIT", "GREEN_LIGHT", "RED_LIGHT", "VICTORY"
+INIT, GREEN_LIGHT, RED_LIGHT, VICTORY, GAMEOVER = "INIT", "GREEN_LIGHT", "RED_LIGHT", "VICTORY", "GAME OVER"
 game_state = INIT
 
 # Simulated external player detection (bounding boxes format: [x, y, w, h])
@@ -86,7 +86,7 @@ def process_red_light(new_positions):
     """Eliminate players who moved during Red Light."""
     global eliminated_players
     for i, (x, y, w, h) in enumerate(new_positions):
-        if i not in eliminated_players and players[i] != (x, y, w, h) and random.randint(0, 100) == 0:
+        if i not in eliminated_players and players[i] != (x, y, w, h) and random.randint(0, 10) == 0:
             eliminated_players.add(i)
             eliminate_sound.play()
 
@@ -175,15 +175,23 @@ while running:
     if any(y <= 50 for _, y, _, _ in players if _ not in eliminated_players) and False:
         game_state = VICTORY
 
-    if game_state == VICTORY:
-        text = FONT.render("VICTORY! Game Over!", True, (0, 255, 0))
-        screen.blit(text, (WIDTH // 2 - 100, HEIGHT // 2))
-
+    # Verifica se ci sono ancora giocatori attivi
+    if len(eliminated_players) == len(players):
+        game_state = GAMEOVER
+    
     # display players on a new surface on the half right of the screen
     players_surface = pygame.Surface((WIDTH // 2, HEIGHT))
     display_players(players_surface, merge_players(players, eliminated_players))
     screen.blit(players_surface, (WIDTH // 2, 0))
     
+    if game_state == GAMEOVER:
+        text = FONT_FINE.render("GAME OVER! No vincitori...", True, (255, 0, 0))
+        screen.blit(text, (WIDTH // 2 - 300, HEIGHT - 250))
+                           
+    if game_state == VICTORY:
+        text = FONT_FINE.render("VICTORY!", True, (0, 255, 0))
+        screen.blit(text, (WIDTH // 2 - 200, HEIGHT - 250))
+
     pygame.display.flip()
 
 # Cleanup
