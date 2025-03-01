@@ -94,6 +94,8 @@ def process_red_light(new_positions):
 
 screen.fill((0,0,0))
 
+delay = random.randint(1, 5)
+
 # Game Loop
 running = True
 while running:
@@ -125,13 +127,14 @@ while running:
         green_sound.play()
 
     elif game_state in [GREEN_LIGHT, RED_LIGHT]:
-        # Switch phase randomly (3-6 seconds)
-        if time.time() - last_switch_time > random.randint(4, 8):
+        # Switch phase randomly (1-5 seconds)
+        if time.time() - last_switch_time > delay:
             green_light = not green_light
             last_switch_time = time.time()
             game_state = GREEN_LIGHT if green_light else RED_LIGHT
             (red_sound if green_light else green_sound).stop()
             (green_sound if green_light else red_sound).play()
+            delay = random.randint(1, 5)
 
         # New player positions (simulating new detections)
         new_positions = detect_players(len(players))
