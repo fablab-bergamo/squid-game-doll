@@ -62,10 +62,11 @@ def fake_players():
     return players
 
 # Game loop
-def display_players(screen: pygame.Surface):
+def display_players(screen: pygame.Surface, players: list = None):
     ROOT = os.path.dirname(__file__)
     FONT = pygame.font.Font(ROOT + "/media/font_lcd.ttf", 48)
-    players = fake_players()
+    if players is None:
+        players = fake_players()
     player_positions = get_player_positions(players)
     screen.fill(BG_COLOR)
     num = sum(1 for player in players if player["active"])
@@ -94,7 +95,7 @@ def display_players(screen: pygame.Surface):
         
         screen.blit(img, (x, y))
         
-        if player["active"]:
-            text = FONT.render(str(player["number"]), True, GREEN)
-            text_rect = text.get_rect(center=(x + PLAYER_SIZE // 2, y + PLAYER_SIZE * 0.7))
-            screen.blit(text, text_rect.topleft)
+        text = FONT.render(str(player["number"]), True, GREEN if player["active"] else RED_TINT)
+        text_rect = text.get_rect(center=(x + PLAYER_SIZE // 2, y + PLAYER_SIZE * 0.7))
+        screen.blit(text, text_rect.topleft)
+       

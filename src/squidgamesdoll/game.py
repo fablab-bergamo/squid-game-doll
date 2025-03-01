@@ -4,7 +4,7 @@ import numpy as np
 import random
 import time
 import os
-from display_players import display_players
+from display_players import display_players, load_player_image
 
 # Initialize PyGame
 pygame.init()
@@ -91,6 +91,25 @@ def process_red_light(new_positions):
             eliminate_sound.play()
 
 
+def merge_players(players, eliminated) -> list:
+    # Creiamo un dizionario per mantenere giocatori unici con il loro stato
+    risultato = []
+    cpt = 1
+    # Aggiungiamo i giocatori dalla lista attiva/eliminata
+    for player in players:
+        risultato.append({
+            "number": cpt,
+            "active": True,
+            "image": load_player_image(os.path.dirname(__file__) + "/media/sample_player.jpg")
+            })
+        cpt += 1
+    
+    # Aggiungiamo i giocatori dalla lista eliminata, forzando lo stato a False
+    for player in eliminated:
+        risultato[player]["active"] = False
+    
+    return risultato
+
 
 screen.fill((0,0,0))
 
@@ -162,7 +181,7 @@ while running:
 
     # display players on a new surface on the half right of the screen
     players_surface = pygame.Surface((WIDTH // 2, HEIGHT))
-    display_players(players_surface)
+    display_players(players_surface, merge_players(players, eliminated_players))
     screen.blit(players_surface, (WIDTH // 2, 0))
     
     pygame.display.flip()
