@@ -23,7 +23,7 @@ def load_player_image(image_path):
 # Arrange players in a triangle
 def get_player_positions(players):
     positions = []
-    start_x, start_y = SCREEN_WIDTH // 2, -PLAYER_SIZE // 2 + 20
+    start_x, start_y = SCREEN_WIDTH // 2, -PLAYER_SIZE // 2 + 100
     index = 0
     for row in range(1, 5):  # Adjust rows to fit 15 players
         x = start_x - (row * PLAYER_SIZE // 2)
@@ -51,7 +51,7 @@ def mask_diamond(image):
     return masked_image
 
 def fake_players():
-    # Generate players list (maximum 15 players)
+    # Generate players list (maximum 10 players)
     players = []
     for num in range(1, 16):
         players.append({
@@ -63,11 +63,13 @@ def fake_players():
 
 # Game loop
 def display_players(screen: pygame.Surface):
-    FONT = pygame.font.Font(None, 48)
+    ROOT = os.path.dirname(__file__)
+    FONT = pygame.font.Font(ROOT + "/media/font_lcd.ttf", 48)
     players = fake_players()
     player_positions = get_player_positions(players)
     screen.fill(BG_COLOR)
-    text = FONT.render("Giocatori", True, GREEN)
+    num = sum(1 for player in players if player["active"])
+    text = FONT.render(f"{num} Giocatori", True, GREEN)
     screen.blit(text, (SCREEN_WIDTH // 2 - 100, 0))
     
     for i, player in enumerate(players):
