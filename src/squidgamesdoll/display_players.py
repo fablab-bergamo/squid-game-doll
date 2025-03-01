@@ -4,17 +4,14 @@ import os
 from pygame import gfxdraw
 from PIL import Image, ImageFilter
 
-# Initialize pygame
-pygame.init()
 
 # Constants
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 800
 BG_COLOR = (0, 0, 0)
 GREEN = (0, 255, 0)
-FADE_COLOR = (100, 100, 100)
-RED_TINT = (150, 0, 0)
+FADE_COLOR = (80, 80, 80)
+RED_TINT = (180, 0, 0)
 PLAYER_SIZE = 150  # Size of each player tile
-FONT = pygame.font.Font(None, 48)
 
 # Load player images (without blur)
 def load_player_image(image_path):
@@ -22,39 +19,25 @@ def load_player_image(image_path):
     pygame_img = pygame.image.fromstring(img.tobytes(), img.size, "RGBA")
     return pygame_img
 
-# Generate players list (maximum 15 players)
-players = []
-for num in range(1, 16):
-    players.append({
-        "number": num,
-        "active": random.choice([True, False]),
-        "image": load_player_image(os.path.dirname(__file__) + "/media/sample_player.jpg")  # Replace with actual image paths
-    })
 
 # Arrange players in a triangle
-def get_player_positions():
+def get_player_positions(players):
     positions = []
-    start_x, start_y = SCREEN_WIDTH // 2, 50
+    start_x, start_y = SCREEN_WIDTH // 2, -PLAYER_SIZE // 2 + 20
     index = 0
     for row in range(1, 6):  # Adjust rows to fit 15 players
         x = start_x - (row * PLAYER_SIZE // 2)
-        y = start_y + (row * PLAYER_SIZE)
+        y = start_y + (row * (PLAYER_SIZE // 2 + 10))
         for col in range(row):
             if index < len(players):
                 positions.append((x + col * PLAYER_SIZE, y))
                 index += 1
     return positions
 
-player_positions = get_player_positions()
-
-# Create display
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Squid Game Player Grid")
-
 # Function to draw blurred diamond
 def draw_blurred_diamond(surface, x, y, size):
     diamond = pygame.Surface((size, size), pygame.SRCALPHA)
-    pygame.draw.polygon(diamond, (64, 64, 64, 255), [(size//2, 0), (size, size//2), (size//2, size), (0, size//2)])
+    pygame.draw.polygon(diamond, (0x0F, 0x00, 0xFF, 255), [(size//2, 0), (size, size//2), (size//2, size), (0, size//2)])
     diamond = pygame.transform.smoothscale(diamond, (size+10, size+10))
     diamond = pygame.transform.smoothscale(diamond, (size, size))
     surface.blit(diamond, (x, y), special_flags=pygame.BLEND_RGBA_ADD)
@@ -67,10 +50,25 @@ def mask_diamond(image):
     masked_image.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     return masked_image
 
+def fake_players():
+    # Generate players list (maximum 15 players)
+    players = []
+    for num in range(1, 16):
+        players.append({
+            "number": num,
+            "active": random.choice([True, False]),
+            "image": load_player_image(os.path.dirname(__file__) + "/media/sample_player.jpg")  # Replace with actual image paths
+        })
+    return players
+
 # Game loop
-running = True
-while running:
+def display_players(screen: pygame.Surface):
+    FONT = pygame.font.Font(None, 48)
+    players = fake_players()
+    player_positions = get_player_positions(players)
     screen.fill(BG_COLOR)
+    text = FONT.render("Giocatori", True, GREEN)
+    screen.blit(text, (SCREEN_WIDTH // 2 - 100, 0))
     
     for i, player in enumerate(players):
         if i >= len(player_positions):
@@ -98,11 +96,3 @@ while running:
             text = FONT.render(str(player["number"]), True, GREEN)
             text_rect = text.get_rect(center=(x + PLAYER_SIZE // 2, y + PLAYER_SIZE * 0.7))
             screen.blit(text, text_rect.topleft)
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-    
-    pygame.display.flip()
-
-pygame.quit()

@@ -4,6 +4,7 @@ import numpy as np
 import random
 import time
 import os
+from display_players import display_players
 
 # Initialize PyGame
 pygame.init()
@@ -154,6 +155,11 @@ while running:
         text = FONT.render("VICTORY! Game Over!", True, (0, 255, 0))
         screen.blit(text, (WIDTH // 2 - 100, HEIGHT // 2))
 
+    # display players on a new surface on the half right of the screen
+    players_surface = pygame.Surface((WIDTH // 2, HEIGHT))
+    display_players(players_surface)
+    screen.blit(players_surface, (WIDTH // 2, 0))
+    
     pygame.display.flip()
 
 # Cleanup
