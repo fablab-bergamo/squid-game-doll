@@ -57,7 +57,8 @@ def fake_players():
         players.append({
             "number": num,
             "active": random.choice([True, False]),
-            "image": load_player_image(os.path.dirname(__file__) + "/media/sample_player.jpg")  # Replace with actual image paths
+            "image": load_player_image(os.path.dirname(__file__) + "/media/sample_player.jpg"),  # Replace with actual image paths,
+            "rectangle": (0, 0, 0, 0)
         })
     return players
 
