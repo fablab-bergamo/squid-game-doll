@@ -13,7 +13,7 @@ class PlayerTracker:
         )
         self.previous_result = []
 
-    def preprocess_frame(self, frame: cv2.UMat, target_size=(640, 640)):
+    def preprocess_frame(self, frame: cv2.UMat, target_size=(640, 480)):
         """
         Preprocesses a frame to enhance YOLO object detection performance.
 
@@ -110,7 +110,7 @@ class PlayerTracker:
 
                     players.append(player)
 
-        cv2.imshow("yolo_results_frame", debug_frame)
+        # cv2.imshow("yolo_results_frame", debug_frame)
 
         self.previous_result = players
         return players

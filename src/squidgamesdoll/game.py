@@ -39,7 +39,6 @@ class SquidGame:
         self.FAKE = False
         self.face_extractor = FaceExtractor()
         self.players: list[Player] = []
-        self.eliminated_players: set[Player] = set()
         self.green_sound = pygame.mixer.Sound(self.ROOT + "/media/green_light.mp3")
         self.red_sound = pygame.mixer.Sound(
             self.ROOT + "/media/red_light.mp3"
@@ -68,7 +67,7 @@ class SquidGame:
         text = self.FONT.render(f"Phase: {game_state}", True, self.FONT_COLOR)
         screen.blit(text, (20, 20))
 
-    def convert_player_list(self, players, eliminated) -> list:
+    def convert_player_list(self, players) -> list:
         # Creiamo un dizionario per mantenere giocatori unici con il loro stato
         risultato = []
         cpt = 1
@@ -82,19 +81,13 @@ class SquidGame:
             risultato.append(
                 {
                     "number": cpt,
-                    "active": True if player not in eliminated else False,
+                    "active": not player.is_eliminated(),
                     "image": img,
                     "rectangle": player.get_rect(),
                     "id": player.id,
                 }
             )
             cpt += 1
-
-        # Aggiungiamo i giocatori dalla lista eliminata, forzando lo stato a False
-        for player in eliminated:
-            for p in risultato:
-                if p["id"] == player.id:
-                    p["active"] = False
 
         return risultato
 
@@ -112,13 +105,12 @@ class SquidGame:
         x_ratio: float,
         y_ratio: float,
         players: list[Player],
-        eliminated_players: set[Player],
         add_previous_pos: bool = False,
     ):
         for player in players:
             color = (
                 self.RED
-                if player in eliminated_players
+                if player.is_eliminated()
                 else (self.GREEN if not player.has_moved() else self.YELLOW)
             )
 
@@ -132,13 +124,13 @@ class SquidGame:
             if (
                 add_previous_pos
                 and player.get_last_position() is not None
-                and player not in eliminated_players
+                and not player.is_eliminated()
             ):
-                x, y, w, h = player.get_last_position()
+                x, y, w, h = player.get_last_rect()
                 x, y, w, h = x / x_ratio, y / y_ratio, w / x_ratio, h / y_ratio
                 pygame.draw.rect(frame_surface, self.WHITE, (x, y, w, h), 1)
 
-            if player in eliminated_players:
+            if player.is_eliminated():
                 pygame.draw.line(
                     frame_surface,
                     self.RED,
@@ -263,8 +255,8 @@ class SquidGame:
                 # Check for movements during the red light
                 if self.game_state == SquidGame.RED_LIGHT:
                     for player in self.players:
-                        if player.has_moved() and player not in self.eliminated_players:
-                            self.eliminated_players.add(player)
+                        if player.has_moved() and not player.is_eliminated():
+                            player.set_eliminated(True)
                             self.eliminate_sound.play()
 
                 # Draw bounding boxes
@@ -273,14 +265,12 @@ class SquidGame:
                     x_ratio,
                     y_ratio,
                     self.players,
-                    self.eliminated_players,
                     add_previous_pos=True,
                 )
             elif self.game_state in [SquidGame.GAMEOVER, SquidGame.VICTORY]:
                 # Restart after 10 seconds
                 if time.time() - self.last_switch_time > 20:
                     self.game_state = SquidGame.INIT
-                    self.eliminated_players.clear()
                     self.players.clear()
                     self.last_switch_time = time.time()
                     screen.fill((0, 0, 0))
@@ -290,7 +280,7 @@ class SquidGame:
 
             # Verifica se ci sono ancora giocatori rimasti
             if (
-                len(self.eliminated_players) == len(self.players)
+                len([p for p in self.players if p.is_eliminated()]) == len(self.players)
                 and len(self.players) > 0
                 and self.game_state != SquidGame.GAMEOVER
             ):
@@ -301,7 +291,7 @@ class SquidGame:
             players_surface = pygame.Surface((self.WIDTH // 2, self.HEIGHT))
             display_players(
                 players_surface,
-                self.convert_player_list(self.players, self.eliminated_players),
+                self.convert_player_list(self.players),
             )
 
             # Show webcam feed
@@ -318,16 +308,6 @@ class SquidGame:
                     "GAME OVER! No vincitori...", True, (255, 0, 0)
                 )
                 screen.blit(text, (self.WIDTH // 2 - 300, self.HEIGHT - 250))
-                self.players = self.merge_players_lists(
-                    frame, self.players, self.detect_players(frame, len(self.players))
-                )
-                self.draw_bounding_boxes(
-                    frame_surface,
-                    x_ratio,
-                    y_ratio,
-                    self.players,
-                    self.eliminated_players,
-                )
 
             if self.game_state == SquidGame.VICTORY:
                 text = self.FONT_FINE.render("VICTORY!", True, (0, 255, 0))
@@ -347,6 +327,10 @@ class SquidGame:
         # Disable hardware acceleration for webcam
         os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
         cap = cv2.VideoCapture(webcam_idx, cv2.CAP_DSHOW)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+        cap.set(cv2.CAP_PROP_FPS, 5.0)
 
         # Wait for intro sound to finish
         while pygame.mixer.get_busy():
@@ -356,7 +340,6 @@ class SquidGame:
 
         self.game_state = SquidGame.INIT
         self.players: list[Player] = []
-        self.eliminated_players: set[Player] = set()
 
         # Timing for Red/Green Light
         self.last_switch_time = time.time()

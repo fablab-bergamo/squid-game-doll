@@ -11,6 +11,13 @@ class Player:
         self.coords = coords
         self.face = None
         self.last_position = coords
+        self.eliminated = False
+
+    def set_eliminated(self, eliminated: bool):
+        self.eliminated = eliminated
+
+    def is_eliminated(self) -> bool:
+        return self.eliminated
 
     def set_last_position(self, position: tuple):
         self.last_position = position
@@ -41,11 +48,23 @@ class Player:
     def get_rect(self):
         """Returns the bounding box rectangle in (x, y, w, h) format
         Note: coordinates are relative to the webcam frame in original dimensions"""
+        return self.get_rect_from_pos(self.coords)
+
+    def get_last_rect(self) -> tuple:
+        """Returns the bounding box rectangle in (x, y, w, h) format
+        Note: coordinates are relative to the webcam frame in original dimensions"""
+        if self.last_position is None:
+            return None
+        return self.get_rect_from_pos(self.last_position)
+
+    def get_rect_from_pos(self, pos: tuple) -> tuple:
+        """Returns the bounding box rectangle in (x, y, w, h) format
+        Note: coordinates are relative to the webcam frame in original dimensions"""
         return (
-            self.coords[0],
-            self.coords[1],
-            self.coords[2] - self.coords[0],
-            self.coords[3] - self.coords[1],
+            pos[0],
+            pos[1],
+            pos[2] - pos[0],
+            pos[3] - pos[1],
         )
 
     def get_coords(self):
