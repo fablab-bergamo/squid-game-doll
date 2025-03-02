@@ -8,6 +8,7 @@ from display_players import display_players, load_player_image
 from players_tracker import PlayerTracker, Player
 import mediapipe as mp
 
+
 class SquidGame:
     GREEN = (0, 255, 0)
     RED = (255, 0, 0)
@@ -18,17 +19,19 @@ class SquidGame:
 
     def __init__(self):
         pygame.init()
-        # Constants    
+        # Constants
         self.FONT = pygame.font.Font(None, 36)
         self.FONT_FINE = pygame.font.Font(None, 85)
 
-        # Colors    
+        # Colors
         self.ROOT = os.path.dirname(__file__)
         self.previous_time = time.time()
         self.previous_positions = []
         self.tracker = PlayerTracker()
         self.FAKE = False
-        self.face_detector = mp.solutions.face_detection.FaceDetection(min_detection_confidence=0.5)  # Mediapipe Face Detector
+        self.face_detector = mp.solutions.face_detection.FaceDetection(
+            min_detection_confidence=0.5
+        )  # Mediapipe Face Detector
 
     def __del__(self):
         pygame.quit()
@@ -67,7 +70,7 @@ class SquidGame:
                 fx, fy, fw, fh = int(fx * w), int(fy * h), int(fw * w), int(fh * h)
 
                 # Extract face
-                face_crop = person_crop[fy:fy + fh, fx:fx + fw]
+                face_crop = person_crop[fy : fy + fh, fx : fx + fw]
 
                 return face_crop
 
@@ -81,12 +84,12 @@ class SquidGame:
                 self.previous_positions = [
                     (random.randint(100, 700), random.randint(100, 500), 80, 120)
                     for _ in range(num_players)
-                    ]
+                ]
             return self.previous_positions
 
         players = self.tracker.process_frame(frame)
         return players
-    
+
     def draw_overlay(self, screen, game_state):
         """Display game status."""
         text = self.FONT.render(f"Phase: {game_state}", True, self.FONT_COLOR)
@@ -98,21 +101,23 @@ class SquidGame:
         cpt = 1
         # Aggiungiamo i giocatori dalla lista attiva/eliminata
         for player in players:
-            risultato.append({
-                "number": cpt,
-                "active": True if player not in eliminated else False,
-                "image": load_player_image(self.ROOT + "/media/sample_player.jpg"),
-                "rectangle": player.get_rect(),
-                "id": player.id
-                })
+            risultato.append(
+                {
+                    "number": cpt,
+                    "active": True if player not in eliminated else False,
+                    "image": load_player_image(self.ROOT + "/media/sample_player.jpg"),
+                    "rectangle": player.get_rect(),
+                    "id": player.id,
+                }
+            )
             cpt += 1
-        
+
         # Aggiungiamo i giocatori dalla lista eliminata, forzando lo stato a False
         for player in eliminated:
             for p in risultato:
                 if p["id"] == player.id:
                     p["active"] = False
-        
+
         return risultato
 
     def game_loop(self):
@@ -142,7 +147,13 @@ class SquidGame:
             pygame.event.get()
 
         # Game States
-        INIT, GREEN_LIGHT, RED_LIGHT, VICTORY, GAMEOVER = "INIT", "GREEN_LIGHT", "RED_LIGHT", "VICTORY", "GAME OVER"
+        INIT, GREEN_LIGHT, RED_LIGHT, VICTORY, GAMEOVER = (
+            "INIT",
+            "GREEN_LIGHT",
+            "RED_LIGHT",
+            "VICTORY",
+            "GAME OVER",
+        )
         game_state = INIT
 
         # Simulated external player detection (bounding boxes format: [x, y, w, h])
@@ -153,7 +164,7 @@ class SquidGame:
         last_switch_time = time.time()
         green_light = True
 
-        screen.fill((0,0,0))
+        screen.fill((0, 0, 0))
 
         delay_s = random.randint(1, 5)
 
@@ -189,7 +200,7 @@ class SquidGame:
                     if not ret:
                         break
                     players = self.detect_players(frame, 5)
-                
+
                 game_state = GREEN_LIGHT
                 green_sound.play()
 
@@ -226,17 +237,21 @@ class SquidGame:
             # Verifica se ci sono ancora giocatori attivi
             if len(eliminated_players) == len(players) and len(players) > 0:
                 game_state = GAMEOVER
-            
+
             # display players on a new surface on the half right of the screen
             players_surface = pygame.Surface((self.WIDTH // 2, self.HEIGHT))
-            display_players(players_surface, self.merge_players(players, eliminated_players))
+            display_players(
+                players_surface, self.merge_players(players, eliminated_players)
+            )
             screen.blit(players_surface, (self.WIDTH // 2, 0))
-            
+
             if game_state == GAMEOVER:
-                text = self.FONT_FINE.render("GAME OVER! No vincitori...", True, (255, 0, 0))
+                text = self.FONT_FINE.render(
+                    "GAME OVER! No vincitori...", True, (255, 0, 0)
+                )
                 screen.blit(text, (self.WIDTH // 2 - 300, self.HEIGHT - 250))
                 players = self.detect_players(frame, len(players))
-                 # Draw bounding boxes
+                # Draw bounding boxes
                 for player in players:
                     color = self.RED if player in eliminated_players else self.GREEN
                     x, y, w, h = player.get_rect()
@@ -244,7 +259,7 @@ class SquidGame:
                     if player in eliminated_players:
                         pygame.draw.line(screen, self.RED, (x, y), (x + w, y + h), 5)
                         pygame.draw.line(screen, self.RED, (x + w, y), (x, y + h), 5)
-                                
+
             if game_state == VICTORY:
                 text = self.FONT_FINE.render("VICTORY!", True, (0, 255, 0))
                 screen.blit(text, (self.WIDTH // 2 - 200, self.HEIGHT - 250))

@@ -2,6 +2,7 @@ import cv2
 from numpy.linalg import norm
 import numpy as np
 
+
 def gamma(img: cv2.UMat, gamma: float) -> cv2.UMat:
     """
     Adjusts the gamma of the given image.
@@ -14,9 +15,11 @@ def gamma(img: cv2.UMat, gamma: float) -> cv2.UMat:
     cv2.UMat: The gamma-adjusted image.
     """
     invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255
-        for i in np.arange(0, 256)]).astype("uint8")
+    table = np.array(
+        [((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]
+    ).astype("uint8")
     return cv2.LUT(img, table)
+
 
 def brightness(img: cv2.UMat):
     """

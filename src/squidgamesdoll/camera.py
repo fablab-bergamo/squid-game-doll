@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from time import sleep
 
+
 class Camera:
     def __init__(self, index: int):
         """
@@ -14,7 +15,7 @@ class Camera:
         if not self.cap.isOpened():
             print(f"Failure opening webcam idx {index}")
         self.exposure = -1
-    
+
     def __del__(self):
         """
         Releases the video capture object.
@@ -30,7 +31,7 @@ class Camera:
         cv2.VideoCapture: The video capture object for the webcam.
         """
         return self.cap
-    
+
     def auto_exposure(self):
         """
         Sets the exposure using average brightness
@@ -40,24 +41,26 @@ class Camera:
         if frame is None:
             print("Error: Unable to capture frame.")
             return
-        
+
         # Convert from RGB to HSV
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        
+
         # Extract the value channel
         value_channel = hsv[:, :, 2]
-        
+
         # Compute the average brightness
         avg_value = np.mean(value_channel)
-        
+
         # Define threshold (30% of max value 255)
-        AIV1 = 0.3 * 255  
-        
+        AIV1 = 0.3 * 255
+
         current_exposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
 
         # Adjust exposure if the average value is too high
         while avg_value > AIV1:
-            new_exposure = max(current_exposure - 1, -16)  # Adjust exposure step (limit to -10 for safety)
+            new_exposure = max(
+                current_exposure - 1, -16
+            )  # Adjust exposure step (limit to -10 for safety)
             self.set_exposure(new_exposure)
             print(f"Exposure adjusted: {current_exposure} -> {new_exposure}")
             frame = self.read_resize()
@@ -67,10 +70,9 @@ class Camera:
             current_exposure = new_exposure
             if new_exposure <= -16:
                 break
-        
+
         print(f"Exposure adjusted: 1/{ int(2**(-1*current_exposure))}")
         self.exposure = current_exposure
-            
 
     def set_exposure(self, exposure: int):
         """
@@ -80,12 +82,12 @@ class Camera:
         cap (cv2.VideoCapture): The video capture device.
         exposure (int): The exposure value to set.
         """
-        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3) # auto mode
-        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) # manual mode
+        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)  # auto mode
+        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)  # manual mode
         self.cap.set(cv2.CAP_PROP_EXPOSURE, exposure)
         self.exposure = exposure
         sleep(0.5)
-    
+
     def __setup_webcam(self, index: int) -> cv2.VideoCapture:
         """
         Sets up the webcam with the given index and returns the video capture object.
@@ -102,17 +104,17 @@ class Camera:
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         cap.set(cv2.CAP_PROP_FPS, 10.0)
         return cap
-    
+
     def isOpened(self) -> bool:
         return self.cap.isOpened()
-    
+
     def read_resize(self) -> cv2.UMat:
         if not self.isOpened():
             return None
-        
+
         res, frame = self.cap.read()
         if res:
             height, width, _ = frame.shape
             return cv2.resize(frame, (960, 540))
-        
+
         return None

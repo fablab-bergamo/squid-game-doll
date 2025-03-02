@@ -5,9 +5,12 @@ from time import time
 from simple_pid import PID
 import ast
 
+
 class TrackerControl:
-    
-    def __init__(self, ipaddress:str, deadband_px:int = 10, max_frequency_hz:int = 10):
+
+    def __init__(
+        self, ipaddress: str, deadband_px: int = 10, max_frequency_hz: int = 10
+    ):
         """
         Initializes the TrackerControl object with the given IP address, deadband, and maximum frequency.
 
@@ -44,19 +47,29 @@ class TrackerControl:
         if self.limits is not None:
             zero = self.__getzeropos()
             k = 0.1
-            self.pid_v = PID(k, k * 0.6, k * 0.3, setpoint=0, 
-                             output_limits=(self.limits[1][0],self.limits[1][1]),
-                              starting_output=zero[1])
-            self.pid_h = PID(k, k * 0.6, k * 0.3, setpoint=0, 
-                             output_limits=(self.limits[0][0],self.limits[0][1]), 
-                             starting_output=zero[0])
+            self.pid_v = PID(
+                k,
+                k * 0.6,
+                k * 0.3,
+                setpoint=0,
+                output_limits=(self.limits[1][0], self.limits[1][1]),
+                starting_output=zero[1],
+            )
+            self.pid_h = PID(
+                k,
+                k * 0.6,
+                k * 0.3,
+                setpoint=0,
+                output_limits=(self.limits[0][0], self.limits[0][1]),
+                starting_output=zero[0],
+            )
             self.pid_h.sample_time = self.min_period_S
             self.pid_v.sample_time = self.min_period_S
             self.send_angles(zero)
             self.prev_output_h = zero[0]
             self.prev_output_v = zero[1]
             return True
-        
+
         print("PID init failure")
         return False
 
@@ -69,7 +82,7 @@ class TrackerControl:
         """
         return self.is_online
 
-    def track_target(self, laser:tuple, target:tuple) -> float:
+    def track_target(self, laser: tuple, target: tuple) -> float:
         """
         Tracks the target position relative to the laser position and provides feedback.
 
@@ -83,7 +96,7 @@ class TrackerControl:
         # compute the positionning error in abs distance
         if target is None or laser is None:
             return 0
-        
+
         error = norm(np.array(laser) - np.array(target))
 
         vertical_error = laser[1] - target[1]
@@ -115,7 +128,7 @@ class TrackerControl:
         # Send the updated angles to ESP32
         return error
 
-    def track_target_PID(self, laser:tuple, target:tuple) -> float:
+    def track_target_PID(self, laser: tuple, target: tuple) -> float:
         """
         Tracks the target position relative to the laser position using PID control and provides feedback.
 
@@ -137,7 +150,7 @@ class TrackerControl:
         # compute the positionning error in abs distance
         if target is None or laser is None:
             return 0
-        
+
         error = norm(np.array(laser) - np.array(target))
 
         vertical_error = -1 * (laser[1] - target[1])
@@ -148,18 +161,18 @@ class TrackerControl:
 
         if abs(output_h - self.prev_output_h) > RATE_OF_CHANGE:
             print(f"Rate limiting H from {output_h} to {RATE_OF_CHANGE}")
-            if (output_h > self.prev_output_h):
+            if output_h > self.prev_output_h:
                 output_h = self.prev_output_h + RATE_OF_CHANGE
             else:
                 output_h = self.prev_output_h - RATE_OF_CHANGE
-        
+
         if abs(output_v - self.prev_output_v) > RATE_OF_CHANGE:
             print(f"Rate limiting V from {output_v} to {RATE_OF_CHANGE}")
-            if (output_v > self.prev_output_v):
+            if output_v > self.prev_output_v:
                 output_v = self.prev_output_v + RATE_OF_CHANGE
             else:
                 output_v = self.prev_output_v - RATE_OF_CHANGE
-            
+
         if output_h != self.prev_output_h or output_v != self.prev_output_v:
             # Send only on changes
             if self.send_angles((output_h, output_v)):
@@ -174,7 +187,7 @@ class TrackerControl:
             start_h = (self.limits[0][1] - self.limits[0][0]) / 2 + self.limits[0][0]
             return (start_h, start_v)
         return None
-    
+
     def reset_pos(self) -> bool:
         """
         Resets the position of the servos to the center of their limits.
@@ -203,7 +216,7 @@ class TrackerControl:
             response = self.aliensocket.recv(128)
             print(f"<-- {response}")
             self.is_online = True
-            return ast.literal_eval(response.decode('utf-8'))
+            return ast.literal_eval(response.decode("utf-8"))
         except Exception as e:
             print(f"get_angles: failure to contact ESP32: {e}")
             try:
@@ -230,7 +243,7 @@ class TrackerControl:
             response = self.aliensocket.recv(64)
             print(f"<-- {response}")
             self.is_online = True
-            retval =  ast.literal_eval(response.decode('utf-8'))
+            retval = ast.literal_eval(response.decode("utf-8"))
             print(f"get_limits={retval}")
             return retval
         except:
@@ -242,13 +255,13 @@ class TrackerControl:
             self.aliensocket = None
             self.is_online = False
             return None
-    
+
     def __checksocket(self) -> bool:
         if self.aliensocket is None:
             self.aliensocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 print(f"__checksocket: connecting to {self.ip_address}:{self.port}")
-                self.aliensocket.settimeout(.2)
+                self.aliensocket.settimeout(0.2)
                 self.aliensocket.connect((self.ip_address, self.port))
             except Exception as e:
                 print(f"__checksocket: failure to connect : {e}")
@@ -260,8 +273,8 @@ class TrackerControl:
                 self.is_online = False
                 return False
         return True
-    
-    def send_angles(self, angles:tuple) -> bool:
+
+    def send_angles(self, angles: tuple) -> bool:
         """
         Sends new angles (H,V) to ESP32.
 
@@ -272,10 +285,10 @@ class TrackerControl:
         bool: True if the angles are successfully sent, False otherwise.
         """
         print(f"send_angles: target (H,V)=({round(angles[0],2)}, {round(angles[1],2)})")
-        
+
         if not self.__checksocket():
             return False
-        
+
         # Round angles to 2 decimals, servos will not be able to do better than 0.1° anyways
         target = (round(angles[0], 2), round(angles[1], 2))
 
@@ -290,11 +303,19 @@ class TrackerControl:
             self.aliensocket = None
             self.is_online = False
             return False
-        
+
         self.is_online = True
         return True
 
-    def send_instructions(self, up:bool, down:bool, left:bool, right:bool, step_v:float, step_h:float) -> bool:
+    def send_instructions(
+        self,
+        up: bool,
+        down: bool,
+        left: bool,
+        right: bool,
+        step_v: float,
+        step_h: float,
+    ) -> bool:
         """
         Sends movement instructions to the ESP32 based on the direction flags and step sizes.
 
@@ -314,13 +335,13 @@ class TrackerControl:
         else:
             # Avoid sending instructions too quickly
             return True
-        
+
         self.current_pos = self.get_angles()
-        
+
         if self.current_pos is None:
             print(f"Failure to get current angles!")
-            return False        
-        
+            return False
+
         target = self.current_pos
 
         if up:
@@ -331,7 +352,7 @@ class TrackerControl:
             target = (self.current_pos[0] + step_h, self.current_pos[1])
         if right:
             target = (self.current_pos[0] - step_h, self.current_pos[1])
-        
+
         if self.limits is None:
             self.limits = self.get_limits()
 
@@ -340,14 +361,14 @@ class TrackerControl:
             target = (self.limits[0][0], target[1])
         if target[0] > self.limits[0][1]:
             target = (self.limits[0][1], target[1])
-        
+
         if target[1] < self.limits[1][0]:
-            target = (target[0] , self.limits[1][0])
+            target = (target[0], self.limits[1][0])
         if target[1] > self.limits[1][1]:
-            target = (target[0] , self.limits[1][1])
+            target = (target[0], self.limits[1][1])
 
         result = self.send_angles(target)
-        
+
         # Update position from ESP32
         # self.current_pos = self.get_angles()
 
