@@ -1,6 +1,7 @@
 import pygame
 import random
 import os
+import cv2
 from pygame import gfxdraw
 from PIL import Image, ImageFilter
 
@@ -15,14 +16,14 @@ PLAYER_SIZE = 200  # Size of each player tile
 
 
 # Load player images (without blur)
-def load_player_image(image_path):
+def load_player_image(image_path: str) -> pygame.image:
     img = Image.open(image_path).convert("RGBA").resize((PLAYER_SIZE, PLAYER_SIZE))
     pygame_img = pygame.image.fromstring(img.tobytes(), img.size, "RGBA")
     return pygame_img
 
 
 # Arrange players in a triangle
-def get_player_positions(players):
+def get_player_positions(players: list) -> list:
     positions = []
     start_x, start_y = SCREEN_WIDTH // 2, -PLAYER_SIZE // 2 + 100
     index = 0
@@ -37,7 +38,7 @@ def get_player_positions(players):
 
 
 # Function to draw blurred diamond
-def draw_blurred_diamond(surface, x, y, size):
+def draw_blurred_diamond(surface: pygame.image, x: int, y: int, size: int):
     diamond = pygame.Surface((size, size), pygame.SRCALPHA)
     pygame.draw.polygon(
         diamond,
@@ -50,7 +51,8 @@ def draw_blurred_diamond(surface, x, y, size):
 
 
 # Function to mask player images into diamonds
-def mask_diamond(image):
+def mask_diamond(image: pygame.image) -> pygame.image:
+    image = pygame.transform.scale(image, (PLAYER_SIZE, PLAYER_SIZE))
     mask = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
     pygame.draw.polygon(
         mask,

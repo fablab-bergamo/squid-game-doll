@@ -101,11 +101,16 @@ class SquidGame:
         cpt = 1
         # Aggiungiamo i giocatori dalla lista attiva/eliminata
         for player in players:
+            img = player.get_image()
+            if img is None:
+                img = load_player_image(
+                    os.path.dirname(__file__) + "/media/sample_player.jpg"
+                )
             risultato.append(
                 {
                     "number": cpt,
                     "active": True if player not in eliminated else False,
-                    "image": load_player_image(self.ROOT + "/media/sample_player.jpg"),
+                    "image": img,
                     "rectangle": player.get_rect(),
                     "id": player.id,
                 }
@@ -176,10 +181,10 @@ class SquidGame:
                 break
 
             # Convert OpenCV BGR to RGB for PyGame
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame = np.rot90(frame)  # Rotate to match PyGame coordinates
-            frame = cv2.resize(frame, (self.WIDTH // 2, self.HEIGHT))
-            frame_surface = pygame.surfarray.make_surface(frame)
+            pygame_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pygame_frame = np.rot90(pygame_frame)  # Rotate to match PyGame coordinates
+            pygame_frame = cv2.resize(pygame_frame, (self.WIDTH // 2, self.HEIGHT))
+            frame_surface = pygame.surfarray.make_surface(pygame_frame)
             screen.blit(frame_surface, (0, 0))  # Show webcam feed
 
             # Handle Events
@@ -219,7 +224,7 @@ class SquidGame:
 
                 if not green_light:
                     for player in players:
-                        if player.has_moved():
+                        if player.has_moved() and random.random() < 0.01:
                             eliminated_players.add(player)
                             eliminate_sound.play()
 

@@ -3,6 +3,7 @@ from cv2 import UMat
 import numpy as np
 from ultralytics import YOLO
 import mediapipe as mp
+import pygame
 
 
 class Player:
@@ -10,12 +11,20 @@ class Player:
         self.id = id
         self.coords = coords
         self.moved = moved
+        self.face = None
 
     def set_face(self, face: UMat):
         self.face = face
 
     def get_face(self):
         return self.face
+
+    def get_image(self):
+        if self.face is None:
+            return None
+        return pygame.image.frombuffer(
+            self.face.tostring(), self.face.shape[1::-1], "BGR"
+        )
 
     def set_rect(self, rect: tuple):
         self.coords = (rect[0], rect[1], rect[2] + rect[0], rect[3] + rect[1])
@@ -40,11 +49,14 @@ class Player:
     def has_moved(self):
         return self.moved
 
+    def __str__(self):
+        return f"Player {self.id} at {self.coords} (moved: {self.moved})"
+
 
 class PlayerTracker:
-    def __init__(self, model_path="yolov8m.pt", movement_threshold=10):
+    def __init__(self, model_path="yolov8m.pt", movement_threshold=20):
         self.yolo = YOLO(model_path)
-        self.confidence = 0.4
+        self.confidence = 0.5
         self.movement_threshold = (
             movement_threshold  # Pixels of movement to be considered "moving"
         )
@@ -54,7 +66,7 @@ class PlayerTracker:
             min_detection_confidence=0.5
         )  # Mediapipe Face Detector
 
-    def extract_face(self, frame, bbox) -> UMat:
+    def extract_face(self, frame: cv2.UMat, bbox: tuple) -> UMat:
         """
         Extracts a face from a given person's bounding box.
         Args:
@@ -87,15 +99,30 @@ class PlayerTracker:
                 h, w, _ = person_crop.shape
                 fx, fy, fw, fh = int(fx * w), int(fy * h), int(fw * w), int(fh * h)
 
-                # Extract face
-                face_crop = person_crop[fy : fy + fh, fx : fx + fw]
+                # **Increase space around the face**
+                margin = 0.2  # 20% margin
+                extra_w = int(fw * margin)
+                extra_h = int(fh * margin)
 
-                face_crop = cv2.resize(face_crop, (150, 150))  # Resize
+                # New bounding box with margin, ensuring it stays within image bounds
+                x_start = max(fx - extra_w, 0)
+                y_start = max(fy - extra_h, 0)
+                x_end = min(fx + fw + extra_w, w)
+                y_end = min(fy + fh + extra_h, h)
+
+                # Extract expanded face region
+                face_crop = person_crop[y_start:y_end, x_start:x_end]
+
+                face_crop = cv2.resize(
+                    face_crop, (250, 250), interpolation=cv2.INTER_AREA
+                )  # Resize
+
                 return face_crop
 
+        print("No face detected")
         return None
 
-    def preprocess_frame(self, frame, target_size=(640, 640)):
+    def preprocess_frame(self, frame: cv2.UMat, target_size=(640, 640)):
         """
         Preprocesses a frame to enhance YOLO object detection performance.
 
@@ -106,6 +133,7 @@ class PlayerTracker:
         Returns:
             numpy.ndarray: Preprocessed frame.
         """
+
         # Resize the frame to match YOLO's expected input size
         frame = cv2.resize(frame, target_size)
 
@@ -132,7 +160,7 @@ class PlayerTracker:
 
         return frame
 
-    def process_frame(self, frame: UMat) -> list[Player]:
+    def process_frame(self, frame: cv2.UMat) -> list[Player]:
 
         try:
             yolo_frame = self.preprocess_frame(frame)
