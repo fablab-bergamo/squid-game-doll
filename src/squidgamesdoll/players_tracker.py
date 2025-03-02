@@ -28,14 +28,8 @@ class PlayerTracker:
         # Resize the frame to match YOLO's expected input size
         frame = cv2.resize(frame, target_size)
 
-        # Convert to grayscale (optional, for debugging contrast)
-        # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
         # Apply Gaussian Blur to reduce noise
         frame = cv2.GaussianBlur(frame, (5, 5), 0)
-
-        # Convert back to color (if grayscale was used)
-        # frame = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
         # Normalize brightness and contrast using histogram equalization
         lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)  # Convert to LAB color space
@@ -55,7 +49,6 @@ class PlayerTracker:
 
         try:
             yolo_frame = self.preprocess_frame(frame)
-            self.yolo.allowed_classes = ["person"]
             results = self.yolo.track(yolo_frame, persist=True, stream=False)
         except Exception as e:
             print("Error:", e)

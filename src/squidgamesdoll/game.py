@@ -314,7 +314,6 @@ class SquidGame:
                 screen.blit(text, (self.WIDTH // 2 - 200, self.HEIGHT - 250))
 
             pygame.display.flip()
-            pygame.time.delay(50)
 
     def start_game(self, webcam_idx: int = 0):
 
@@ -330,7 +329,7 @@ class SquidGame:
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
-        cap.set(cv2.CAP_PROP_FPS, 5.0)
+        cap.set(cv2.CAP_PROP_FPS, 10.0)
 
         # Wait for intro sound to finish
         while pygame.mixer.get_busy():
