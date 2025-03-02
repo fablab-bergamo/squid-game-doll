@@ -185,7 +185,7 @@ class SquidGame:
         pygame_frame = cv2.flip(pygame_frame, 1)
         pygame_frame = cv2.resize(pygame_frame, view_port)
         # Rotate to match PyGame coordinates
-        pygame_frame = np.rot90(pygame_frame)
+        pygame_frame = cv2.rotate(pygame_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
         return pygame.surfarray.make_surface(pygame_frame)
 
     def game_main_loop(
@@ -199,6 +199,10 @@ class SquidGame:
         # Game Loop
         green_light = True
         running = True
+
+        frame_rate = 10.0
+        # Create a clock object to manage the frame rate
+        clock = pygame.time.Clock()
 
         while running:
             ret, frame = cap.read()
@@ -314,7 +318,8 @@ class SquidGame:
                 screen.blit(text, (self.WIDTH // 2 - 200, self.HEIGHT - 250))
 
             pygame.display.flip()
-            pygame.time.delay(50)
+            # Limit the frame rate
+            clock.tick(frame_rate)
 
     def start_game(self, webcam_idx: int = 0):
 
@@ -324,13 +329,16 @@ class SquidGame:
 
         self.loading_screen(screen)
 
-        # Disable hardware acceleration for webcam
+        # Disable hardware acceleration for webcam on Windows
         os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+        # Use DSHOW on Windows to avoid slow startup
         cap = cv2.VideoCapture(webcam_idx, cv2.CAP_DSHOW)
+
+        # Configure webcam stream settings
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
-        cap.set(cv2.CAP_PROP_FPS, 5.0)
+        cap.set(cv2.CAP_PROP_FPS, 10.0)
 
         # Wait for intro sound to finish
         while pygame.mixer.get_busy():

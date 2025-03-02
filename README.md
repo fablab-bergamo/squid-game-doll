@@ -105,4 +105,48 @@ import cv2
 | Laplace transform to find rapid variations around the spot | It's more for contour detection and it finds a lot of rapid variations in normal interior scenes, or faces | ??? |
 | HSV thresholds based on fixed value | Red laser is not fully red on the picture, white is present at the center | Implement adaptive adaptation on V value? |
 
+## Game itself
 
+Using pygame as rendering engine see game.py
+
+### Player detection
+
+* YOLO v8 medium with tracking see players_tracker.py
+* YOLO returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold. 
+
+### Face detection
+
+* mediapipe / FaceDetection see face_extractor.py
+
+## How to install
+
+* Install requirements from list in src directory
+
+```python
+pip install -r ./src/requirements.txt
+```
+
+* Run game
+
+```python
+python ./src/squidgamedool/game.py
+```
+
+## How to profile
+
+* Use cProfile + snakeviz
+
+```python
+pip install snakeviz
+python -m cProfile -o game.prof  .\src\squidgamesdoll\game.py
+snakeviz .\game.prof
+```
+
+### Open issues
+
+* Reliability of player detections ; players must be visible at all time (occlusions not tested)
+* Have a player registration step or not
+* Sensibility threshold is pixel based, so large moved are authorized far from the camera, very little close to the camera
+* Speed of laser pointing
+* Python packaging
+* Speed of YOLOv8-m (around 300 ms per frame on PC)

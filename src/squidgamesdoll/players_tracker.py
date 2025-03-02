@@ -28,14 +28,8 @@ class PlayerTracker:
         # Resize the frame to match YOLO's expected input size
         frame = cv2.resize(frame, target_size)
 
-        # Convert to grayscale (optional, for debugging contrast)
-        # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
         # Apply Gaussian Blur to reduce noise
         frame = cv2.GaussianBlur(frame, (5, 5), 0)
-
-        # Convert back to color (if grayscale was used)
-        # frame = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
         # Normalize brightness and contrast using histogram equalization
         lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)  # Convert to LAB color space
@@ -55,7 +49,6 @@ class PlayerTracker:
 
         try:
             yolo_frame = self.preprocess_frame(frame)
-            self.yolo.allowed_classes = ["person"]
             results = self.yolo.track(yolo_frame, persist=True, stream=False)
         except Exception as e:
             print("Error:", e)
@@ -65,7 +58,7 @@ class PlayerTracker:
 
         # Get original frame size
         orig_h, orig_w, _ = frame.shape
-        yolo_h, yolo_w = 640, 640  # Since we resize the frame to 640x640
+        yolo_h, yolo_w, _ = yolo_frame.shape  # Since we resize the frame
 
         # Scaling factors
         scale_x = orig_w / yolo_w
@@ -73,6 +66,7 @@ class PlayerTracker:
 
         # display frame with bounding box and player id
         debug_frame = frame.copy()
+        yolo_debug = yolo_frame.copy()
 
         for result in results:
             if result.boxes is None:
@@ -83,6 +77,8 @@ class PlayerTracker:
                 class_id = int(box.cls[0].cpu().numpy())  # Get class ID
                 if conf > self.confidence and class_id == 0:  # Check if it's a person
                     x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+
+                    # cv2.rectangle(yolo_debug, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
                     # Scale bounding box back to original frame size
                     x1 = int(x1 * scale_x)
@@ -111,6 +107,7 @@ class PlayerTracker:
                     players.append(player)
 
         # cv2.imshow("yolo_results_frame", debug_frame)
+        # cv2.imshow("yolo_debug_frame", yolo_debug)
 
         self.previous_result = players
         return players
