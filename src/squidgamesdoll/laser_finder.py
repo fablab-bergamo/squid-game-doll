@@ -145,9 +145,7 @@ class LaserFinder:
                 threshold += step
 
                 if DEBUG_LASER_FIND:
-                    print(
-                        f"Found {circles_cpt} circles, increasing threshold to {threshold}"
-                    )
+                    print(f"Found {circles_cpt} circles, increasing threshold to {threshold}")
 
                 if threshold > MAX_THRESHOLD:
                     self.laser_coord = None
@@ -163,10 +161,7 @@ class LaserFinder:
             if self.laser_coord and circles_cpt > 1:
                 if DEBUG_LASER_FIND:
                     print(f"Selected closest circle to previous position")
-                circles.sort(
-                    key=lambda c: (c[0] - self.laser_coord[0]) ** 2
-                    + (c[1] - self.laser_coord[1]) ** 2
-                )
+                circles.sort(key=lambda c: (c[0] - self.laser_coord[0]) ** 2 + (c[1] - self.laser_coord[1]) ** 2)
 
             center = (int(circles[0][0]), int(circles[0][1]))
             output = cv2.addWeighted(background, 0.2, output, 0.5, 0)
@@ -246,9 +241,7 @@ class LaserFinder:
     def search_by_contours(self, channel: cv2.UMat) -> list:
         max_radius = 20
         # Find contours
-        contours, _ = cv2.findContours(
-            channel, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
+        contours, _ = cv2.findContours(channel, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # Convert grayscale image to BGR for visualization
         result = cv2.cvtColor(channel, cv2.COLOR_GRAY2BGR)
@@ -382,12 +375,8 @@ class LaserFinder:
         tuple: The coordinates of the laser, the output image, and the threshold value.
         """
         gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        normalized_gray_image = cv2.normalize(
-            gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX
-        )
-        return self.find_laser_by_threshold(
-            normalized_gray_image, searchfunction=self.search_by_hough_circles
-        )
+        normalized_gray_image = cv2.normalize(gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        return self.find_laser_by_threshold(normalized_gray_image, searchfunction=self.search_by_hough_circles)
 
     def find_laser_by_red_color(self, img: cv2.UMat) -> (tuple, cv2.UMat):
         """
@@ -401,9 +390,7 @@ class LaserFinder:
         tuple: The coordinates of the laser, the output image, and the threshold value.
         """
         (_, _, R) = cv2.split(img)
-        return self.find_laser_by_threshold(
-            R, searchfunction=self.search_by_hough_circles
-        )
+        return self.find_laser_by_threshold(R, searchfunction=self.search_by_hough_circles)
 
     def find_laser_by_green_color(self, img: cv2.UMat) -> (tuple, cv2.UMat):
         """
@@ -417,9 +404,7 @@ class LaserFinder:
         tuple: The coordinates of the laser, the output image, and the threshold value.
         """
         (_, G, _) = cv2.split(img)
-        return self.find_laser_by_threshold(
-            G, searchfunction=self.search_by_hough_circles
-        )
+        return self.find_laser_by_threshold(G, searchfunction=self.search_by_hough_circles)
 
     def find_laser_by_red_color_motion(self, img: cv2.UMat) -> (tuple, cv2.UMat):
         """
@@ -433,9 +418,7 @@ class LaserFinder:
         tuple: The coordinates of the laser, the output image, and the threshold value.
         """
         (_, _, R) = cv2.split(img)
-        return self.find_laser_by_threshold(
-            R, searchfunction=self.search_by_motion_analysis
-        )
+        return self.find_laser_by_threshold(R, searchfunction=self.search_by_motion_analysis)
 
     def find_laser_by_gray_centroids(self, img: cv2.UMat) -> (tuple, cv2.UMat):
         """
@@ -449,9 +432,5 @@ class LaserFinder:
         tuple: The coordinates of the laser, the output image, and the threshold value.
         """
         gray_image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        normalized_gray_image = cv2.normalize(
-            gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX
-        )
-        return self.find_laser_by_threshold(
-            normalized_gray_image, searchfunction=self.search_by_contours
-        )
+        normalized_gray_image = cv2.normalize(gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        return self.find_laser_by_threshold(normalized_gray_image, searchfunction=self.search_by_contours)

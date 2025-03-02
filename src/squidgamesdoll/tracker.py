@@ -8,9 +8,7 @@ import ast
 
 class TrackerControl:
 
-    def __init__(
-        self, ipaddress: str, deadband_px: int = 10, max_frequency_hz: int = 10
-    ):
+    def __init__(self, ipaddress: str, deadband_px: int = 10, max_frequency_hz: int = 10):
         """
         Initializes the TrackerControl object with the given IP address, deadband, and maximum frequency.
 

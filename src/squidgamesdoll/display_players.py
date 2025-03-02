@@ -122,8 +122,6 @@ def display_players(screen: pygame.Surface, players: list = None):
 
         screen.blit(img, (x, y))
 
-        text = FONT.render(
-            str(player["number"]), True, GREEN if player["active"] else RED_TINT
-        )
+        text = FONT.render(str(player["number"]), True, GREEN if player["active"] else RED_TINT)
         text_rect = text.get_rect(center=(x + PLAYER_SIZE // 2, y + PLAYER_SIZE * 0.7))
         screen.blit(text, text_rect.topleft)

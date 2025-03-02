@@ -11,10 +11,7 @@ class Camera:
         print("Listing webcams:")
         for camera_info in enumerate_cameras(cv2.CAP_DSHOW):
             print(f"\t {camera_info.index}: {camera_info.name}")
-            if (
-                camera_info.name == "HD Pro Webcam C920"
-                or camera_info.name == "Logi C270 HD WebCam"
-            ):
+            if camera_info.name == "HD Pro Webcam C920" or camera_info.name == "Logi C270 HD WebCam":
                 index = camera_info.index
         return index
 
@@ -72,9 +69,7 @@ class Camera:
 
         # Adjust exposure if the average value is too high
         while avg_value > AIV1:
-            new_exposure = max(
-                current_exposure - 1, -16
-            )  # Adjust exposure step (limit to -10 for safety)
+            new_exposure = max(current_exposure - 1, -16)  # Adjust exposure step (limit to -10 for safety)
             self.set_exposure(new_exposure)
             print(f"Exposure adjusted: {current_exposure} -> {new_exposure}")
             frame = self.read_resize()

@@ -11,14 +11,9 @@ class ExclusionRect:
         self.bottom_right = ExclusionRect.UNDEFINED
 
 
-def add_exclusion_rectangles(
-    frame: cv2.UMat, rectangles: list, color=(128, 64, 64)
-) -> cv2.UMat:
+def add_exclusion_rectangles(frame: cv2.UMat, rectangles: list, color=(128, 64, 64)) -> cv2.UMat:
     for rect in rectangles:
-        if (
-            rect.top_left != ExclusionRect.UNDEFINED
-            and rect.bottom_right != ExclusionRect.UNDEFINED
-        ):
+        if rect.top_left != ExclusionRect.UNDEFINED and rect.bottom_right != ExclusionRect.UNDEFINED:
             cv2.rectangle(frame, rect.top_left, rect.bottom_right, color, -1)
 
     # Add 2 px around frame

@@ -49,9 +49,7 @@ def point_and_shoot():
 
     cpt = 0
 
-    cv2.namedWindow(
-        WINDOW_NAME, cv2.WINDOW_NORMAL
-    )  # Create the window outside the loop
+    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)  # Create the window outside the loop
     cv2.setMouseCallback(WINDOW_NAME, click_event)  # Set mouse callback once
 
     finder = LaserFinder()

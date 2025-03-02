@@ -4,9 +4,8 @@ import cv2
 
 class FaceExtractor:
     def __init__(self):
-        self.face_detector = mp.solutions.face_detection.FaceDetection(
-            min_detection_confidence=0.5
-        )  # Mediapipe Face Detector
+        # Mediapipe Face Detector
+        self.face_detector = mp.solutions.face_detection.FaceDetection(min_detection_confidence=0.5)
 
     def extract_face(self, frame: cv2.UMat, bbox: tuple) -> cv2.UMat:
         """
@@ -55,9 +54,7 @@ class FaceExtractor:
                 # Extract expanded face region
                 face_crop = person_crop[y_start:y_end, x_start:x_end]
 
-                face_crop = cv2.resize(
-                    face_crop, (250, 250), interpolation=cv2.INTER_AREA
-                )  # Resize
+                face_crop = cv2.resize(face_crop, (250, 250), interpolation=cv2.INTER_AREA)  # Resize
 
                 # **Enhance contrast**
                 alpha = 1.8  # Contrast factor (adjustable)

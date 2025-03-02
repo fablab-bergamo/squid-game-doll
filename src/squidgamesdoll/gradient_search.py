@@ -20,9 +20,7 @@ def compute_gradients(image: cv2.UMat) -> tuple:
     return mag, angle
 
 
-def accumulate_candidates_vectorized(
-    mag: cv2.UMat, angle: np.nparray, R: int, Th: float
-) -> cv2.UMat:
+def accumulate_candidates_vectorized(mag: cv2.UMat, angle: np.nparray, R: int, Th: float) -> cv2.UMat:
     """
     Create an accumulator image using vectorized operations.
     For every pixel (x,y) with gradient magnitude > Th, a vote is added
@@ -58,12 +56,7 @@ def accumulate_candidates_vectorized(
         candidate_y = ys + offset_y
 
         # Filter out indices that fall outside the image boundaries.
-        valid = (
-            (candidate_x >= 0)
-            & (candidate_x < width)
-            & (candidate_y >= 0)
-            & (candidate_y < height)
-        )
+        valid = (candidate_x >= 0) & (candidate_x < width) & (candidate_y >= 0) & (candidate_y < height)
         candidate_x = candidate_x[valid]
         candidate_y = candidate_y[valid]
 
@@ -108,9 +101,7 @@ def group_candidates(candidates, group_radius=5) -> list[dict]:
         else:
             avg_x = sum(c["position"][0] * c["weight"] for c in cluster) / total_weight
             avg_y = sum(c["position"][1] * c["weight"] for c in cluster) / total_weight
-        grouped.append(
-            {"position": (int(round(avg_x)), int(round(avg_y))), "weight": total_weight}
-        )
+        grouped.append({"position": (int(round(avg_x)), int(round(avg_y))), "weight": total_weight})
     # Optionally, sort the grouped candidates by weight.
     grouped = sorted(grouped, key=lambda c: c["weight"], reverse=True)
     return grouped
@@ -169,10 +160,7 @@ def detect_laser_spots(image, R=10, Th=20) -> tuple:
     weights = acc_sum[cand_y, cand_x].astype(np.int32)
 
     # Build candidate list and sort by descending weight.
-    candidates = [
-        {"position": (int(x), int(y)), "weight": int(w)}
-        for x, y, w in zip(cand_x, cand_y, weights)
-    ]
+    candidates = [{"position": (int(x), int(y)), "weight": int(w)} for x, y, w in zip(cand_x, cand_y, weights)]
     candidates = sorted(candidates, key=lambda c: c["weight"], reverse=True)
 
     return candidates, acc
@@ -212,21 +200,13 @@ def test_gradient(image: cv2.UMat) -> list:
     candidates, acc = detect_laser_spots(image, R, Th)
     print("Detected {} candidates.".format(len(candidates)))
     for idx, candidate in enumerate(candidates):
-        print(
-            "Candidate {}: position={}, weight={}".format(
-                idx + 1, candidate["position"], candidate["weight"]
-            )
-        )
+        print("Candidate {}: position={}, weight={}".format(idx + 1, candidate["position"], candidate["weight"]))
 
     # Group nearby candidates.
     grouped_candidates = group_candidates(candidates, group_radius=R / 2)
     print("\nAfter grouping, {} candidates:".format(len(grouped_candidates)))
     for idx, candidate in enumerate(grouped_candidates, start=1):
-        print(
-            "Grouped Candidate {}: position={}, weight={}".format(
-                idx, candidate["position"], candidate["weight"]
-            )
-        )
+        print("Grouped Candidate {}: position={}, weight={}".format(idx, candidate["position"], candidate["weight"]))
 
     # Draw candidates on the image.
     output = draw_candidates(image, grouped_candidates)
@@ -274,9 +254,7 @@ def group_candidates(candidates, group_radius=5):
         else:
             avg_x = sum(c["position"][0] * c["weight"] for c in cluster) / total_weight
             avg_y = sum(c["position"][1] * c["weight"] for c in cluster) / total_weight
-        grouped.append(
-            {"position": (int(round(avg_x)), int(round(avg_y))), "weight": total_weight}
-        )
+        grouped.append({"position": (int(round(avg_x)), int(round(avg_y))), "weight": total_weight})
     # Optionally, sort the grouped candidates by weight.
     grouped = sorted(grouped, key=lambda c: c["weight"], reverse=True)
     return grouped
@@ -298,11 +276,7 @@ def main():
     candidates, acc = detect_laser_spots(image, R, Th)
     print("Detected {} candidates.".format(len(candidates)))
     for idx, candidate in enumerate(candidates):
-        print(
-            "Candidate {}: position={}, weight={}".format(
-                idx + 1, candidate["position"], candidate["weight"]
-            )
-        )
+        print("Candidate {}: position={}, weight={}".format(idx + 1, candidate["position"], candidate["weight"]))
 
     # Draw candidates on the image.
     output = draw_candidates(image, candidates)

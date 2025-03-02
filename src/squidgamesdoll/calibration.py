@@ -66,17 +66,11 @@ class Calibrator:
                 delta_v = prev_pos[0] - pos[0]
                 delta_h = prev_pos[1] - pos[1]
                 if delta_v != 0:
-                    delta_px_v = (
-                        self.calibration_data[prev_pos][1]
-                        - self.calibration_data[pos][1]
-                    )
+                    delta_px_v = self.calibration_data[prev_pos][1] - self.calibration_data[pos][1]
                     if delta_px_v != 0:
                         self.px_per_angle_v = round(delta_px_v / delta_v, 2)
                 if delta_h != 0:
-                    delta_px_h = (
-                        self.calibration_data[prev_pos][0]
-                        - self.calibration_data[pos][0]
-                    )
+                    delta_px_h = self.calibration_data[prev_pos][0] - self.calibration_data[pos][0]
                     if delta_px_h != 0:
                         self.px_per_angle_h = round(delta_px_h / delta_h, 2)
             else:

@@ -3,9 +3,7 @@ import cv2
 import numpy as np
 
 
-def detect_global_motion(
-    Iprev, I, max_corners=200, quality_level=0.01, min_distance=10
-):
+def detect_global_motion(Iprev, I, max_corners=200, quality_level=0.01, min_distance=10):
     """
     Estimate the global motion vector between two consecutive frames.
 
@@ -112,9 +110,7 @@ def track_candidates(Lprev, Iprev, I):
     return tracked_positions
 
 
-def motion_pattern_analysis(
-    L, Lprev, I, Iprev, C1=2.0, C2=0.2, assoc_thresh=10.0, fixed_object=False
-):
+def motion_pattern_analysis(L, Lprev, I, Iprev, C1=2.0, C2=0.2, assoc_thresh=10.0, fixed_object=False):
     """
     Analyze the motion pattern of detected candidates to compute temporal weights.
 
@@ -258,9 +254,7 @@ if __name__ == "__main__":
     C2 = 0.2  # e.g., between 0.1 and 0.3
     assoc_thresh = 10.0  # pixels
 
-    temporal_weights, best_candidate = motion_pattern_analysis(
-        L, Lprev, I, Iprev, C1, C2, assoc_thresh
-    )
+    temporal_weights, best_candidate = motion_pattern_analysis(L, Lprev, I, Iprev, C1, C2, assoc_thresh)
     print("Temporal weights for current candidates:")
     for i, t in enumerate(temporal_weights):
         print(f"Candidate {i+1}: temporal weight = {t}")

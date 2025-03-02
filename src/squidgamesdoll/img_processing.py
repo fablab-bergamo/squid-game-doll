@@ -1,6 +1,7 @@
 import cv2
 from numpy.linalg import norm
 import numpy as np
+import pygame
 
 
 def gamma(img: cv2.UMat, gamma: float) -> cv2.UMat:
@@ -15,9 +16,7 @@ def gamma(img: cv2.UMat, gamma: float) -> cv2.UMat:
     cv2.UMat: The gamma-adjusted image.
     """
     invGamma = 1.0 / gamma
-    table = np.array(
-        [((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]
-    ).astype("uint8")
+    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
     return cv2.LUT(img, table)
 
 
@@ -38,3 +37,20 @@ def brightness(img: cv2.UMat) -> cv2.UMat:
     else:
         # Grayscale
         return np.average(img)
+
+
+def opencv_to_pygame(frame: np.ndarray, view_port: tuple[int, int]) -> pygame.Surface:
+    """Converts an OpenCV frame to a PyGame surface.
+    Parameters:
+    frame (np.ndarray): The OpenCV frame to convert.
+    view_port (tuple): The view port for the webcam (width, height).
+    Returns:
+    pygame.Surface: The PyGame surface.
+    """
+    pygame_frame: np.ndarray = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # Flip along x-axis (1)
+    pygame_frame = cv2.flip(pygame_frame, 1)
+    pygame_frame = cv2.resize(pygame_frame, view_port)
+    # Rotate to match PyGame coordinates
+    pygame_frame = cv2.rotate(pygame_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    return pygame.surfarray.make_surface(pygame_frame)
