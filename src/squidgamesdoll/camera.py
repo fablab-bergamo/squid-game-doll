@@ -1,9 +1,23 @@
 import cv2
 import numpy as np
 from time import sleep
+from cv2_enumerate_cameras import enumerate_cameras
 
 
 class Camera:
+    @staticmethod
+    def getCameraIndex() -> int:
+        index = -1
+        print("Listing webcams:")
+        for camera_info in enumerate_cameras(cv2.CAP_DSHOW):
+            print(f"\t {camera_info.index}: {camera_info.name}")
+            if (
+                camera_info.name == "HD Pro Webcam C920"
+                or camera_info.name == "Logi C270 HD WebCam"
+            ):
+                index = camera_info.index
+        return index
+
     def __init__(self, index: int):
         """
         Initializes the Camera object with the given webcam index.

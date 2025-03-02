@@ -4,7 +4,7 @@ import numpy as np
 # Generato da https://www.mdpi.com/1424-8220/14/11/20112 con ChatGPT
 
 
-def compute_gradients(image):
+def compute_gradients(image: cv2.UMat) -> tuple:
     """
     Compute the gradients of the input image using Sobel operators.
     Returns:
@@ -20,7 +20,9 @@ def compute_gradients(image):
     return mag, angle
 
 
-def accumulate_candidates_vectorized(mag, angle, R, Th):
+def accumulate_candidates_vectorized(
+    mag: cv2.UMat, angle: np.nparray, R: int, Th: float
+) -> cv2.UMat:
     """
     Create an accumulator image using vectorized operations.
     For every pixel (x,y) with gradient magnitude > Th, a vote is added
@@ -71,7 +73,7 @@ def accumulate_candidates_vectorized(mag, angle, R, Th):
     return acc
 
 
-def group_candidates(candidates, group_radius=5):
+def group_candidates(candidates, group_radius=5) -> list[dict]:
     """
     Group nearby candidates that are within group_radius pixels.
     Merges candidates by computing the weighted average of their positions and
@@ -114,7 +116,7 @@ def group_candidates(candidates, group_radius=5):
     return grouped
 
 
-def detect_laser_spots(image, R=10, Th=20):
+def detect_laser_spots(image, R=10, Th=20) -> tuple:
     """
     Detect candidate laser spot centers in the input image using vectorized operations.
 

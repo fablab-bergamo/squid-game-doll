@@ -21,7 +21,7 @@ def gamma(img: cv2.UMat, gamma: float) -> cv2.UMat:
     return cv2.LUT(img, table)
 
 
-def brightness(img: cv2.UMat):
+def brightness(img: cv2.UMat) -> cv2.UMat:
     """
     Calculates the brightness of the given image.
 

@@ -7,6 +7,7 @@ import os
 from display_players import display_players, load_player_image
 from players_tracker import PlayerTracker, Player
 from face_extractor import FaceExtractor
+from camera import Camera
 
 
 class SquidGame:
@@ -184,6 +185,13 @@ class SquidGame:
         intro_sound.play()
 
     def opencv_to_pygame(self, frame: np.ndarray, view_port: tuple) -> pygame.surface:
+        """Converts an OpenCV frame to a PyGame surface.
+        Parameters:
+        frame (np.ndarray): The OpenCV frame to convert.
+        view_port (tuple): The view port for the webcam (width, height).
+        Returns:
+        pygame.surface: The PyGame surface.
+        """
         pygame_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         # Flip along x-axis (1)
         pygame_frame = cv2.flip(pygame_frame, 1)
@@ -212,6 +220,14 @@ class SquidGame:
         x_ratio: float,
         y_ratio: float,
     ):
+        """Main game loop for the Squid Game (Green Light Red Light).
+        Parameters:
+        cap (cv2.VideoCapture): The video capture object from the webcam.
+        screen (pygame.surface): The PyGame full screen object.
+        view_port (tuple): The view port for the webcam (width, height).
+        x_ratio (float): The aspect ratio for the x-axis between webcam frame and viewport.
+        y_ratio (float): The aspect ratio for the y-axis between webcam frame and viewport.
+        """
         # Game Loop
         green_light = True
         running = True
@@ -350,6 +366,10 @@ class SquidGame:
             clock.tick(frame_rate)
 
     def start_game(self, webcam_idx: int = 0):
+        """Start the Squid Game (Green Light Red Light) with the given webcam index.
+        Parameters:
+        webcam_idx (int): The index of the webcam to use.
+        """
 
         # Initialize screen
         screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT), pygame.RESIZABLE)
@@ -402,4 +422,8 @@ class SquidGame:
 
 if __name__ == "__main__":
     game = SquidGame()
-    game.start_game()
+    index = Camera.getCameraIndex()
+    if index == -1:
+        print("No compatible webcam found")
+        exit(1)
+    game.start_game(index)
