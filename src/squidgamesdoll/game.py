@@ -227,8 +227,9 @@ class SquidGame:
                 self.draw_overlay(screen, self.game_state)
                 text = self.FONT.render("Waiting for players...", True, self.FONT_COLOR)
                 screen.blit(text, (self.WIDTH // 2 - 100, self.HEIGHT // 2))
+                pygame.display.flip()
+
                 while len(self.players) < 1:
-                    pygame.display.flip()
                     ret, frame = cap.read()
                     if not ret:
                         break
@@ -236,9 +237,10 @@ class SquidGame:
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
                             running = False
-                            continue
+                            return
                     clock.tick(frame_rate)
 
+                screen.fill((0, 0, 0))
                 self.game_state = SquidGame.GREEN_LIGHT
                 self.green_sound.play()
 
