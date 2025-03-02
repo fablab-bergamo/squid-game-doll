@@ -17,6 +17,13 @@ class SquidGame:
     YELLOW = (255, 255, 0)
     WIDTH, HEIGHT = 1600, 1200
     FONT_COLOR = RED
+    INIT, GREEN_LIGHT, RED_LIGHT, VICTORY, GAMEOVER = (
+        "INIT",
+        "GREEN_LIGHT",
+        "RED_LIGHT",
+        "VICTORY",
+        "GAME OVER",
+    )
 
     def __init__(self):
         pygame.init()
@@ -31,9 +38,16 @@ class SquidGame:
         self.tracker = PlayerTracker()
         self.FAKE = False
         self.face_extractor = FaceExtractor()
-
-    def __del__(self):
-        pygame.quit()
+        self.players: list[Player] = []
+        self.eliminated_players: set[Player] = set()
+        self.green_sound = pygame.mixer.Sound(self.ROOT + "/media/green_light.mp3")
+        self.red_sound = pygame.mixer.Sound(
+            self.ROOT + "/media/red_light.mp3"
+        )  # 무궁화 꽃이 피었습니다
+        self.eliminate_sound = pygame.mixer.Sound(self.ROOT + "/media/eliminated.mp3")
+        self.game_state = self.INIT
+        self.last_switch_time = time.time()
+        self.delay_s = random.randint(2, 5)
 
     def detect_players(self, frame, num_players: int) -> list:
         """Simulate an external detection system returning bounding boxes."""
@@ -163,17 +177,9 @@ class SquidGame:
 
         return players
 
-    def game_loop(self):
-        # Initialize screen
-        screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT), pygame.RESIZABLE)
-        pygame.display.set_caption("Squid Game - Green Light Red Light")
-
+    def loading_screen(self, screen: pygame.surface):
         # Load sounds
         intro_sound = pygame.mixer.Sound(self.ROOT + "/media/intro.mp3")
-        green_sound = pygame.mixer.Sound(self.ROOT + "/media/green_light.mp3")
-        # 무궁화 꽃이 피었습니다
-        red_sound = pygame.mixer.Sound(self.ROOT + "/media/red_light.mp3")
-        eliminate_sound = pygame.mixer.Sound(self.ROOT + "/media/eliminated.mp3")
 
         # add loading screen picture during intro sound
         loading_screen = pygame.image.load(self.ROOT + "/media/loading_screen.webp")
@@ -181,37 +187,186 @@ class SquidGame:
         pygame.display.flip()
         intro_sound.play()
 
+    def opencv_to_pygame(self, frame: np.ndarray, view_port: tuple) -> pygame.surface:
+        pygame_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Flip along x-axis (1)
+        pygame_frame = cv2.flip(pygame_frame, 1)
+        pygame_frame = cv2.resize(pygame_frame, view_port)
+        # Rotate to match PyGame coordinates
+        pygame_frame = np.rot90(pygame_frame)
+        return pygame.surfarray.make_surface(pygame_frame)
+
+    def game_main_loop(
+        self,
+        cap: cv2.VideoCapture,
+        screen: pygame.surface,
+        view_port: tuple,
+        x_ratio: float,
+        y_ratio: float,
+    ):
+        # Game Loop
+        green_light = True
+        running = True
+
+        while running:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Convert OpenCV BGR to RGB for PyGame
+            frame_surface = self.opencv_to_pygame(frame, view_port)
+
+            # Handle Events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            # Game Logic
+            if self.game_state == SquidGame.INIT:
+                self.players = self.detect_players(frame, 5)
+                self.draw_overlay(screen, self.game_state)
+                text = self.FONT.render("Waiting for players...", True, self.FONT_COLOR)
+                screen.blit(text, (self.WIDTH // 2 - 100, self.HEIGHT // 2))
+                while len(self.players) < 1:
+                    pygame.display.flip()
+                    time.sleep(0.5)
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    self.players = self.detect_players(frame, 5)
+
+                self.game_state = SquidGame.GREEN_LIGHT
+                self.green_sound.play()
+
+            elif self.game_state in [SquidGame.GREEN_LIGHT, SquidGame.RED_LIGHT]:
+                # Switch phase randomly (1-5 seconds)
+                if time.time() - self.last_switch_time > self.delay_s:
+                    green_light = not green_light
+                    self.last_switch_time = time.time()
+                    self.game_state = (
+                        SquidGame.GREEN_LIGHT if green_light else SquidGame.RED_LIGHT
+                    )
+                    (self.red_sound if green_light else self.green_sound).stop()
+                    (self.green_sound if green_light else self.red_sound).play()
+                    self.delay_s = random.randint(2, 10) / 2
+
+                # New player positions (simulating new detections)
+                self.players = self.merge_players_lists(
+                    frame, self.players, self.detect_players(frame, len(self.players))
+                )
+
+                # Update last position while the green light is on
+                if self.game_state == SquidGame.GREEN_LIGHT:
+                    for player in self.players:
+                        player.set_last_position(player.get_coords())
+
+                # Check for movements during the red light
+                if self.game_state == SquidGame.RED_LIGHT:
+                    for player in self.players:
+                        if player.has_moved() and player not in self.eliminated_players:
+                            self.eliminated_players.add(player)
+                            self.eliminate_sound.play()
+
+                # Draw bounding boxes
+                self.draw_bounding_boxes(
+                    frame_surface,
+                    x_ratio,
+                    y_ratio,
+                    self.players,
+                    self.eliminated_players,
+                    add_previous_pos=True,
+                )
+            elif self.game_state in [SquidGame.GAMEOVER, SquidGame.VICTORY]:
+                # Restart after 10 seconds
+                if time.time() - self.last_switch_time > 20:
+                    self.game_state = SquidGame.INIT
+                    self.eliminated_players.clear()
+                    self.players.clear()
+                    self.last_switch_time = time.time()
+                    screen.fill((0, 0, 0))
+                    continue
+
+            # Check for victory
+
+            # Verifica se ci sono ancora giocatori rimasti
+            if (
+                len(self.eliminated_players) == len(self.players)
+                and len(self.players) > 0
+                and self.game_state != SquidGame.GAMEOVER
+            ):
+                self.game_state = SquidGame.GAMEOVER
+                self.last_switch_time = time.time()
+
+            # display players on a new surface on the half right of the screen
+            players_surface = pygame.Surface((self.WIDTH // 2, self.HEIGHT))
+            display_players(
+                players_surface,
+                self.convert_player_list(self.players, self.eliminated_players),
+            )
+
+            # Show webcam feed
+            screen.blit(frame_surface, (0, 0))
+
+            # Show players screen
+            screen.blit(players_surface, (self.WIDTH // 2, 0))
+
+            # Add game status
+            self.draw_light(screen, green_light)
+
+            if self.game_state == SquidGame.GAMEOVER:
+                text = self.FONT_FINE.render(
+                    "GAME OVER! No vincitori...", True, (255, 0, 0)
+                )
+                screen.blit(text, (self.WIDTH // 2 - 300, self.HEIGHT - 250))
+                self.players = self.merge_players_lists(
+                    frame, self.players, self.detect_players(frame, len(self.players))
+                )
+                self.draw_bounding_boxes(
+                    frame_surface,
+                    x_ratio,
+                    y_ratio,
+                    self.players,
+                    self.eliminated_players,
+                )
+
+            if self.game_state == SquidGame.VICTORY:
+                text = self.FONT_FINE.render("VICTORY!", True, (0, 255, 0))
+                screen.blit(text, (self.WIDTH // 2 - 200, self.HEIGHT - 250))
+
+            pygame.display.flip()
+            pygame.time.delay(50)
+
+    def start_game(self, webcam_idx: int = 0):
+
+        # Initialize screen
+        screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT), pygame.RESIZABLE)
+        pygame.display.set_caption("Squid Game - Green Light Red Light")
+
+        self.loading_screen(screen)
+
+        # Disable hardware acceleration for webcam
         os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+        cap = cv2.VideoCapture(webcam_idx, cv2.CAP_DSHOW)
 
-        # OpenCV webcam setup
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-
+        # Wait for intro sound to finish
         while pygame.mixer.get_busy():
             pygame.event.get()
 
-        # Game States
-        INIT, GREEN_LIGHT, RED_LIGHT, VICTORY, GAMEOVER = (
-            "INIT",
-            "GREEN_LIGHT",
-            "RED_LIGHT",
-            "VICTORY",
-            "GAME OVER",
-        )
-        game_state = INIT
-
-        # Simulated external player detection (bounding boxes format: [x, y, w, h])
-        players: list[Player] = []
-        eliminated_players: set[Player] = set()
-
-        # Timing for Red/Green Light
-        last_switch_time = time.time()
-        green_light = True
-
         screen.fill((0, 0, 0))
 
-        delay_s = random.randint(1, 5)
+        self.game_state = SquidGame.INIT
+        self.players: list[Player] = []
+        self.eliminated_players: set[Player] = set()
 
+        # Timing for Red/Green Light
+        self.last_switch_time = time.time()
+
+        # Compute aspect ratio and view port for webcam
         ret, frame = cap.read()
+        if not ret:
+            print("Error: Cannot read from webcam")
+            return
+
         aspect_ratio = frame.shape[1] / frame.shape[0]
         x_ratio = frame.shape[1] / (self.WIDTH // 2)
         y_ratio = frame.shape[0] / ((self.WIDTH // 2) / aspect_ratio)
@@ -220,115 +375,7 @@ class SquidGame:
             f"Ratios: {x_ratio}, {y_ratio}, Webcam: {frame.shape[1]}x{frame.shape[0]}, Window: {self.WIDTH}x{self.HEIGHT}, View port={view_port[1]}x{view_port[0]}"
         )
 
-        # Game Loop
-        running = True
-        while running:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            # Convert OpenCV BGR to RGB for PyGame
-            pygame_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # Flip along x-axis (1)
-            pygame_frame = cv2.flip(pygame_frame, 1)
-            pygame_frame = cv2.resize(pygame_frame, view_port)
-            # Rotate to match PyGame coordinates
-            pygame_frame = np.rot90(pygame_frame)
-            frame_surface = pygame.surfarray.make_surface(pygame_frame)
-
-            # Handle Events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-
-            # Game Logic
-            if game_state == INIT:
-                players = self.detect_players(frame, 5)
-                self.draw_overlay(screen, game_state)
-                text = self.FONT.render("Waiting for players...", True, self.FONT_COLOR)
-                screen.blit(text, (self.WIDTH // 2 - 100, self.HEIGHT // 2))
-                while len(players) < 1:
-                    pygame.display.flip()
-                    time.sleep(0.5)
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                    players = self.detect_players(frame, 5)
-
-                game_state = GREEN_LIGHT
-                green_sound.play()
-
-            elif game_state in [GREEN_LIGHT, RED_LIGHT]:
-                # Switch phase randomly (1-5 seconds)
-                if time.time() - last_switch_time > delay_s:
-                    green_light = not green_light
-                    last_switch_time = time.time()
-                    game_state = GREEN_LIGHT if green_light else RED_LIGHT
-                    (red_sound if green_light else green_sound).stop()
-                    (green_sound if green_light else red_sound).play()
-                    delay_s = random.randint(1, 5)
-
-                # New player positions (simulating new detections)
-                players = self.merge_players_lists(
-                    frame, players, self.detect_players(frame, len(players))
-                )
-
-                # Update last position while the green light is on
-                if green_light:
-                    for player in players:
-                        player.set_last_position(player.get_coords())
-
-                # Check for movements during the red light
-                if not green_light:
-                    for player in players:
-                        if player.has_moved():
-                            eliminated_players.add(player)
-                            eliminate_sound.play()
-
-                # Draw bounding boxes
-                self.draw_bounding_boxes(
-                    frame_surface,
-                    x_ratio,
-                    y_ratio,
-                    players,
-                    eliminated_players,
-                    add_previous_pos=True,
-                )
-
-            # Check for victory
-
-            # Verifica se ci sono ancora giocatori attivi
-            if len(eliminated_players) == len(players) and len(players) > 0:
-                game_state = GAMEOVER
-
-            # display players on a new surface on the half right of the screen
-            players_surface = pygame.Surface((self.WIDTH // 2, self.HEIGHT))
-            display_players(
-                players_surface, self.convert_player_list(players, eliminated_players)
-            )
-
-            screen.blit(frame_surface, (0, 0))  # Show webcam feed
-            screen.blit(players_surface, (self.WIDTH // 2, 0))  # Show players screen
-            self.draw_light(screen, green_light)  # Add game status
-
-            if game_state == GAMEOVER:
-                text = self.FONT_FINE.render(
-                    "GAME OVER! No vincitori...", True, (255, 0, 0)
-                )
-                screen.blit(text, (self.WIDTH // 2 - 300, self.HEIGHT - 250))
-                players = self.merge_players_lists(
-                    frame, players, self.detect_players(frame, len(players))
-                )
-                self.draw_bounding_boxes(
-                    frame_surface, x_ratio, y_ratio, players, eliminated_players
-                )
-
-            if game_state == VICTORY:
-                text = self.FONT_FINE.render("VICTORY!", True, (0, 255, 0))
-                screen.blit(text, (self.WIDTH // 2 - 200, self.HEIGHT - 250))
-
-            pygame.display.flip()
-            pygame.time.delay(100)
+        self.game_main_loop(cap, screen, view_port, x_ratio, y_ratio)
 
         # Cleanup
         cap.release()
@@ -336,4 +383,4 @@ class SquidGame:
 
 if __name__ == "__main__":
     game = SquidGame()
-    game.game_loop()
+    game.start_game()
