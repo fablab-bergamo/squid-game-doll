@@ -163,6 +163,7 @@ class SquidGame:
         intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(self.ROOT + "/media/intro.mp3")
         # add loading screen picture during intro sound
         loading_screen_img = pygame.image.load(self.ROOT + "/media/loading_screen.webp")
+        loading_screen_img = pygame.transform.scale(loading_screen_img, (self.WIDTH, self.HEIGHT))
         screen.blit(loading_screen_img, (0, 0))
         pygame.display.flip()
         intro_sound.play()
@@ -252,9 +253,7 @@ class SquidGame:
                     self.delay_s = random.randint(2, 10) / 2
 
                 # New player positions (simulating new detections)
-                self.players = self.merge_players_lists(
-                    frame, self.players, self.detect_players(frame, len(self.players))
-                )
+                self.players = self.merge_players_lists(frame, self.players, self.tracker.process_frame(frame))
 
                 # Update last position while the green light is on
                 if self.game_state == SquidGame.GREEN_LIGHT:
