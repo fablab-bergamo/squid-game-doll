@@ -24,6 +24,10 @@ class SquidGame:
         "VICTORY",
         "GAME OVER",
     )
+    BUTTON_COLOR = (255, 0, 0)  # Red like Squid Game theme
+    BUTTON_HOVER_COLOR = (200, 0, 0)
+    BUTTON_TEXT_COLOR = (0, 0, 0)  # Black text
+    BUTTON_RECT = pygame.Rect(1350, 1100, 200, 50)  # Position and size
 
     def __init__(self):
         pygame.init()
@@ -188,6 +192,18 @@ class SquidGame:
         pygame_frame = cv2.rotate(pygame_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
         return pygame.surfarray.make_surface(pygame_frame)
 
+    def draw_button(self, screen: pygame.surface):
+        mouse_pos = pygame.mouse.get_pos()
+        button_color = (
+            self.BUTTON_HOVER_COLOR
+            if self.BUTTON_RECT.collidepoint(mouse_pos)
+            else self.BUTTON_COLOR
+        )
+        pygame.draw.rect(screen, button_color, self.BUTTON_RECT, border_radius=10)
+        text = self.FONT.render("Re-init", True, self.BUTTON_TEXT_COLOR)
+        text_rect = text.get_rect(center=self.BUTTON_RECT.center)
+        screen.blit(text, text_rect)
+
     def game_main_loop(
         self,
         cap: cv2.VideoCapture,
@@ -200,9 +216,10 @@ class SquidGame:
         green_light = True
         running = True
 
-        frame_rate = 10.0
+        frame_rate = 15.0
         # Create a clock object to manage the frame rate
         clock = pygame.time.Clock()
+        MIN_RED_LIGHT_DELAY_S = 0.8
 
         while running:
             ret, frame = cap.read()
@@ -216,6 +233,12 @@ class SquidGame:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.BUTTON_RECT.collidepoint(event.pos):
+                        self.game_state = self.INIT  # Reset the game
+                        self.players.clear()
+                        self.last_switch_time = time.time()
+                        screen.fill((80, 80, 80))
 
             # Game Logic
             if self.game_state == SquidGame.INIT:
@@ -257,7 +280,10 @@ class SquidGame:
                         player.set_last_position(player.get_coords())
 
                 # Check for movements during the red light
-                if self.game_state == SquidGame.RED_LIGHT:
+                if (
+                    self.game_state == SquidGame.RED_LIGHT
+                    and time.time() - self.last_switch_time > MIN_RED_LIGHT_DELAY_S
+                ):
                     for player in self.players:
                         if player.has_moved() and not player.is_eliminated():
                             player.set_eliminated(True)
@@ -304,6 +330,8 @@ class SquidGame:
             # Show players screen
             screen.blit(players_surface, (self.WIDTH // 2, 0))
 
+            self.draw_button(screen)
+
             # Add game status
             self.draw_light(screen, green_light)
 
@@ -338,7 +366,7 @@ class SquidGame:
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
-        cap.set(cv2.CAP_PROP_FPS, 10.0)
+        cap.set(cv2.CAP_PROP_FPS, 15.0)
 
         # Wait for intro sound to finish
         while pygame.mixer.get_busy():

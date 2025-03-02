@@ -4,7 +4,7 @@ import numpy as np
 
 
 class Player:
-    MOVEMENT_THRESHOLD_PX = 10
+    MOVEMENT_THRESHOLD_PX = 15
 
     def __init__(self, id: int, coords: tuple):
         self.id = id

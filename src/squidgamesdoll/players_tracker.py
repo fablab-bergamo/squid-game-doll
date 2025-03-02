@@ -7,6 +7,8 @@ from face_extractor import FaceExtractor
 class PlayerTracker:
     def __init__(self, model_path="yolov8m.pt", movement_threshold=20):
         self.yolo = YOLO(model_path)
+        # Run the model on the Nvidia GPU
+        self.yolo.to("cuda")
         self.confidence = 0.5
         self.movement_threshold = (
             movement_threshold  # Pixels of movement to be considered "moving"
@@ -49,7 +51,9 @@ class PlayerTracker:
 
         try:
             yolo_frame = self.preprocess_frame(frame)
-            results = self.yolo.track(yolo_frame, persist=True, stream=False)
+            results = self.yolo.track(
+                yolo_frame, persist=True, stream=False, classes=[0]
+            )
         except Exception as e:
             print("Error:", e)
             return self.previous_result
@@ -66,7 +70,7 @@ class PlayerTracker:
 
         # display frame with bounding box and player id
         debug_frame = frame.copy()
-        yolo_debug = yolo_frame.copy()
+        # yolo_debug = yolo_frame.copy()
 
         for result in results:
             if result.boxes is None:
