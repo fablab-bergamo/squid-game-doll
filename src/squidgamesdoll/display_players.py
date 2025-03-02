@@ -11,7 +11,7 @@ SCREEN_WIDTH, SCREEN_HEIGHT = 800, 800
 BG_COLOR = (0, 0, 0)
 GREEN = (0, 255, 0)
 FADE_COLOR = (80, 80, 80)
-RED_TINT = (180, 0, 0)
+RED_TINT = (180, 0, 0, 80)
 PLAYER_SIZE = 200  # Size of each player tile
 
 
@@ -28,8 +28,8 @@ def get_player_positions(players: list) -> list:
     start_x, start_y = SCREEN_WIDTH // 2, -PLAYER_SIZE // 2 + 100
     index = 0
     for row in range(1, 5):  # Adjust rows to fit 15 players
-        x = start_x - (row * PLAYER_SIZE // 2)
-        y = start_y + (row * (PLAYER_SIZE // 2 + 10))
+        x = start_x - (row * PLAYER_SIZE // 2 + 20)
+        y = start_y + (row * PLAYER_SIZE)
         for col in range(row):
             if index < len(players):
                 positions.append((x + col * PLAYER_SIZE, y))
@@ -54,6 +54,7 @@ def draw_blurred_diamond(surface: pygame.image, x: int, y: int, size: int):
 def mask_diamond(image: pygame.image) -> pygame.image:
     image = pygame.transform.scale(image, (PLAYER_SIZE, PLAYER_SIZE))
     mask = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+
     pygame.draw.polygon(
         mask,
         (255, 255, 255, 255),

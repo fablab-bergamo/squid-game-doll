@@ -14,7 +14,7 @@ class SquidGame:
     RED = (255, 0, 0)
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
-    WIDTH, HEIGHT = 1600, 1200
+    WIDTH, HEIGHT = 1600, 900
     FONT_COLOR = RED
 
     def __init__(self):
@@ -125,6 +125,38 @@ class SquidGame:
 
         return risultato
 
+    def draw_bounding_boxes(
+        self,
+        frame_surface: pygame.surface,
+        x_ratio: float,
+        y_ratio: float,
+        players: list[Player],
+        eliminated_players: set[Player],
+    ):
+        for player in players:
+            color = self.RED if player in eliminated_players else self.GREEN
+
+            x, y, w, h = player.get_rect()
+            # transforms the coordinates from the webcam frame to the pygame frame using the ratios
+            x, y, w, h = x / x_ratio, y / y_ratio, w / x_ratio, h / y_ratio
+
+            pygame.draw.rect(frame_surface, color, (x, y, w, h), 3)
+            if player in eliminated_players:
+                pygame.draw.line(
+                    frame_surface,
+                    self.RED,
+                    (x, y),
+                    (x + w, y + h),
+                    5,
+                )
+                pygame.draw.line(
+                    frame_surface,
+                    self.RED,
+                    (x + w, y),
+                    (x, y + h),
+                    5,
+                )
+
     def game_loop(self):
         # Initialize screen
         screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT), pygame.RESIZABLE)
@@ -162,8 +194,8 @@ class SquidGame:
         game_state = INIT
 
         # Simulated external player detection (bounding boxes format: [x, y, w, h])
-        players = []
-        eliminated_players = set()
+        players: list[Player] = []
+        eliminated_players: set[Player] = set()
 
         # Timing for Red/Green Light
         last_switch_time = time.time()
@@ -182,10 +214,17 @@ class SquidGame:
 
             # Convert OpenCV BGR to RGB for PyGame
             pygame_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pygame_frame = cv2.flip(pygame_frame, 1)  # Flip along x-axis (1)
+            x_ratio = frame.shape[1] / (self.WIDTH // 2)
+            y_ratio = frame.shape[0] / x_ratio / self.HEIGHT
+
+            pygame_frame = cv2.resize(
+                pygame_frame,
+                (int(frame.shape[1] / x_ratio), int(frame.shape[0] / y_ratio)),
+            )
+
             pygame_frame = np.rot90(pygame_frame)  # Rotate to match PyGame coordinates
-            pygame_frame = cv2.resize(pygame_frame, (self.WIDTH // 2, self.HEIGHT))
             frame_surface = pygame.surfarray.make_surface(pygame_frame)
-            screen.blit(frame_surface, (0, 0))  # Show webcam feed
 
             # Handle Events
             for event in pygame.event.get():
@@ -228,14 +267,9 @@ class SquidGame:
                             eliminated_players.add(player)
                             eliminate_sound.play()
 
-                # Draw bounding boxes
-                for player in players:
-                    color = self.RED if player in eliminated_players else self.GREEN
-                    x, y, w, h = player.get_rect()
-                    pygame.draw.rect(screen, color, (x, y, w, h), 3)
-                    if player in eliminated_players:
-                        pygame.draw.line(screen, self.RED, (x, y), (x + w, y + h), 5)
-                        pygame.draw.line(screen, self.RED, (x + w, y), (x, y + h), 5)
+                self.draw_bounding_boxes(
+                    frame_surface, x_ratio, y_ratio, players, eliminated_players
+                )
 
             # Check for victory
 
@@ -248,6 +282,8 @@ class SquidGame:
             display_players(
                 players_surface, self.merge_players(players, eliminated_players)
             )
+
+            screen.blit(frame_surface, (0, 0))  # Show webcam feed
             screen.blit(players_surface, (self.WIDTH // 2, 0))
 
             if game_state == GAMEOVER:
@@ -256,14 +292,9 @@ class SquidGame:
                 )
                 screen.blit(text, (self.WIDTH // 2 - 300, self.HEIGHT - 250))
                 players = self.detect_players(frame, len(players))
-                # Draw bounding boxes
-                for player in players:
-                    color = self.RED if player in eliminated_players else self.GREEN
-                    x, y, w, h = player.get_rect()
-                    pygame.draw.rect(screen, color, (x, y, w, h), 3)
-                    if player in eliminated_players:
-                        pygame.draw.line(screen, self.RED, (x, y), (x + w, y + h), 5)
-                        pygame.draw.line(screen, self.RED, (x + w, y), (x, y + h), 5)
+                self.draw_bounding_boxes(
+                    frame_surface, x_ratio, y_ratio, players, eliminated_players
+                )
 
             if game_state == VICTORY:
                 text = self.FONT_FINE.render("VICTORY!", True, (0, 255, 0))

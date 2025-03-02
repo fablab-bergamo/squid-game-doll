@@ -13,13 +13,15 @@ class Player:
         self.moved = moved
         self.face = None
 
-    def set_face(self, face: UMat):
+    def set_face(self, face: cv2.UMat):
+        """Saves the face image of the player"""
         self.face = face
 
-    def get_face(self):
+    def get_face(self) -> cv2.UMat:
+        """Returns the face image of the player"""
         return self.face
 
-    def get_image(self):
+    def get_image(self) -> pygame.image:
         if self.face is None:
             return None
         return pygame.image.frombuffer(
@@ -27,9 +29,13 @@ class Player:
         )
 
     def set_rect(self, rect: tuple):
+        """Sets the bounding box rectangle in (x, y, w, h) format
+        Note: coordinates are relative to the webcam frame in original dimensions"""
         self.coords = (rect[0], rect[1], rect[2] + rect[0], rect[3] + rect[1])
 
     def get_rect(self):
+        """Returns the bounding box rectangle in (x, y, w, h) format
+        Note: coordinates are relative to the webcam frame in original dimensions"""
         return (
             self.coords[0],
             self.coords[1],
@@ -38,15 +44,21 @@ class Player:
         )
 
     def get_coords(self):
+        """Returns the bounding box coordinates in (x1, y1, x2, y2) format
+        Note: coordinates are relative to the webcam frame in original dimensions"""
         return self.coords
 
     def set_coords(self, coords: tuple):
+        """Sets the bounding box coordinates in (x1, y1, x2, y2) format
+        Note: coordinates are relative to the webcam frame in original dimensions"""
         self.coords = coords
 
     def set_moved(self, moved: bool):
+        """Sets the movement status of the player"""
         self.moved = moved
 
     def has_moved(self):
+        """Returns the movement status of the player"""
         return self.moved
 
     def __str__(self):
@@ -117,6 +129,11 @@ class PlayerTracker:
                     face_crop, (250, 250), interpolation=cv2.INTER_AREA
                 )  # Resize
 
+                # **Enhance contrast**
+                alpha = 1.5  # Contrast factor (adjustable)
+                beta = 20  # Brightness factor (adjustable)
+                face_crop = cv2.convertScaleAbs(face_crop, alpha=alpha, beta=beta)
+
                 return face_crop
 
         print("No face detected")
@@ -171,6 +188,17 @@ class PlayerTracker:
 
         players = []
 
+        # Get original frame size
+        orig_h, orig_w, _ = frame.shape
+        yolo_h, yolo_w = 640, 640  # Since we resize the frame to 640x640
+
+        # Scaling factors
+        scale_x = orig_w / yolo_w
+        scale_y = orig_h / yolo_h
+
+        # display frame with bounding box and player id
+        debug_frame = frame.copy()
+
         for result in results:
             if result.boxes is None:
                 continue  # Skip if no detections
@@ -180,6 +208,13 @@ class PlayerTracker:
                 class_id = int(box.cls[0].cpu().numpy())  # Get class ID
                 if conf > self.confidence and class_id == 0:  # Check if it's a person
                     x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+
+                    # Scale bounding box back to original frame size
+                    x1 = int(x1 * scale_x)
+                    y1 = int(y1 * scale_y)
+                    x2 = int(x2 * scale_x)
+                    y2 = int(y2 * scale_y)
+
                     track_id = (
                         int(box.id[0].cpu().numpy()) if box.id is not None else None
                     )
@@ -201,12 +236,25 @@ class PlayerTracker:
 
                     # Store new position and movement status
                     player = Player(track_id, (x1, y1, x2, y2), moved=moved)
+
+                    cv2.rectangle(debug_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(
+                        debug_frame,
+                        f"Player {track_id}",
+                        (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.9,
+                        (36, 255, 12),
+                        2,
+                    )
+
                     face = self.extract_face(frame, player.get_coords())
                     if face is not None:
                         player.set_face(face)
                     players.append(player)
                     self.previous_positions[track_id] = (x1, y1, x2, y2)
 
+        cv2.imshow("process_frame", debug_frame)
         print("PlayerTracker returns", players)
         self.previous_result = players
         return players
