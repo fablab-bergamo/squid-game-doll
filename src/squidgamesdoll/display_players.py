@@ -1,16 +1,13 @@
 import pygame
 import random
 import os
-import cv2
-from pygame import gfxdraw
 from PIL import Image, ImageFilter
 
 
 # Constants
-SCREEN_WIDTH, SCREEN_HEIGHT = 800, 800
 BG_COLOR = (0, 0, 0)
 GREEN = (0, 255, 0)
-FADE_COLOR = (80, 80, 80)
+FADE_COLOR = (80, 80, 80, 80)
 RED_TINT = (180, 0, 0, 80)
 PLAYER_SIZE = 200  # Size of each player tile
 
@@ -23,9 +20,9 @@ def load_player_image(image_path: str) -> pygame.image:
 
 
 # Arrange players in a triangle
-def get_player_positions(players: list) -> list:
+def get_player_positions(players: list, screen_width: int) -> list:
     positions = []
-    start_x, start_y = SCREEN_WIDTH // 2, -PLAYER_SIZE // 2 + 100
+    start_x, start_y = screen_width // 2, -PLAYER_SIZE // 2 + 100
     index = 0
     for row in range(1, 5):  # Adjust rows to fit 15 players
         x = start_x - (row * PLAYER_SIZE // 2 + 20)
@@ -70,7 +67,7 @@ def mask_diamond(image: pygame.image) -> pygame.image:
     return masked_image
 
 
-def fake_players():
+def fake_players() -> list:
     # Generate players list (maximum 10 players)
     players = []
     for num in range(1, 16):
@@ -91,13 +88,17 @@ def fake_players():
 def display_players(screen: pygame.Surface, players: list = None):
     ROOT = os.path.dirname(__file__)
     FONT = pygame.font.Font(ROOT + "/media/font_lcd.ttf", 48)
+
     if players is None:
         players = fake_players()
-    player_positions = get_player_positions(players)
+
+    player_positions = get_player_positions(players, screen.get_width())
     screen.fill(BG_COLOR)
+
     num = sum(1 for player in players if player["active"])
+
     text = FONT.render(f"{num} Giocatori", True, GREEN)
-    screen.blit(text, (SCREEN_WIDTH // 2 - 100, 0))
+    screen.blit(text, (screen.get_width() // 2 - 100, 0))
 
     for i, player in enumerate(players):
         if i >= len(player_positions):

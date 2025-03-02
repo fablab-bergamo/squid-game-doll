@@ -6,7 +6,7 @@ import time
 import os
 from display_players import display_players, load_player_image
 from players_tracker import PlayerTracker, Player
-import mediapipe as mp
+from face_extractor import FaceExtractor
 
 
 class SquidGame:
@@ -14,7 +14,8 @@ class SquidGame:
     RED = (255, 0, 0)
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
-    WIDTH, HEIGHT = 1600, 900
+    YELLOW = (255, 255, 0)
+    WIDTH, HEIGHT = 1600, 1200
     FONT_COLOR = RED
 
     def __init__(self):
@@ -29,52 +30,10 @@ class SquidGame:
         self.previous_positions = []
         self.tracker = PlayerTracker()
         self.FAKE = False
-        self.face_detector = mp.solutions.face_detection.FaceDetection(
-            min_detection_confidence=0.5
-        )  # Mediapipe Face Detector
+        self.face_extractor = FaceExtractor()
 
     def __del__(self):
         pygame.quit()
-
-    def extract_face(self, frame, bbox):
-        """
-        Extracts a face from a given person's bounding box.
-        Args:
-            frame (numpy.ndarray): The input frame.
-            bbox (tuple): Bounding box (x1, y1, x2, y2) of the detected player.
-        Returns:
-            face_crop (numpy.ndarray or None): Cropped face if detected, otherwise None.
-        """
-        x1, y1, x2, y2 = bbox
-
-        # Crop the person from the frame
-        person_crop = frame[y1:y2, x1:x2]
-
-        if person_crop.size == 0:
-            return None
-
-        # Convert to RGB for Mediapipe
-        rgb_face = cv2.cvtColor(person_crop, cv2.COLOR_BGR2RGB)
-
-        # Detect faces
-        results = self.face_detector.process(rgb_face)
-
-        if results.detections:
-            for detection in results.detections:
-                # Get face bounding box relative to the cropped person
-                bboxC = detection.location_data.relative_bounding_box
-                fx, fy, fw, fh = bboxC.xmin, bboxC.ymin, bboxC.width, bboxC.height
-
-                # Convert relative coordinates to absolute
-                h, w, _ = person_crop.shape
-                fx, fy, fw, fh = int(fx * w), int(fy * h), int(fw * w), int(fh * h)
-
-                # Extract face
-                face_crop = person_crop[fy : fy + fh, fx : fx + fw]
-
-                return face_crop
-
-        return None
 
     def detect_players(self, frame, num_players: int) -> list:
         """Simulate an external detection system returning bounding boxes."""
@@ -95,7 +54,7 @@ class SquidGame:
         text = self.FONT.render(f"Phase: {game_state}", True, self.FONT_COLOR)
         screen.blit(text, (20, 20))
 
-    def merge_players(self, players, eliminated) -> list:
+    def convert_player_list(self, players, eliminated) -> list:
         # Creiamo un dizionario per mantenere giocatori unici con il loro stato
         risultato = []
         cpt = 1
@@ -125,6 +84,14 @@ class SquidGame:
 
         return risultato
 
+    def draw_light(self, screen: pygame.surface, green_light: bool):
+        # Draw the light in the bottom part of the screen
+        position = (self.WIDTH // 2, self.HEIGHT - 100)
+        if green_light:
+            pygame.draw.circle(screen, self.GREEN, position, 50)
+        else:
+            pygame.draw.circle(screen, self.RED, position, 50)
+
     def draw_bounding_boxes(
         self,
         frame_surface: pygame.surface,
@@ -132,15 +99,31 @@ class SquidGame:
         y_ratio: float,
         players: list[Player],
         eliminated_players: set[Player],
+        add_previous_pos: bool = False,
     ):
         for player in players:
-            color = self.RED if player in eliminated_players else self.GREEN
+            color = (
+                self.RED
+                if player in eliminated_players
+                else (self.GREEN if not player.has_moved() else self.YELLOW)
+            )
 
             x, y, w, h = player.get_rect()
             # transforms the coordinates from the webcam frame to the pygame frame using the ratios
             x, y, w, h = x / x_ratio, y / y_ratio, w / x_ratio, h / y_ratio
 
             pygame.draw.rect(frame_surface, color, (x, y, w, h), 3)
+
+            # Draw the last position
+            if (
+                add_previous_pos
+                and player.get_last_position() is not None
+                and player not in eliminated_players
+            ):
+                x, y, w, h = player.get_last_position()
+                x, y, w, h = x / x_ratio, y / y_ratio, w / x_ratio, h / y_ratio
+                pygame.draw.rect(frame_surface, self.WHITE, (x, y, w, h), 1)
+
             if player in eliminated_players:
                 pygame.draw.line(
                     frame_surface,
@@ -156,6 +139,29 @@ class SquidGame:
                     (x, y + h),
                     5,
                 )
+
+    def merge_players_lists(
+        self, webcam_frame: cv2.UMat, players: list[Player], new_players: list[Player]
+    ) -> list:
+        for new_p in new_players:
+            # Check if the player is already in the list
+            p = next((p for p in players if p.id == new_p.id), None)
+
+            # Capture face if player is known
+            if p is not None and p.get_face() is None:
+                face = self.face_extractor.extract_face(
+                    webcam_frame, new_p.get_coords()
+                )
+                if face is not None:
+                    p.set_face(face)
+
+            # Update player position, or create a new player
+            if p is not None:
+                p.set_coords(new_p.get_coords())
+            else:
+                players.append(new_p)
+
+        return players
 
     def game_loop(self):
         # Initialize screen
@@ -205,6 +211,15 @@ class SquidGame:
 
         delay_s = random.randint(1, 5)
 
+        ret, frame = cap.read()
+        aspect_ratio = frame.shape[1] / frame.shape[0]
+        x_ratio = frame.shape[1] / (self.WIDTH // 2)
+        y_ratio = frame.shape[0] / ((self.WIDTH // 2) / aspect_ratio)
+        view_port = (int(frame.shape[1] / x_ratio), int(frame.shape[0] / y_ratio))
+        print(
+            f"Ratios: {x_ratio}, {y_ratio}, Webcam: {frame.shape[1]}x{frame.shape[0]}, Window: {self.WIDTH}x{self.HEIGHT}, View port={view_port[1]}x{view_port[0]}"
+        )
+
         # Game Loop
         running = True
         while running:
@@ -214,16 +229,11 @@ class SquidGame:
 
             # Convert OpenCV BGR to RGB for PyGame
             pygame_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pygame_frame = cv2.flip(pygame_frame, 1)  # Flip along x-axis (1)
-            x_ratio = frame.shape[1] / (self.WIDTH // 2)
-            y_ratio = frame.shape[0] / x_ratio / self.HEIGHT
-
-            pygame_frame = cv2.resize(
-                pygame_frame,
-                (int(frame.shape[1] / x_ratio), int(frame.shape[0] / y_ratio)),
-            )
-
-            pygame_frame = np.rot90(pygame_frame)  # Rotate to match PyGame coordinates
+            # Flip along x-axis (1)
+            pygame_frame = cv2.flip(pygame_frame, 1)
+            pygame_frame = cv2.resize(pygame_frame, view_port)
+            # Rotate to match PyGame coordinates
+            pygame_frame = np.rot90(pygame_frame)
             frame_surface = pygame.surfarray.make_surface(pygame_frame)
 
             # Handle Events
@@ -259,16 +269,30 @@ class SquidGame:
                     delay_s = random.randint(1, 5)
 
                 # New player positions (simulating new detections)
-                players = self.detect_players(frame, len(players))
+                players = self.merge_players_lists(
+                    frame, players, self.detect_players(frame, len(players))
+                )
 
+                # Update last position while the green light is on
+                if green_light:
+                    for player in players:
+                        player.set_last_position(player.get_coords())
+
+                # Check for movements during the red light
                 if not green_light:
                     for player in players:
-                        if player.has_moved() and random.random() < 0.01:
+                        if player.has_moved():
                             eliminated_players.add(player)
                             eliminate_sound.play()
 
+                # Draw bounding boxes
                 self.draw_bounding_boxes(
-                    frame_surface, x_ratio, y_ratio, players, eliminated_players
+                    frame_surface,
+                    x_ratio,
+                    y_ratio,
+                    players,
+                    eliminated_players,
+                    add_previous_pos=True,
                 )
 
             # Check for victory
@@ -280,18 +304,21 @@ class SquidGame:
             # display players on a new surface on the half right of the screen
             players_surface = pygame.Surface((self.WIDTH // 2, self.HEIGHT))
             display_players(
-                players_surface, self.merge_players(players, eliminated_players)
+                players_surface, self.convert_player_list(players, eliminated_players)
             )
 
             screen.blit(frame_surface, (0, 0))  # Show webcam feed
-            screen.blit(players_surface, (self.WIDTH // 2, 0))
+            screen.blit(players_surface, (self.WIDTH // 2, 0))  # Show players screen
+            self.draw_light(screen, green_light)  # Add game status
 
             if game_state == GAMEOVER:
                 text = self.FONT_FINE.render(
                     "GAME OVER! No vincitori...", True, (255, 0, 0)
                 )
                 screen.blit(text, (self.WIDTH // 2 - 300, self.HEIGHT - 250))
-                players = self.detect_players(frame, len(players))
+                players = self.merge_players_lists(
+                    frame, players, self.detect_players(frame, len(players))
+                )
                 self.draw_bounding_boxes(
                     frame_surface, x_ratio, y_ratio, players, eliminated_players
                 )
