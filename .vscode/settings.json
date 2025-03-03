@@ -3,5 +3,17 @@
         "tests"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "black-formatter.args": [
+        "--line-length",
+        "119"
+    ],
+    "git.autofetch": true,
+    "python.defaultInterpreterPath": "{workspaceFolder}\\.venv\\Scripts\\python.exe",
+    "python.linting.enabled": true,
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
 }
