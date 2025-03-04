@@ -1,3 +1,4 @@
+from threading import Thread
 import pygame
 import cv2
 import numpy as np
@@ -18,6 +19,10 @@ class SquidGame:
     WHITE: tuple[int, int, int] = (255, 255, 255)
     BLACK: tuple[int, int, int] = (0, 0, 0)
     YELLOW: tuple[int, int, int] = (255, 255, 0)
+    DARK_GREEN: tuple[int, int, int] = (3, 122, 118)
+    LIGHT_GREEN: tuple[int, int, int] = (36, 159, 156)
+    SALMON: tuple[int, int, int] = (244, 71, 134)
+    PINK: tuple[int, int, int] = (237, 27, 118)
 
     # Screen Dimensions
     WIDTH: int = 1600
@@ -49,14 +54,13 @@ class SquidGame:
         self.ROOT: str = os.path.dirname(__file__)
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
-        self.tracker: PlayerTracker = PlayerTracker()
+        self.tracker: PlayerTracker = None  # Initialize later
         self.FAKE: bool = False
-        self.face_extractor: FaceExtractor = FaceExtractor()
+        self.face_extractor: FaceExtractor = None  # Initialize later
         self.players: list[Player] = []
         self.green_sound: pygame.mixer.Sound = pygame.mixer.Sound(self.ROOT + "/media/green_light.mp3")
-        self.red_sound: pygame.mixer.Sound = pygame.mixer.Sound(
-            self.ROOT + "/media/red_light.mp3"
-        )  # 무궁화 꽃이 피었습니다
+        # 무궁화 꽃이 피었습니다
+        self.red_sound: pygame.mixer.Sound = pygame.mixer.Sound(self.ROOT + "/media/red_light.mp3")
         self.eliminate_sound: pygame.mixer.Sound = pygame.mixer.Sound(self.ROOT + "/media/eliminated.mp3")
         self.game_state: str = self.INIT
         self.last_switch_time: float = time.time()
@@ -95,11 +99,14 @@ class SquidGame:
 
     def draw_light(self, screen: pygame.Surface, green_light: bool) -> None:
         # Draw the light in the bottom part of the screen
-        position: tuple[int, int] = (self.WIDTH // 2, self.HEIGHT - 100)
+        position: tuple[int, int] = (self.WIDTH // 4, self.HEIGHT // 4 * 3)
+        radius: int = min(self.WIDTH // 4, self.HEIGHT // 4) - 4
         if green_light:
-            pygame.draw.circle(screen, self.GREEN, position, 50)
+            pygame.draw.circle(screen, self.GREEN, position, radius)
         else:
-            pygame.draw.circle(screen, self.RED, position, 50)
+            pygame.draw.circle(screen, self.RED, position, radius)
+
+        pygame.draw.circle(screen, self.BLACK, position, radius, 4)
 
     def draw_bounding_boxes(
         self,
@@ -158,15 +165,65 @@ class SquidGame:
                 players.append(new_p)
         return players
 
+    def load_model(self):
+        self.tracker = PlayerTracker()
+        self.face_extractor = FaceExtractor()
+
     def loading_screen(self, screen: pygame.Surface) -> None:
         # Load sounds
-        intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(self.ROOT + "/media/intro.mp3")
-        # add loading screen picture during intro sound
+        intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(self.ROOT + "/media/mingle.mp3")
+
+        # Add loading screen picture during intro sound
         loading_screen_img = pygame.image.load(self.ROOT + "/media/loading_screen.webp")
-        loading_screen_img = pygame.transform.scale(loading_screen_img, (self.WIDTH, self.HEIGHT))
-        screen.blit(loading_screen_img, (0, 0))
-        pygame.display.flip()
-        intro_sound.play()
+        loading_screen_img = pygame.transform.scale(loading_screen_img, (self.WIDTH, self.HEIGHT - 200))
+
+        # Load logo image
+        logo_img = pygame.image.load(self.ROOT + "/media/logo.png")
+        logo_img = pygame.transform.scale(logo_img, (400, 200))  # Adjust size as needed
+        logo_img.set_colorkey((0, 0, 0))
+
+        # Animation parameters
+        logo_x = (self.WIDTH - logo_img.get_width()) // 2
+        logo_y = self.HEIGHT - logo_img.get_height()
+        alpha = 0
+        fade_in = True
+
+        intro_sound.play(loops=-1)
+
+        t: Thread = Thread(target=self.load_model)
+        t.start()
+
+        running = True
+        while running:
+            screen.fill(SquidGame.DARK_GREEN)
+            screen.blit(loading_screen_img, (0, 0))
+
+            for event in pygame.event.get():
+                if event.type in [pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN]:
+                    running = False
+
+            # Handle logo fade-in and fade-out
+            if fade_in:
+                alpha += 5
+                if alpha >= 255:
+                    alpha = 255
+                    fade_in = False
+            else:
+                alpha -= 5
+                if alpha <= 0:
+                    alpha = 0
+                    fade_in = True
+
+            logo_img.set_alpha(alpha)
+            screen.blit(logo_img, (logo_x, logo_y))
+
+            pygame.display.flip()
+            pygame.time.wait(50)
+
+        if t.is_alive():
+            t.join()
+
+        intro_sound.fadeout(1)
 
     def draw_button(self, screen: pygame.Surface) -> None:
         mouse_pos: tuple[int, int] = pygame.mouse.get_pos()
@@ -203,6 +260,8 @@ class SquidGame:
         MIN_RED_LIGHT_DELAY_S: float = 0.8
 
         while running:
+            screen.fill(SquidGame.SALMON)
+
             ret, frame = cap.read()
             if not ret:
                 break
@@ -219,7 +278,6 @@ class SquidGame:
                         self.game_state = self.INIT  # Reset the game
                         self.players.clear()
                         self.last_switch_time = time.time()
-                        screen.fill((80, 80, 80))
 
             # Game Logic
             if self.game_state == SquidGame.INIT:
@@ -240,7 +298,6 @@ class SquidGame:
                             return
                     clock.tick(frame_rate)
 
-                screen.fill((0, 0, 0))
                 self.game_state = SquidGame.GREEN_LIGHT
                 self.green_sound.play()
 
@@ -286,7 +343,6 @@ class SquidGame:
                     self.game_state = SquidGame.INIT
                     self.players.clear()
                     self.last_switch_time = time.time()
-                    screen.fill((0, 0, 0))
                     continue
 
             # Check for victory
@@ -301,10 +357,7 @@ class SquidGame:
 
             # display players on a new surface on the half right of the screen
             players_surface: pygame.Surface = pygame.Surface((self.WIDTH // 2, self.HEIGHT))
-            display_players(
-                players_surface,
-                self.convert_player_list(self.players),
-            )
+            display_players(players_surface, self.convert_player_list(self.players), SquidGame.SALMON)
 
             # Show webcam feed
             screen.blit(frame_surface, (0, 0))
@@ -337,8 +390,6 @@ class SquidGame:
 
         self.loading_screen(screen)
 
-        # Disable hardware acceleration for webcam on Windows
-        os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
         # Use DSHOW on Windows to avoid slow startup
         cap: cv2.VideoCapture = cv2.VideoCapture(webcam_idx, cv2.CAP_DSHOW)
 
@@ -347,12 +398,6 @@ class SquidGame:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
         cap.set(cv2.CAP_PROP_FPS, 15.0)
-
-        # Wait for intro sound to finish
-        while pygame.mixer.get_busy():
-            pygame.event.get()
-
-        screen.fill((0, 0, 0))
 
         self.game_state = SquidGame.INIT
         self.players = []  # Reset players list
@@ -385,6 +430,9 @@ class SquidGame:
 
 
 if __name__ == "__main__":
+    # Disable hardware acceleration for webcam on Windows
+    os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+
     game = SquidGame()
     index: int = Camera.getCameraIndex()
     if index == -1:

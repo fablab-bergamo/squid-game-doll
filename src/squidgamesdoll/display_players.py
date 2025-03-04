@@ -1,14 +1,13 @@
 import pygame
 import random
 import os
-from PIL import Image, ImageFilter
+from PIL import Image
 
 
 # Constants
-BG_COLOR = (0, 0, 0)
 GREEN = (0, 255, 0)
 FADE_COLOR = (80, 80, 80, 80)
-RED_TINT = (180, 0, 0, 80)
+RED = (180, 0, 0, 80)
 PLAYER_SIZE = 200  # Size of each player tile
 
 
@@ -64,6 +63,8 @@ def mask_diamond(image: pygame.image) -> pygame.image:
     )
     masked_image = image.copy()
     masked_image.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    masked_image.set_colorkey((0, 0, 0))
+
     return masked_image
 
 
@@ -85,7 +86,7 @@ def fake_players() -> list:
 
 
 # Game loop
-def display_players(screen: pygame.Surface, players: list = None):
+def display_players(screen: pygame.Surface, players: list = None, background: tuple[int, int, int] = (0, 0, 0)):
     ROOT = os.path.dirname(__file__)
     FONT = pygame.font.Font(ROOT + "/media/font_lcd.ttf", 48)
 
@@ -93,7 +94,7 @@ def display_players(screen: pygame.Surface, players: list = None):
         players = fake_players()
 
     player_positions = get_player_positions(players, screen.get_width())
-    screen.fill(BG_COLOR)
+    screen.fill(background)
 
     num = sum(1 for player in players if player["active"])
 
@@ -114,7 +115,7 @@ def display_players(screen: pygame.Surface, players: list = None):
 
         # Apply red tint
         red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
-        red_overlay.fill(RED_TINT)
+        red_overlay.fill(RED)
         img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_MULT)
 
         if not player["active"]:
@@ -122,6 +123,6 @@ def display_players(screen: pygame.Surface, players: list = None):
 
         screen.blit(img, (x, y))
 
-        text = FONT.render(str(player["number"]), True, GREEN if player["active"] else RED_TINT)
+        text = FONT.render(str(player["number"]), True, GREEN if player["active"] else RED)
         text_rect = text.get_rect(center=(x + PLAYER_SIZE // 2, y + PLAYER_SIZE * 0.7))
         screen.blit(text, text_rect.topleft)

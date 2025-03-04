@@ -129,7 +129,7 @@ pip install -r ./src/requirements.txt
 * Run game
 
 ```python
-python ./src/squidgamedool/game.py
+python ./src/squidgamedoll/game.py
 ```
 
 ## How to profile
