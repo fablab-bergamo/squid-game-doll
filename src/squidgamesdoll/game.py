@@ -388,11 +388,11 @@ class SquidGame:
 
             if self.game_state == SquidGame.GAMEOVER:
                 text = self.FONT_FINE.render("GAME OVER! No vincitori...", True, self.WHITE)
-                screen.blit(text, (self.WIDTH // 2 - 400, self.HEIGHT - 250))
+                screen.blit(text, (self.WIDTH // 2 - 400, self.HEIGHT - 350))
 
             if self.game_state == SquidGame.VICTORY:
                 text = self.FONT_FINE.render("VICTORY!", True, self.DARK_GREEN)
-                screen.blit(text, (self.WIDTH // 2 - 400, self.HEIGHT - 250))
+                screen.blit(text, (self.WIDTH // 2 - 400, self.HEIGHT - 350))
 
             pygame.display.flip()
             # Limit the frame rate

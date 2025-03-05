@@ -2,11 +2,10 @@ import cv2
 from ultralytics import YOLO
 from Player import Player
 import torch
-import torch_directml
 
 
 class PlayerTracker:
-    def __init__(self, model_path: str = "yolov8s.pt") -> None:
+    def __init__(self, model_path: str = "yolov8m.pt") -> None:
         """
         Initialize the PlayerTracker with the given YOLO model.
 

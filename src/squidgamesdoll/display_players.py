@@ -51,9 +51,9 @@ class GameScreen:
     def display_won(self, surface: pygame.Surface, amount: int, font: pygame.font):
         pig_img = pygame.image.load(GameScreen.ROOT + "/media/pig.png")
         amount = f"₩ {amount:,}"
-        text = font.render(amount, True, (255, 255, 255))
+        text = font.render(amount, True, (255, 215, 0))
         pos = (0, surface.get_height() - 150)
-        text_pos = (pig_img.get_width() + 50, surface.get_height() - pig_img.get_height() / 2)
+        text_pos = (pig_img.get_width() + 50, surface.get_height() - pig_img.get_height())
         surface.blit(pig_img, pos)
         surface.blit(text, text_pos)
 
