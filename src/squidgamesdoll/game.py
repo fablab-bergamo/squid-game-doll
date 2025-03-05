@@ -5,7 +5,7 @@ import numpy as np
 import random
 import time
 import os
-from display_players import display_players, load_player_image
+from display_players import GameScreen
 from players_tracker import PlayerTracker, Player
 from face_extractor import FaceExtractor
 from camera import Camera
@@ -46,12 +46,12 @@ class SquidGame:
 
     def __init__(self) -> None:
         pygame.init()
-        # Constants
-        self.FONT: pygame.font.Font = pygame.font.Font(None, 36)
-        self.FONT_FINE: pygame.font.Font = pygame.font.Font(None, 85)
 
-        # Colors and File Paths
         self.ROOT: str = os.path.dirname(__file__)
+
+        self.FONT: pygame.font.Font = pygame.font.Font(self.ROOT + "/media/SpaceGrotesk-Regular.ttf", 36)
+        self.FONT_FINE: pygame.font.Font = pygame.font.Font(self.ROOT + "/media/SpaceGrotesk-Regular.ttf", 85)
+
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
         self.tracker: PlayerTracker = None  # Initialize later
@@ -65,6 +65,7 @@ class SquidGame:
         self.game_state: str = self.INIT
         self.last_switch_time: float = time.time()
         self.delay_s: int = random.randint(2, 5)
+        self.game_screen = GameScreen()
 
     def draw_overlay(self, screen: pygame.Surface, game_state: str) -> None:
         """Display game status.
@@ -84,7 +85,9 @@ class SquidGame:
         for player in players:
             img = player.get_image()
             if img is None:
-                img = load_player_image(os.path.join(os.path.dirname(__file__), "media/sample_player.jpg"))
+                img = self.game_screen.load_player_image(
+                    os.path.join(os.path.dirname(__file__), "media/sample_player.jpg")
+                )
             risultato.append(
                 {
                     "number": cpt,
@@ -100,7 +103,7 @@ class SquidGame:
     def draw_light(self, screen: pygame.Surface, green_light: bool) -> None:
         # Draw the light in the bottom part of the screen
         position: tuple[int, int] = (self.WIDTH // 4, self.HEIGHT // 4 * 3)
-        radius: int = min(self.WIDTH // 4, self.HEIGHT // 4) - 4
+        radius: int = min(self.WIDTH // 8, self.HEIGHT // 8) - 4
         if green_light:
             pygame.draw.circle(screen, self.GREEN, position, radius)
         else:
@@ -295,6 +298,7 @@ class SquidGame:
                     ret, frame = cap.read()
                     if not ret:
                         break
+                    screen.blit(frame_surface, (0, 0))
                     self.players = self.tracker.process_frame(frame)
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
@@ -341,6 +345,10 @@ class SquidGame:
                     self.players,
                     add_previous_pos=True,
                 )
+
+                # Add red / green light
+                self.draw_light(screen, green_light)
+
             elif self.game_state in [SquidGame.GAMEOVER, SquidGame.VICTORY]:
                 # Restart after 10 seconds
                 if time.time() - self.last_switch_time > 20:
@@ -361,23 +369,24 @@ class SquidGame:
 
             # display players on a new surface on the half right of the screen
             players_surface: pygame.Surface = pygame.Surface((self.WIDTH // 2, self.HEIGHT))
-            display_players(players_surface, self.convert_player_list(self.players), SquidGame.SALMON)
+            self.game_screen.display_players(players_surface, self.convert_player_list(self.players), SquidGame.SALMON)
+
+            won = sum([100_000_000 for p in self.players if p.is_eliminated()])
+            self.game_screen.display_won(screen, won, self.FONT_FINE)
 
             # Show webcam feed
             screen.blit(frame_surface, (0, 0))
             # Show players screen
             screen.blit(players_surface, (self.WIDTH // 2, 0))
             self.draw_button(screen)
-            # Add game status
-            self.draw_light(screen, green_light)
 
             if self.game_state == SquidGame.GAMEOVER:
-                text = self.FONT_FINE.render("GAME OVER! No vincitori...", True, (255, 0, 0))
-                screen.blit(text, (self.WIDTH // 2 - 300, self.HEIGHT - 250))
+                text = self.FONT_FINE.render("GAME OVER! No vincitori...", True, self.WHITE)
+                screen.blit(text, (self.WIDTH // 2 - 400, self.HEIGHT - 250))
 
             if self.game_state == SquidGame.VICTORY:
-                text = self.FONT_FINE.render("VICTORY!", True, (0, 255, 0))
-                screen.blit(text, (self.WIDTH // 2 - 200, self.HEIGHT - 250))
+                text = self.FONT_FINE.render("VICTORY!", True, self.DARK_GREEN)
+                screen.blit(text, (self.WIDTH // 2 - 400, self.HEIGHT - 250))
 
             pygame.display.flip()
             # Limit the frame rate
