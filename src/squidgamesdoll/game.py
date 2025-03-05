@@ -182,6 +182,8 @@ class SquidGame:
         logo_img = pygame.transform.scale(logo_img, (400, 200))  # Adjust size as needed
         logo_img.set_colorkey((0, 0, 0))
 
+        click_img = pygame.image.load(self.ROOT + "/media/mouse_click.gif")
+
         # Animation parameters
         logo_x = (self.WIDTH - logo_img.get_width()) // 2
         logo_y = self.HEIGHT - logo_img.get_height()
@@ -216,6 +218,8 @@ class SquidGame:
 
             logo_img.set_alpha(alpha)
             screen.blit(logo_img, (logo_x, logo_y))
+
+            screen.blit(click_img, (self.WIDTH - click_img.get_width(), self.HEIGHT - click_img.get_height()))
 
             pygame.display.flip()
             pygame.time.wait(50)
