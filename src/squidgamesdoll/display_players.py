@@ -5,9 +5,9 @@ from PIL import Image
 
 
 # Constants
-GREEN = (0, 255, 0)
+GREEN = (0, 220, 0, 80)
 FADE_COLOR = (80, 80, 80, 80)
-RED = (180, 0, 0, 80)
+RED = (200, 0, 0, 80)
 PLAYER_SIZE = 200  # Size of each player tile
 
 
@@ -114,12 +114,9 @@ def display_players(screen: pygame.Surface, players: list = None, background: tu
         img = mask_diamond(img)
 
         # Apply red tint
-        red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
-        red_overlay.fill(RED)
-        img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_MULT)
-
-        if not player["active"]:
-            img.fill(FADE_COLOR, special_flags=pygame.BLEND_MULT)
+        overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+        overlay.fill(GREEN if player["active"] else RED)
+        img.blit(overlay, (0, 0), special_flags=pygame.BLEND_MULT)
 
         screen.blit(img, (x, y))
 

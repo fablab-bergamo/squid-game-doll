@@ -1,10 +1,12 @@
 import cv2
 from ultralytics import YOLO
 from Player import Player
+import torch
+import torch_directml
 
 
 class PlayerTracker:
-    def __init__(self, model_path: str = "yolov8m.pt") -> None:
+    def __init__(self, model_path: str = "yolov8s.pt") -> None:
         """
         Initialize the PlayerTracker with the given YOLO model.
 
@@ -12,9 +14,12 @@ class PlayerTracker:
             model_path (str): Path to the YOLO model.
             movement_threshold (int): Pixels of movement to be considered "moving".
         """
-        self.yolo: YOLO = YOLO(model_path)
+        self.yolo: YOLO = YOLO(model_path, verbose=True)
         # Run the model on the Nvidia GPU
-        self.yolo.to("cuda")
+        if torch.cuda.is_available():
+            self.yolo.to("cuda")
+
+        print(f"YOLOv8 running on {self.yolo.device}")
         self.confidence: float = 0.5
         self.previous_result: list[Player] = []
 
@@ -31,7 +36,7 @@ class PlayerTracker:
         """
 
         # Resize the frame to match YOLO's expected input size
-        frame = cv2.resize(frame, target_size)
+        frame = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
 
         # Apply Gaussian Blur to reduce noise
         frame = cv2.GaussianBlur(frame, (5, 5), 0)
@@ -62,8 +67,10 @@ class PlayerTracker:
         """
         try:
             # Preprocess the frame for improved YOLO detection
-            yolo_frame = self.__preprocess_frame(frame)
-            results = self.yolo.track(yolo_frame, persist=True, stream=False, classes=[0])
+            h, w = frame.shape[:2]
+            target_size = (640, int(640 / (w / h)))
+            yolo_frame = self.__preprocess_frame(frame, target_size)
+            results = self.yolo.track(yolo_frame, persist=True, stream=True, classes=[0])
         except Exception as e:
             print("Error:", e)
             return self.previous_result
