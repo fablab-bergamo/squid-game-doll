@@ -161,6 +161,12 @@ class SquidGame:
                 face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
                 if face is not None:
                     p.set_face(face)
+            if p is not None and not p.eliminated and new_p.eliminated:
+                # Update face on elimination
+                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
+                if face is not None:
+                    p.set_face(face)
+
             # Update player position, or create a new player
             if p is not None:
                 p.set_coords(new_p.get_coords())
@@ -399,7 +405,7 @@ class SquidGame:
         """
         # Initialize screen
         screen: pygame.Surface = pygame.display.set_mode((self.WIDTH, self.HEIGHT), pygame.RESIZABLE)
-        pygame.display.set_caption("Squid Game - Green Light Red Light")
+        pygame.display.set_caption("Squid Games - Green Light, Red Light")
 
         self.loading_screen(screen)
 
