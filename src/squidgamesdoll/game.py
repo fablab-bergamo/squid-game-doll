@@ -66,6 +66,7 @@ class SquidGame:
         self.last_switch_time: float = time.time()
         self.delay_s: int = random.randint(2, 5)
         self.game_screen = GameScreen()
+        self.cap: cv2.VideoCapture = None  # Initialize later
 
     def draw_overlay(self, screen: pygame.Surface, game_state: str) -> None:
         """Display game status.
@@ -174,11 +175,25 @@ class SquidGame:
                 players.append(new_p)
         return players
 
-    def load_model(self):
+    def load_model(self, webcam_idx: int):
         self.tracker = PlayerTracker()
         self.face_extractor = FaceExtractor()
+        # Use DSHOW on Windows to avoid slow startup
+        self.cap: cv2.VideoCapture = cv2.VideoCapture(webcam_idx, cv2.CAP_DSHOW)
 
-    def loading_screen(self, screen: pygame.Surface) -> None:
+        # Configure webcam stream settings
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+        self.cap.set(cv2.CAP_PROP_FPS, 15.0)
+
+        ret, _ = self.cap.read()
+        while not ret:
+            ret, _ = self.cap.read()
+            time.sleep(0.1)
+        print("load_model complete")
+
+    def loading_screen(self, screen: pygame.Surface, webcam_idx: int) -> None:
         # Load sounds
         intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(self.ROOT + "/media/mingle.mp3")
 
@@ -201,7 +216,7 @@ class SquidGame:
 
         intro_sound.play(loops=-1)
 
-        t: Thread = Thread(target=self.load_model)
+        t: Thread = Thread(target=self.load_model, args=[webcam_idx])
         t.start()
 
         running = True
@@ -228,7 +243,8 @@ class SquidGame:
             logo_img.set_alpha(alpha)
             screen.blit(logo_img, (logo_x, logo_y))
 
-            screen.blit(click_img, (self.WIDTH - click_img.get_width(), self.HEIGHT - click_img.get_height()))
+            if not t.is_alive():
+                screen.blit(click_img, (self.WIDTH - click_img.get_width(), self.HEIGHT - click_img.get_height()))
 
             pygame.display.flip()
             pygame.time.wait(50)
@@ -275,7 +291,7 @@ class SquidGame:
         while running:
             screen.fill(SquidGame.SALMON)
 
-            ret, frame = cap.read()
+            ret, frame = self.cap.read()
             if not ret:
                 break
 
@@ -301,7 +317,7 @@ class SquidGame:
                 pygame.display.flip()
 
                 while len(self.players) < 1:
-                    ret, frame = cap.read()
+                    ret, frame = self.cap.read()
                     if not ret:
                         break
                     screen.blit(frame_surface, (0, 0))
@@ -407,16 +423,7 @@ class SquidGame:
         screen: pygame.Surface = pygame.display.set_mode((self.WIDTH, self.HEIGHT), pygame.RESIZABLE)
         pygame.display.set_caption("Squid Games - Green Light, Red Light")
 
-        self.loading_screen(screen)
-
-        # Use DSHOW on Windows to avoid slow startup
-        cap: cv2.VideoCapture = cv2.VideoCapture(webcam_idx, cv2.CAP_DSHOW)
-
-        # Configure webcam stream settings
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
-        cap.set(cv2.CAP_PROP_FPS, 15.0)
+        self.loading_screen(screen, webcam_idx)
 
         self.game_state = SquidGame.INIT
         self.players = []  # Reset players list
@@ -425,7 +432,7 @@ class SquidGame:
         self.last_switch_time = time.time()
 
         # Compute aspect ratio and view port for webcam
-        ret, frame = cap.read()
+        ret, frame = self.cap.read()
         if not ret:
             print("Error: Cannot read from webcam")
             return
@@ -442,10 +449,10 @@ class SquidGame:
             f"Window: {self.WIDTH}x{self.HEIGHT}, View port={view_port[1]}x{view_port[0]}"
         )
 
-        self.game_main_loop(cap, screen, view_port, x_ratio, y_ratio)
+        self.game_main_loop(self.cap, screen, view_port, x_ratio, y_ratio)
 
         # Cleanup
-        cap.release()
+        self.cap.release()
 
 
 if __name__ == "__main__":
