@@ -10,6 +10,7 @@ from players_tracker import PlayerTracker, Player
 from face_extractor import FaceExtractor
 from camera import Camera
 import constants
+from LaserShooter import LaserShooter
 
 
 class SquidGame:
@@ -31,6 +32,7 @@ class SquidGame:
         self.delay_s: int = random.randint(2, 5)
         self.game_screen = GameScreen()
         self.cap: cv2.VideoCapture = None  # Initialize later
+        self.shooter: LaserShooter = LaserShooter(constants.ESP32_IP)
 
     def merge_players_lists(
         self, webcam_frame: cv2.UMat, players: list[Player], new_players: list[Player]
@@ -174,7 +176,7 @@ class SquidGame:
             # Game Logic
             if self.game_state == constants.INIT:
                 self.players = self.tracker.process_frame(frame)
-                self.game_screen.update_screen(screen, frame, self.game_state, self.players)
+                self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
 
                 while len(self.players) < 1:
                     ret, frame = self.cap.read()
@@ -182,7 +184,7 @@ class SquidGame:
                         break
 
                     self.players = self.tracker.process_frame(frame)
-                    self.game_screen.update_screen(screen, frame, self.game_state, self.players)
+                    self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
 
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
@@ -239,7 +241,7 @@ class SquidGame:
                 self.game_state = constants.GAMEOVER
                 self.last_switch_time = time.time()
 
-            self.game_screen.update_screen(screen, frame, self.game_state, self.players)
+            self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
 
             pygame.display.flip()
             # Limit the frame rate

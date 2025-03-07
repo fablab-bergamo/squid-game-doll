@@ -6,7 +6,7 @@ from simple_pid import PID
 import ast
 
 
-class TrackerControl:
+class LaserShooter:
 
     def __init__(self, ipaddress: str, deadband_px: int = 10, max_frequency_hz: int = 10):
         """

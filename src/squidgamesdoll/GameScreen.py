@@ -6,7 +6,7 @@ import cv2
 from img_processing import opencv_to_pygame
 from Player import Player
 import constants
-
+from LaserShooter import LaserShooter
 
 BUTTON_COLOR: tuple[int, int, int] = (255, 0, 0)  # Red like Squid Game theme
 BUTTON_HOVER_COLOR: tuple[int, int, int] = (200, 0, 0)
@@ -37,6 +37,7 @@ class GameScreen:
         webcam_frame: cv2.UMat,
         game_state: str,
         players: list[Player],
+        shooter: LaserShooter,
     ) -> None:
 
         # Convert OpenCV BGR to RGB for PyGame
@@ -71,6 +72,13 @@ class GameScreen:
         if game_state == constants.INIT:
             text = self._font_big.render("Waiting for players...", True, constants.RED)
             screen.blit(text, (constants.WIDTH // 2 - 100, constants.HEIGHT // 2))
+
+        img: pygame.Surface = pygame.image.load(constants.ROOT + "/media/shooter_off.png")
+        if shooter.isOnline():
+            img = pygame.image.load(constants.ROOT + "/media/shooter.png")
+
+        # Add shooter icon depending on ESP32 status
+        screen.blit(img, (constants.WIDTH - img.get_width(), 0))
 
         pygame.display.flip()
 

@@ -28,3 +28,4 @@ GAMEOVER: str = "GAME OVER"
 
 # Various
 ROOT = os.path.dirname(__file__)
+ESP32_IP = "127.0.0.1"
