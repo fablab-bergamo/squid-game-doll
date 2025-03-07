@@ -1,12 +1,12 @@
-from .laser_finder import LaserFinder
-from .tracker import TrackerControl
-from .camera import Camera
+from LaserFinder import LaserFinder
+from LaserShooter import LaserShooter
+from Camera import Camera
 import cv2
 from time import sleep
 
 
 class Calibrator:
-    def __init__(self, camera: Camera, finder: LaserFinder, tracker: TrackerControl):
+    def __init__(self, camera: Camera, finder: LaserFinder, tracker: LaserShooter):
         self.finder = finder
         self.tracker = tracker
         self.cam = camera

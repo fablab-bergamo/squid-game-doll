@@ -10,7 +10,7 @@ class LaserShooter:
 
     def __init__(self, ipaddress: str, deadband_px: int = 10, max_frequency_hz: int = 10):
         """
-        Initializes the TrackerControl object with the given IP address, deadband, and maximum frequency.
+        Initializes the LaserShooter object with the given IP address, deadband, and maximum frequency.
 
         Parameters:
         ipaddress (str): The IP address of the ESP32.
@@ -86,7 +86,7 @@ class LaserShooter:
 
     def isOnline(self) -> bool:
         """
-        Checks if the TrackerControl is online.
+        Checks if the LaserShooter is online.
 
         Returns:
         bool: True if online, False otherwise.

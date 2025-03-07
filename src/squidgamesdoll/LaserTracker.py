@@ -1,7 +1,7 @@
 from LaserShooter import LaserShooter
 import cv2
 from threading import Thread
-from laser_finder import LaserFinder
+from LaserFinder import LaserFinder
 
 
 class LaserTracker:

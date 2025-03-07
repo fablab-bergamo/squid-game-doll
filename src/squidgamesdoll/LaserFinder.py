@@ -1,11 +1,11 @@
 from typing import Callable
 import cv2
 
-from squidgamesdoll import DEBUG_LASER_FIND
-from squidgamesdoll.gradient_search import test_gradient
-from squidgamesdoll.motion_pattern import motion_pattern_analysis
-from squidgamesdoll.display import add_exclusion_rectangles
-from .imgprocessing import brightness
+from . import DEBUG_LASER_FIND
+from drafts.gradient_search import test_gradient
+from drafts.motion_pattern import motion_pattern_analysis
+from display import add_exclusion_rectangles
+from img_processing import brightness
 
 
 # source tbc https://stackoverflow.com/questions/9860667/writing-robust-color-and-size-invariant-circle-detection-with-opencv-based-on

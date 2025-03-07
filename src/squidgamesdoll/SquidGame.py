@@ -6,9 +6,9 @@ import random
 import time
 import os
 from GameScreen import GameScreen
-from players_tracker import PlayerTracker, Player
-from face_extractor import FaceExtractor
-from camera import Camera
+from PlayerTracker import PlayerTracker, Player
+from FaceExtractor import FaceExtractor
+from Camera import Camera
 import constants
 from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker

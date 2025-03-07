@@ -1,5 +1,6 @@
 import mediapipe as mp
 import cv2
+import constants
 
 
 class FaceExtractor:
@@ -41,7 +42,7 @@ class FaceExtractor:
                 fx, fy, fw, fh = int(fx * w), int(fy * h), int(fw * w), int(fh * h)
 
                 # **Increase space around the face**
-                margin = 0.3  # 20% margin
+                margin = 0.3  # 30% margin
                 extra_w = int(fw * margin)
                 extra_h = int(fh * margin)
 
@@ -54,7 +55,9 @@ class FaceExtractor:
                 # Extract expanded face region
                 face_crop = person_crop[y_start:y_end, x_start:x_end]
 
-                face_crop = cv2.resize(face_crop, (250, 250), interpolation=cv2.INTER_AREA)  # Resize
+                face_crop = cv2.resize(
+                    face_crop, (constants.PLAYER_SIZE, constants.PLAYER_SIZE), interpolation=cv2.INTER_AREA
+                )  # Resize
 
                 # **Enhance contrast**
                 alpha = 1.8  # Contrast factor (adjustable)
