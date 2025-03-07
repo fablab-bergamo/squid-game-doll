@@ -109,14 +109,18 @@ import cv2
 
 Using pygame as rendering engine see game.py
 
+![image](https://github.com/user-attachments/assets/4f3aed2e-ce2e-4f75-a8dc-2d508aff0b47)
+
+
 ### Player detection
 
-* YOLO v8 medium with tracking see players_tracker.py
-* YOLO returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold. 
+* YOLO v8 medium with tracking see players_tracker.py. Performance w/ CUDA RTX2060 30fps, on AMD CPU 3fps.
+* YOLO returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold around 10 px.
 
 ### Face detection
 
 * mediapipe / FaceDetection see face_extractor.py
+* Used to create the player tiles on the left part of the screen
 
 ## How to install
 
@@ -150,3 +154,7 @@ snakeviz .\game.prof
 * Speed of laser pointing
 * Python packaging
 * Speed of YOLOv8-m (around 300 ms per frame on PC)
+
+### Hardware
+
+* RaspberryPi 5 with AI KIT or Jetson Orin Nano 
