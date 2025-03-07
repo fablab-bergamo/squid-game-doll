@@ -17,7 +17,7 @@ class TrackerControl:
         deadband_px (int): The deadband in pixels.
         max_frequency_hz (int): The maximum frequency in Hz.
         """
-        self.is_online = False
+        self._is_online = False
         self.ip_address = ipaddress
         self.port = 15555
         self.aliensocket = None
@@ -78,7 +78,7 @@ class TrackerControl:
         Returns:
         bool: True if online, False otherwise.
         """
-        return self.is_online
+        return self._is_online
 
     def track_target(self, laser: tuple, target: tuple) -> float:
         """
@@ -213,7 +213,7 @@ class TrackerControl:
             self.aliensocket.sendall(data)
             response = self.aliensocket.recv(128)
             print(f"<-- {response}")
-            self.is_online = True
+            self._is_online = True
             return ast.literal_eval(response.decode("utf-8"))
         except Exception as e:
             print(f"get_angles: failure to contact ESP32: {e}")
@@ -222,7 +222,7 @@ class TrackerControl:
             except:
                 pass
             self.aliensocket = None
-            self.is_online = False
+            self._is_online = False
             return None
 
     def get_limits(self) -> tuple:
@@ -240,7 +240,7 @@ class TrackerControl:
             self.aliensocket.sendall(data)
             response = self.aliensocket.recv(64)
             print(f"<-- {response}")
-            self.is_online = True
+            self._is_online = True
             retval = ast.literal_eval(response.decode("utf-8"))
             print(f"get_limits={retval}")
             return retval
@@ -251,7 +251,7 @@ class TrackerControl:
             except:
                 pass
             self.aliensocket = None
-            self.is_online = False
+            self._is_online = False
             return None
 
     def __checksocket(self) -> bool:
@@ -268,7 +268,7 @@ class TrackerControl:
                 except:
                     pass
                 self.aliensocket = None
-                self.is_online = False
+                self._is_online = False
                 return False
         return True
 
@@ -299,10 +299,10 @@ class TrackerControl:
             print("send_angles: failure to contact ESP32")
             self.aliensocket.close()
             self.aliensocket = None
-            self.is_online = False
+            self._is_online = False
             return False
 
-        self.is_online = True
+        self._is_online = True
         return True
 
     def send_instructions(
