@@ -71,6 +71,19 @@ class LaserShooter:
         print("PID init failure")
         return False
 
+    def set_laser(self, on_or_off: bool) -> bool:
+        if not self.isOnline():
+            return False
+        if on_or_off:
+            return self._send_msg("ON")
+        return self._send_msg("OFF")
+
+    def rotate_head(self, green_light: bool) -> bool:
+        if green_light:
+            return self._send_msg("GREEN")
+
+        return self._send_msg("RED")
+
     def isOnline(self) -> bool:
         """
         Checks if the TrackerControl is online.
@@ -270,6 +283,27 @@ class LaserShooter:
                 self.aliensocket = None
                 self._is_online = False
                 return False
+        return True
+
+    def _send_msg(self, message: str) -> bool:
+        print(f"send_msg: message={message}")
+
+        if not self.__checksocket():
+            return False
+
+        data = bytes(str(message), "utf-8")
+        try:
+            print(f"<-- {data}")
+            self.aliensocket.sendall(data)
+            self.aliensocket.recv(128)
+        except:
+            print("send_msg: failure to contact ESP32")
+            self.aliensocket.close()
+            self.aliensocket = None
+            self._is_online = False
+            return False
+
+        self._is_online = True
         return True
 
     def send_angles(self, angles: tuple) -> bool:

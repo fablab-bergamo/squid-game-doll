@@ -13,6 +13,11 @@ class Player:
         self.last_position = coords
         self.eliminated = False
 
+    def get_target(self) -> tuple[int, int]:
+        rect = self.get_rect()
+        """ Target = Half the width, one third height """
+        return (rect[0] + rect[2] / 2, rect[1] + rect[3] / 3)
+
     def set_eliminated(self, eliminated: bool):
         self.eliminated = eliminated
 

@@ -11,6 +11,7 @@ from face_extractor import FaceExtractor
 from camera import Camera
 import constants
 from LaserShooter import LaserShooter
+from LaserTracker import LaserTracker
 
 
 class SquidGame:
@@ -33,6 +34,7 @@ class SquidGame:
         self.game_screen = GameScreen()
         self.cap: cv2.VideoCapture = None  # Initialize later
         self.shooter: LaserShooter = LaserShooter(constants.ESP32_IP)
+        self.laser_tracker: LaserTracker = LaserTracker(self.shooter)
 
     def merge_players_lists(
         self, webcam_frame: cv2.UMat, players: list[Player], new_players: list[Player]
@@ -199,17 +201,19 @@ class SquidGame:
                 # Switch phase randomly (1-5 seconds)
                 if time.time() - self.last_switch_time > self.delay_s:
                     green_light = not green_light
+                    self.shooter.rotate_head(green_light)
                     self.last_switch_time = time.time()
                     self.game_state = constants.GREEN_LIGHT if green_light else constants.RED_LIGHT
                     (self.red_sound if green_light else self.green_sound).stop()
                     (self.green_sound if green_light else self.red_sound).play()
                     self.delay_s = random.randint(2, 10) / 2
 
-                # New player positions (simulating new detections)
+                # New player positions
                 self.players = self.merge_players_lists(frame, self.players, self.tracker.process_frame(frame))
 
                 # Update last position while the green light is on
                 if self.game_state == constants.GREEN_LIGHT:
+                    self.shooter.set_laser(False)
                     for player in self.players:
                         player.set_last_position(player.get_coords())
 
@@ -220,6 +224,16 @@ class SquidGame:
                 ):
                     for player in self.players:
                         if player.has_moved() and not player.is_eliminated():
+                            self.laser_tracker.target = player.get_target()
+                            self.laser_tracker.start()
+                            start_time = time.time()
+                            KILL_DELAY_S: int = 5
+                            while (time.time() - start_time < KILL_DELAY_S) and not self.laser_tracker.shot_complete():
+                                ret, frame = self.cap.read()
+                                if ret:
+                                    self.laser_tracker.update_frame(frame)
+                                clock.tick(frame_rate)
+                            self.laser_tracker.stop()
                             player.set_eliminated(True)
                             self.eliminate_sound.play()
 
