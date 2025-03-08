@@ -13,7 +13,7 @@ class PlayerTracker:
             model_path (str): Path to the YOLO model.
             movement_threshold (int): Pixels of movement to be considered "moving".
         """
-        self.yolo: YOLO = YOLO(model_path, verbose=True)
+        self.yolo: YOLO = YOLO(model_path, verbose=False)
         # Run the model on the Nvidia GPU
         if torch.cuda.is_available():
             self.yolo.to("cuda")

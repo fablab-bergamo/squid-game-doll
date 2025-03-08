@@ -1,8 +1,8 @@
 import os
 
 # Screen Dimensions
-WIDTH: int = 1600
-HEIGHT: int = 1200
+WIDTH: int = int(1920 * 0.75)
+HEIGHT: int = int(1080 * 0.75)
 
 # Color constants
 GREEN: tuple[int, int, int] = (0, 255, 0)
@@ -28,4 +28,4 @@ GAMEOVER: str = "GAME OVER"
 
 # Various
 ROOT = os.path.dirname(__file__)
-ESP32_IP = "127.0.0.1"
+ESP32_IP = "192.168.45.90"

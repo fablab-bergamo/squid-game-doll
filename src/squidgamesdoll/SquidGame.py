@@ -337,7 +337,7 @@ if __name__ == "__main__":
     # Disable hardware acceleration for webcam on Windows
     os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
-    game = SquidGame(disable_tracker=True)
+    game = SquidGame(disable_tracker=False)
     index: int = Camera.getCameraIndex()
     if index == -1:
         print("No compatible webcam found")
