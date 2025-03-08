@@ -1,11 +1,12 @@
 from typing import Callable
 import cv2
 
-from . import DEBUG_LASER_FIND
-from drafts.gradient_search import test_gradient
-from drafts.motion_pattern import motion_pattern_analysis
+# from drafts.gradient_search import test_gradient
+# from drafts.motion_pattern import motion_pattern_analysis
 from display import add_exclusion_rectangles
 from img_processing import brightness
+
+DEBUG_LASER_FIND = False
 
 
 # source tbc https://stackoverflow.com/questions/9860667/writing-robust-color-and-size-invariant-circle-detection-with-opencv-based-on
@@ -205,6 +206,7 @@ class LaserFinder:
 
         return circles[0, :]
 
+    """
     def search_by_modified_gradiant(self, channel: cv2.UMat) -> list:
 
         circles = test_gradient(channel)
@@ -237,6 +239,7 @@ class LaserFinder:
             return []
 
         return best_candidate["position"]
+    """
 
     def search_by_contours(self, channel: cv2.UMat) -> list:
         max_radius = 20

@@ -74,7 +74,7 @@ class GameScreen:
             screen.blit(text, (constants.WIDTH // 2 - 100, constants.HEIGHT // 2))
 
         img: pygame.Surface = pygame.image.load(constants.ROOT + "/media/shooter_off.png")
-        if shooter.isOnline():
+        if shooter is not None and shooter.isOnline():
             img = pygame.image.load(constants.ROOT + "/media/shooter.png")
 
         # Add shooter icon depending on ESP32 status
@@ -214,20 +214,6 @@ class GameScreen:
 
         return masked_image
 
-    def fake_players(self) -> list:
-        # Generate players list (maximum 10 players)
-        players = []
-        for num in range(1, 16):
-            players.append(
-                {
-                    "number": num,
-                    "active": random.choice([True, False]),
-                    "image": self.load_player_image(constants.ROOT + "/media/sample_player.jpg"),
-                    "rectangle": (0, 0, 0, 0),
-                }
-            )
-        return players
-
     def convert_player_list(self, players: list[Player]) -> list[dict]:
         # Creiamo un dizionario per mantenere giocatori unici con il loro stato
         risultato: list[dict] = []
@@ -236,14 +222,15 @@ class GameScreen:
         for player in players:
             img = player.get_image()
             if img is None:
-                img = self.load_player_image(os.path.join(os.path.dirname(__file__), "media/sample_player.jpg"))
+                img = self.load_player_image(constants.ROOT + "/media/sample_player.jpg")
             risultato.append(
                 {
                     "number": cpt,
                     "active": not player.is_eliminated(),
                     "image": img,
                     "rectangle": player.get_rect(),
-                    "id": player.id,
+                    "id": player.get_id(),
+                    "visible": player.is_visible(),
                 }
             )
             cpt += 1
@@ -274,7 +261,7 @@ class GameScreen:
 
         num = sum(1 for player in players if player["active"])
 
-        text = self._font_small.render(f"{num} Giocatori", True, constants.GREEN)
+        text = self._font_small.render(f"{num} Giocator{'e' if num <= 1 else 'i'}", True, constants.GREEN)
         screen.blit(text, (screen.get_width() // 2 - 100, 0))
 
         for i, player in enumerate(players):
@@ -297,10 +284,15 @@ class GameScreen:
             if not player["active"]:
                 img.fill(constants.FADE_COLOR, special_flags=pygame.BLEND_MULT)
 
+            # Color number according to player status
             screen.blit(img, (x, y))
+            color = constants.YELLOW
+            if player["visible"]:
+                if player["active"]:
+                    color = constants.DARK_GREEN
+                else:
+                    color = constants.RED
 
-            text = self._font_small.render(
-                str(player["number"]), True, constants.GREEN if player["active"] else constants.RED
-            )
+            text = self._font_small.render(str(player["number"]), True, color)
             text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.7))
             screen.blit(text, text_rect.topleft)

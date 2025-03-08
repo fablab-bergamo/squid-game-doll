@@ -7,11 +7,21 @@ class Player:
     MOVEMENT_THRESHOLD_PX = 15
 
     def __init__(self, id: int, coords: tuple):
-        self.id = id
-        self.coords = coords
-        self.face = None
-        self.last_position = coords
-        self.eliminated = False
+        self._id = id
+        self._coords = coords
+        self._face = None
+        self._last_position = coords
+        self._eliminated = False
+        self._visible = False
+
+    def get_id(self) -> int:
+        return self._id
+
+    def set_visible(self, visible: bool) -> None:
+        self._visible = visible
+
+    def is_visible(self) -> bool:
+        return self._visible
 
     def get_target(self) -> tuple[int, int]:
         rect = self.get_rect()
@@ -19,46 +29,46 @@ class Player:
         return (rect[0] + rect[2] / 2, rect[1] + rect[3] / 3)
 
     def set_eliminated(self, eliminated: bool):
-        self.eliminated = eliminated
+        self._eliminated = eliminated
 
     def is_eliminated(self) -> bool:
-        return self.eliminated
+        return self._eliminated
 
     def set_last_position(self, position: tuple):
-        self.last_position = position
+        self._last_position = position
 
     def get_last_position(self) -> tuple:
-        return self.last_position
+        return self._last_position
 
     def set_face(self, face: cv2.UMat):
         """Saves the face image of the player"""
-        self.face = face
+        self._face = face
 
     def get_face(self) -> cv2.UMat:
         """Returns the face image of the player"""
-        return self.face
+        return self._face
 
     def get_image(self) -> pygame.image:
-        if self.face is None:
+        if self._face is None:
             return None
-        return pygame.image.frombuffer(self.face.tostring(), self.face.shape[1::-1], "BGR")
+        return pygame.image.frombuffer(self._face.tostring(), self._face.shape[1::-1], "BGR")
 
     def set_rect(self, rect: tuple):
         """Sets the bounding box rectangle in (x, y, w, h) format
         Note: coordinates are relative to the webcam frame in original dimensions"""
-        self.coords = (rect[0], rect[1], rect[2] + rect[0], rect[3] + rect[1])
+        self._coords = (rect[0], rect[1], rect[2] + rect[0], rect[3] + rect[1])
 
     def get_rect(self):
         """Returns the bounding box rectangle in (x, y, w, h) format
         Note: coordinates are relative to the webcam frame in original dimensions"""
-        return self.get_rect_from_pos(self.coords)
+        return self.get_rect_from_pos(self._coords)
 
     def get_last_rect(self) -> tuple:
         """Returns the bounding box rectangle in (x, y, w, h) format
         Note: coordinates are relative to the webcam frame in original dimensions"""
-        if self.last_position is None:
+        if self._last_position is None:
             return None
-        return self.get_rect_from_pos(self.last_position)
+        return self.get_rect_from_pos(self._last_position)
 
     def get_rect_from_pos(self, pos: tuple) -> tuple:
         """Returns the bounding box rectangle in (x, y, w, h) format
@@ -73,21 +83,21 @@ class Player:
     def get_coords(self):
         """Returns the bounding box coordinates in (x1, y1, x2, y2) format
         Note: coordinates are relative to the webcam frame in original dimensions"""
-        return self.coords
+        return self._coords
 
     def set_coords(self, coords: tuple):
         """Sets the bounding box coordinates in (x1, y1, x2, y2) format
         Note: coordinates are relative to the webcam frame in original dimensions"""
-        self.coords = coords
+        self._coords = coords
 
     def has_moved(self):
         """Returns the movement status of the player"""
-        if self.last_position is None:
-            self.last_position = self.coords
+        if self._last_position is None:
+            self._last_position = self._coords
             return False
 
-        x1, y1, x2, y2 = self.coords
-        prev_x1, prev_y1, prev_x2, prev_y2 = self.last_position
+        x1, y1, x2, y2 = self._coords
+        prev_x1, prev_y1, prev_x2, prev_y2 = self._last_position
 
         # distance between the centers of the two rectangles
         distance = np.linalg.norm(
@@ -100,4 +110,4 @@ class Player:
         return distance > Player.MOVEMENT_THRESHOLD_PX
 
     def __str__(self):
-        return f"Player {self.id} at {self.coords} (moved: {self.has_moved()})"
+        return f"Player {self._id} at {self._coords} (moved: {self.has_moved()})"

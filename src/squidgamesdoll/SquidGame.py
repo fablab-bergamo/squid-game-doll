@@ -8,14 +8,14 @@ import os
 from GameScreen import GameScreen
 from PlayerTracker import PlayerTracker, Player
 from FaceExtractor import FaceExtractor
-from Camera import Camera
+from camera import Camera
 import constants
 from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker
 
 
 class SquidGame:
-    def __init__(self) -> None:
+    def __init__(self, disable_tracker: bool) -> None:
         pygame.init()
 
         self.previous_time: float = time.time()
@@ -33,16 +33,25 @@ class SquidGame:
         self.delay_s: int = random.randint(2, 5)
         self.game_screen = GameScreen()
         self.cap: cv2.VideoCapture = None  # Initialize later
-        self.shooter: LaserShooter = LaserShooter(constants.ESP32_IP)
-        self.laser_tracker: LaserTracker = LaserTracker(self.shooter)
+        self.no_tracker: bool = disable_tracker
+
+        if not self.no_tracker:
+            self.shooter: LaserShooter = LaserShooter(constants.ESP32_IP)
+            self.laser_tracker: LaserTracker = LaserTracker(self.shooter)
 
     def merge_players_lists(
-        self, webcam_frame: cv2.UMat, players: list[Player], new_players: list[Player]
+        self, webcam_frame: cv2.UMat, players: list[Player], new_players: list[Player], allow_registration: bool
     ) -> list[Player]:
         for new_p in new_players:
             # Check if the player is already in the list
-            p = next((p for p in players if p.id == new_p.id), None)
-            # Capture face if player is known
+            p = next((p for p in players if p.get_id() == new_p.get_id()), None)
+
+            if p is not None:
+                p.set_visible(True)
+            else:
+                p.set_visible(False)
+
+            # Capture once face if player is known
             if p is not None and p.get_face() is None:
                 face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
                 if face is not None:
@@ -57,7 +66,8 @@ class SquidGame:
             if p is not None:
                 p.set_coords(new_p.get_coords())
             else:
-                players.append(new_p)
+                if allow_registration:
+                    players.append(new_p)
         return players
 
     def load_model(self, webcam_idx: int):
@@ -177,6 +187,9 @@ class SquidGame:
 
             # Game Logic
             if self.game_state == constants.INIT:
+                self.green_sound.stop()
+                self.red_sound.stop()
+                self.eliminate_sound.stop()
                 self.players = self.tracker.process_frame(frame)
                 self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
 
@@ -185,7 +198,8 @@ class SquidGame:
                     if not ret:
                         break
 
-                    self.players = self.tracker.process_frame(frame)
+                    new_players = self.tracker.process_frame(frame)
+                    self.players = new_players  # No need to merge
                     self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
 
                     for event in pygame.event.get():
@@ -196,12 +210,14 @@ class SquidGame:
 
                 self.game_state = constants.GREEN_LIGHT
                 self.green_sound.play()
+                pygame.time.delay(1000)
 
             elif self.game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
                 # Switch phase randomly (1-5 seconds)
                 if time.time() - self.last_switch_time > self.delay_s:
                     green_light = not green_light
-                    self.shooter.rotate_head(green_light)
+                    if not self.no_tracker:
+                        self.shooter.rotate_head(green_light)
                     self.last_switch_time = time.time()
                     self.game_state = constants.GREEN_LIGHT if green_light else constants.RED_LIGHT
                     (self.red_sound if green_light else self.green_sound).stop()
@@ -209,7 +225,7 @@ class SquidGame:
                     self.delay_s = random.randint(2, 10) / 2
 
                 # New player positions
-                self.players = self.merge_players_lists(frame, self.players, self.tracker.process_frame(frame))
+                self.players = self.merge_players_lists(frame, self.players, self.tracker.process_frame(frame), False)
 
                 # Update last position while the green light is on
                 if self.game_state == constants.GREEN_LIGHT:
@@ -224,16 +240,19 @@ class SquidGame:
                 ):
                     for player in self.players:
                         if player.has_moved() and not player.is_eliminated():
-                            self.laser_tracker.target = player.get_target()
-                            self.laser_tracker.start()
-                            start_time = time.time()
-                            KILL_DELAY_S: int = 5
-                            while (time.time() - start_time < KILL_DELAY_S) and not self.laser_tracker.shot_complete():
-                                ret, frame = self.cap.read()
-                                if ret:
-                                    self.laser_tracker.update_frame(frame)
-                                clock.tick(frame_rate)
-                            self.laser_tracker.stop()
+                            if not self.no_tracker:
+                                self.laser_tracker.target = player.get_target()
+                                self.laser_tracker.start()
+                                start_time = time.time()
+                                KILL_DELAY_S: int = 5
+                                while (
+                                    time.time() - start_time < KILL_DELAY_S
+                                ) and not self.laser_tracker.shot_complete():
+                                    ret, frame = self.cap.read()
+                                    if ret:
+                                        self.laser_tracker.update_frame(frame)
+                                    clock.tick(frame_rate)
+                                self.laser_tracker.stop()
                             player.set_eliminated(True)
                             self.eliminate_sound.play()
 
