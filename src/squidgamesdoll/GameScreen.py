@@ -69,18 +69,12 @@ class GameScreen:
             text = self._font_big.render("VICTORY!", True, constants.DARK_GREEN)
             screen.blit(text, (constants.WIDTH // 2 - 400, constants.HEIGHT - 350))
 
-        if game_state == constants.INIT:
-            text = self._font_big.render("Waiting for players...", True, constants.RED)
-            screen.blit(text, (constants.WIDTH // 2 - 100, constants.HEIGHT // 2))
-
         img: pygame.Surface = pygame.image.load(constants.ROOT + "/media/shooter_off.png")
         if shooter is not None and shooter.isOnline():
             img = pygame.image.load(constants.ROOT + "/media/shooter.png")
 
         # Add shooter icon depending on ESP32 status
         screen.blit(img, (constants.WIDTH - img.get_width(), 0))
-
-        pygame.display.flip()
 
     def draw_light(self, screen: pygame.Surface, green_light: bool) -> None:
         # Draw the light in the bottom part of the screen
@@ -140,7 +134,19 @@ class GameScreen:
             game_state (str): Current game state.
         """
         text = self._font_small.render(f"Phase: {game_state}", True, FONT_COLOR)
-        screen.blit(text, (20, 20))
+        screen.blit(text, (20, screen.get_height() // 2 + 20))
+
+    def draw_text(
+        self,
+        screen: pygame.Surface,
+        text: str,
+        location: tuple[int, int],
+        color: tuple[int, int, int] = FONT_COLOR,
+        size: int = 85,
+    ) -> None:
+        font: pygame.font.Font = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", size)
+        text_surface = font.render(text, True, color)
+        screen.blit(text_surface, location)
 
     def draw_button(self, screen: pygame.Surface) -> None:
         mouse_pos: tuple[int, int] = pygame.mouse.get_pos()

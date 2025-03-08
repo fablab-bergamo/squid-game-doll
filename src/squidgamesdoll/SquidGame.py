@@ -34,29 +34,33 @@ class SquidGame:
         self.game_screen = GameScreen()
         self.cap: cv2.VideoCapture = None  # Initialize later
         self.no_tracker: bool = disable_tracker
+        self.shooter: LaserShooter = None
+        self.laser_tracker: LaserTracker = None
 
         if not self.no_tracker:
-            self.shooter: LaserShooter = LaserShooter(constants.ESP32_IP)
-            self.laser_tracker: LaserTracker = LaserTracker(self.shooter)
+            self.shooter = LaserShooter(constants.ESP32_IP)
+            self.laser_tracker = LaserTracker(self.shooter)
 
     def merge_players_lists(
-        self, webcam_frame: cv2.UMat, players: list[Player], new_players: list[Player], allow_registration: bool
+        self, webcam_frame: cv2.UMat, players: list[Player], visible_players: list[Player], allow_registration: bool
     ) -> list[Player]:
-        for new_p in new_players:
+
+        for p in players:
+            p.set_visible(False)
+
+        for new_p in visible_players:
             # Check if the player is already in the list
             p = next((p for p in players if p.get_id() == new_p.get_id()), None)
 
             if p is not None:
                 p.set_visible(True)
-            else:
-                p.set_visible(False)
 
             # Capture once face if player is known
             if p is not None and p.get_face() is None:
                 face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
                 if face is not None:
                     p.set_face(face)
-            if p is not None and not p.eliminated and new_p.eliminated:
+            if p is not None and not p.is_eliminated() and new_p.is_eliminated():
                 # Update face on elimination
                 face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
                 if face is not None:
@@ -90,7 +94,7 @@ class SquidGame:
 
     def loading_screen(self, screen: pygame.Surface, webcam_idx: int) -> None:
         # Load sounds
-        intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/mingle.mp3")
+        intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
 
         # Add loading screen picture during intro sound
         loading_screen_img = pygame.image.load(constants.ROOT + "/media/loading_screen.webp")
@@ -192,8 +196,10 @@ class SquidGame:
                 self.eliminate_sound.stop()
                 self.players = self.tracker.process_frame(frame)
                 self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
-
-                while len(self.players) < 1:
+                pygame.display.flip()
+                REGISTRATION_DELAY_S: int = 15
+                start_registration = time.time()
+                while time.time() - start_registration < REGISTRATION_DELAY_S:
                     ret, frame = self.cap.read()
                     if not ret:
                         break
@@ -201,16 +207,27 @@ class SquidGame:
                     new_players = self.tracker.process_frame(frame)
                     self.players = new_players  # No need to merge
                     self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
+                    time_remaining = int(REGISTRATION_DELAY_S - time.time() + start_registration)
+                    self.game_screen.draw_text(
+                        screen,
+                        f"{time_remaining}",
+                        (screen.get_width() // 2, screen.get_height() // 2),
+                        constants.WHITE,
+                        200,
+                    )
+                    pygame.display.flip()
 
                     for event in pygame.event.get():
                         if event.type == pygame.QUIT:
                             running = False
                             return
+
                     clock.tick(frame_rate)
 
                 self.game_state = constants.GREEN_LIGHT
                 self.green_sound.play()
                 pygame.time.delay(1000)
+                self.last_switch_time = time.time()
 
             elif self.game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
                 # Switch phase randomly (1-5 seconds)
@@ -229,7 +246,8 @@ class SquidGame:
 
                 # Update last position while the green light is on
                 if self.game_state == constants.GREEN_LIGHT:
-                    self.shooter.set_laser(False)
+                    if not self.no_tracker:
+                        self.shooter.set_laser(False)
                     for player in self.players:
                         player.set_last_position(player.get_coords())
 
@@ -314,7 +332,7 @@ if __name__ == "__main__":
     # Disable hardware acceleration for webcam on Windows
     os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
-    game = SquidGame()
+    game = SquidGame(disable_tracker=True)
     index: int = Camera.getCameraIndex()
     if index == -1:
         print("No compatible webcam found")
