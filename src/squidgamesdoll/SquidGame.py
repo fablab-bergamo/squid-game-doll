@@ -15,7 +15,7 @@ from LaserTracker import LaserTracker
 
 
 class SquidGame:
-    def __init__(self, disable_tracker: bool, desktop_size: tuple[int, int], display_idx: int) -> None:
+    def __init__(self, disable_tracker: bool, desktop_size: tuple[int, int], display_idx: int, ip: str) -> None:
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
         self.tracker: PlayerTracker = None  # Initialize later
@@ -36,10 +36,10 @@ class SquidGame:
         self.laser_tracker: LaserTracker = None
 
         if not self.no_tracker:
-            self.shooter = LaserShooter(constants.ESP32_IP)
+            self.shooter = LaserShooter(ip)
             self.laser_tracker = LaserTracker(self.shooter)
 
-        print(f"SquidGame(res={desktop_size} on #{display_idx}, tracker disabled={disable_tracker})")
+        print(f"SquidGame(res={desktop_size} on #{display_idx}, tracker disabled={disable_tracker}, ip={ip})")
 
     def merge_players_lists(
         self, webcam_frame: cv2.UMat, players: list[Player], visible_players: list[Player], allow_registration: bool
@@ -362,6 +362,24 @@ def command_line_args() -> any:
     parser.add_argument(
         "-w", "--webcam", help="0-based index of the webcam", dest="webcam", type=int, default=-1, required=False
     )
+    parser.add_argument(
+        "-t",
+        "--tracker",
+        help="enable or disable the esp32 laser",
+        dest="tracker",
+        type=bool,
+        default=False,
+        required=False,
+    )
+    parser.add_argument(
+        "-i",
+        "--tracker-ip",
+        help="sets the esp32 tracker IP address",
+        dest="ip",
+        type=str,
+        default="192.168.45.50",
+        required=False,
+    )
     return parser.parse_args()
 
 
@@ -377,7 +395,7 @@ if __name__ == "__main__":
 
     args = command_line_args()
     size, monitor = SquidGame.get_desktop(args.monitor)
-    game = SquidGame(disable_tracker=False, desktop_size=size, display_idx=monitor)
+    game = SquidGame(disable_tracker=not args.tracker, desktop_size=size, display_idx=monitor, ip=args.ip)
     index: int = Camera.getCameraIndex(args.webcam)
     if index == -1:
         print("No compatible webcam found")

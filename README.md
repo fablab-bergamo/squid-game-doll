@@ -119,21 +119,33 @@ Using pygame as rendering engine see game.py
 
 ### Face detection
 
-* mediapipe / FaceDetection see face_extractor.py
+* mediapipe / FaceDetection see FaceExtractor.py
 * Used to create the player tiles on the left part of the screen
 
 ## How to install
 
-* Install requirements from list in src directory
+* Create a venv, and install requirements from list in src directory
 
 ```python
 pip install -r ./src/requirements.txt
 ```
 
+* Install CUDA support for NVIDIA GPU
+
+```python
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
+```
+
 * Run game
 
 ```python
-python ./src/squidgamedoll/game.py
+python ./src/squidgamedoll/SquidGame.py
+```
+
+* Command-line arguments examples : force monitor 0, webcam 0, enable esp32 tracker on IP=192.168.45.50
+
+```python
+python ./src/squidgamedoll/SquidGame.py -m 0 -w 0 -t -i 192.168.45.50
 ```
 
 ## How to profile
