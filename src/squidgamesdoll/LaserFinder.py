@@ -26,7 +26,7 @@ class LaserFinder:
     def laser_found(self) -> bool:
         return self.laser_coord is not None
 
-    def get_laser_coord(self) -> tuple:
+    def get_laser_coord(self) -> tuple[int, int]:
         return self.laser_coord
 
     def get_winning_strategy(self) -> str:
@@ -280,7 +280,7 @@ class LaserFinder:
         cv2.imshow("Contours", result)
         return detected_centroids
 
-    def find_laser_by_threshold_2(self, channel: cv2.UMat) -> (tuple, cv2.UMat):
+    def find_laser_by_threshold_2(self, channel: cv2.UMat) -> tuple[tuple, cv2.UMat]:
         """
         Finds the laser in the given channel using a thresholding strategy.
 
@@ -367,7 +367,7 @@ class LaserFinder:
         self.laser_coord = (1, 1)
         return ((1, 1), None)
 
-    def find_laser_by_grayscale(self, img: cv2.UMat) -> (tuple, cv2.UMat):
+    def find_laser_by_grayscale(self, img: cv2.UMat) -> tuple[tuple, cv2.UMat]:
         """
         Finds the laser in the given image using a grayscale strategy.
 
@@ -381,7 +381,7 @@ class LaserFinder:
         normalized_gray_image = cv2.normalize(gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
         return self.find_laser_by_threshold(normalized_gray_image, searchfunction=self.search_by_hough_circles)
 
-    def find_laser_by_red_color(self, img: cv2.UMat) -> (tuple, cv2.UMat):
+    def find_laser_by_red_color(self, img: cv2.UMat) -> tuple[tuple, cv2.UMat]:
         """
         Finds the laser in the given image using the red color channel.
 

@@ -1,9 +1,5 @@
 import os
 
-# Screen Dimensions
-WIDTH: int = int(1920 * 0.75)
-HEIGHT: int = int(1080 * 0.75)
-
 # Color constants
 GREEN: tuple[int, int, int] = (0, 255, 0)
 RED: tuple[int, int, int] = (255, 0, 0)

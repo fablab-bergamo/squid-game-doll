@@ -15,9 +15,7 @@ from LaserTracker import LaserTracker
 
 
 class SquidGame:
-    def __init__(self, disable_tracker: bool) -> None:
-        pygame.init()
-
+    def __init__(self, disable_tracker: bool, desktop_size: tuple[int, int], display_idx: int) -> None:
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
         self.tracker: PlayerTracker = None  # Initialize later
@@ -31,7 +29,7 @@ class SquidGame:
         self.game_state: str = constants.INIT
         self.last_switch_time: float = time.time()
         self.delay_s: int = random.randint(2, 5)
-        self.game_screen = GameScreen()
+        self.game_screen = GameScreen(desktop_size, display_idx)
         self.cap: cv2.VideoCapture = None  # Initialize later
         self.no_tracker: bool = disable_tracker
         self.shooter: LaserShooter = None
@@ -40,6 +38,8 @@ class SquidGame:
         if not self.no_tracker:
             self.shooter = LaserShooter(constants.ESP32_IP)
             self.laser_tracker = LaserTracker(self.shooter)
+
+        print(f"SquidGame(res={desktop_size} on #{display_idx}, tracker disabled={disable_tracker})")
 
     def merge_players_lists(
         self, webcam_frame: cv2.UMat, players: list[Player], visible_players: list[Player], allow_registration: bool
@@ -101,7 +101,9 @@ class SquidGame:
 
         # Add loading screen picture during intro sound
         loading_screen_img = pygame.image.load(constants.ROOT + "/media/loading_screen.webp")
-        loading_screen_img = pygame.transform.scale(loading_screen_img, (constants.WIDTH, constants.HEIGHT - 200))
+        loading_screen_img = pygame.transform.scale(
+            loading_screen_img, (self.game_screen.get_desktop_width(), self.game_screen.get_desktop_height() - 200)
+        )
 
         # Load logo image
         logo_img = pygame.image.load(constants.ROOT + "/media/logo.png")
@@ -111,8 +113,8 @@ class SquidGame:
         click_img = pygame.image.load(constants.ROOT + "/media/mouse_click.gif")
 
         # Animation parameters
-        logo_x = (constants.WIDTH - logo_img.get_width()) // 2
-        logo_y = constants.HEIGHT - logo_img.get_height()
+        logo_x = (self.game_screen.get_desktop_width() - logo_img.get_width()) // 2
+        logo_y = self.game_screen.get_desktop_width() - logo_img.get_height()
         alpha = 0
         fade_in = True
 
@@ -147,7 +149,11 @@ class SquidGame:
 
             if not t.is_alive():
                 screen.blit(
-                    click_img, (constants.WIDTH - click_img.get_width(), constants.HEIGHT - click_img.get_height())
+                    click_img,
+                    (
+                        self.game_screen.get_desktop_width() - click_img.get_width(),
+                        self.game_screen.get_desktop_height() - click_img.get_height(),
+                    ),
                 )
 
             pygame.display.flip()
@@ -309,7 +315,11 @@ class SquidGame:
             webcam_idx (int): The index of the webcam to use.
         """
         # Initialize screen
-        screen: pygame.Surface = pygame.display.set_mode((constants.WIDTH, constants.HEIGHT), pygame.RESIZABLE)
+        screen: pygame.Surface = pygame.display.set_mode(
+            (self.game_screen.get_desktop_width(), self.game_screen.get_desktop_width()),
+            flags=pygame.FULLSCREEN,
+            display=self.game_screen.get_display_idx(),
+        )
         pygame.display.set_caption("Squid Games - Green Light, Red Light")
 
         self.loading_screen(screen, webcam_idx)
@@ -332,13 +342,43 @@ class SquidGame:
         # Cleanup
         self.cap.release()
 
+    @staticmethod
+    def get_desktop(preferred_monitor=0) -> (tuple[int, int], int):
+        num = 0
+        for size in pygame.display.get_desktop_sizes():
+            if num == preferred_monitor:
+                return (size, preferred_monitor)
+            num += 1
+        return (pygame.display.get_desktop_sizes()[0], 0)
+
+
+def command_line_args() -> any:
+    import argparse
+
+    parser = argparse.ArgumentParser("SquidGame.py")
+    parser.add_argument(
+        "-m", "--monitor", help="0-based index of the monitor", dest="monitor", type=int, default=-1, required=False
+    )
+    parser.add_argument(
+        "-w", "--webcam", help="0-based index of the webcam", dest="webcam", type=int, default=-1, required=False
+    )
+    return parser.parse_args()
+
 
 if __name__ == "__main__":
     # Disable hardware acceleration for webcam on Windows
     os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
-    game = SquidGame(disable_tracker=False)
-    index: int = Camera.getCameraIndex()
+    import ctypes
+
+    ctypes.windll.user32.SetProcessDPIAware()
+
+    pygame.init()
+
+    args = command_line_args()
+    size, monitor = SquidGame.get_desktop(args.monitor)
+    game = SquidGame(disable_tracker=False, desktop_size=size, display_idx=monitor)
+    index: int = Camera.getCameraIndex(args.webcam)
     if index == -1:
         print("No compatible webcam found")
         exit(1)

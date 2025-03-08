@@ -16,24 +16,38 @@ FONT_COLOR: tuple[int, int, int] = constants.RED
 
 
 class GameScreen:
-    def __init__(self):
+    def __init__(self, desktop_size: tuple[int, int], display_idx: int):
         self._font_lcd: pygame.font.Font = pygame.font.Font(constants.ROOT + "/media/font_lcd.ttf", 48)
         self._font_small: pygame.font.Font = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 36)
         self._font_big: pygame.font.Font = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 85)
-        self._button: pygame.Rect = pygame.Rect(1350, 1100, 200, 50)  # Position and size
+
+        # Position and size of reinit button
+        self._button: pygame.Rect = pygame.Rect(desktop_size[0] - 210, desktop_size[1] - 60, 200, 50)
         self._x_ratio: float = 1
         self._y_ratio: float = 1
+        self._desktop_size: tuple[int, int] = desktop_size
+        self._display_idx = display_idx
+
+    def get_desktop_width(self) -> int:
+        return self._desktop_size[0]
+
+    def get_desktop_height(self) -> int:
+        return self._desktop_size[1]
+
+    def get_display_idx(self) -> int:
+        return self._display_idx
 
     def set_webcam_ratios(self, ratios: tuple[float, float]) -> None:
         self._x_ratio, self._y_ratio = ratios
 
-    def is_button_click(self, event: pygame.event):
+    def is_button_click(self, event: pygame.event) -> bool:
         if self._button.collidepoint(event.pos):
             return True
+        return False
 
     def update_screen(
         self,
-        screen: pygame.Surface,
+        fullscreen: pygame.Surface,
         webcam_frame: cv2.UMat,
         game_state: str,
         players: list[Player],
@@ -47,41 +61,42 @@ class GameScreen:
             self.draw_bounding_boxes(video_surface, players, game_state != constants.INIT)
 
         if game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
-            self.draw_traffic_light(screen, game_state == constants.GREEN_LIGHT)
+            self.draw_traffic_light(fullscreen, game_state == constants.GREEN_LIGHT)
 
-        screen.blit(video_surface, (0, 0))
+        fullscreen.blit(video_surface, (0, 0))
 
-        self.draw_phase_overlay(screen, game_state)
+        self.draw_phase_overlay(fullscreen, game_state)
 
-        players_surface: pygame.Surface = pygame.Surface((constants.WIDTH // 2, constants.HEIGHT))
+        players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width() // 2, self.get_desktop_height()))
         self.display_players(players_surface, self.convert_player_list(players), constants.SALMON)
 
-        screen.blit(players_surface, (constants.WIDTH // 2, 0))
+        fullscreen.blit(players_surface, (self.get_desktop_width() // 2, 0))
+
+        self.draw_button(fullscreen)
 
         if game_state not in [constants.INIT]:
-            self.draw_button(screen)
             won = sum([100_000_000 for p in players if p.is_eliminated()])
-            self.display_won(screen, won, self._font_big)
+            self.display_won(fullscreen, won, self._font_big)
 
         if game_state == constants.GAMEOVER:
             text = self._font_big.render("GAME OVER! No vincitori...", True, constants.WHITE)
-            screen.blit(text, (constants.WIDTH // 2 - 400, constants.HEIGHT - 350))
+            fullscreen.blit(text, (self.get_desktop_width() // 2 - 400, self.get_desktop_height() - 350))
 
         if game_state == constants.VICTORY:
             text = self._font_big.render("VICTORY!", True, constants.DARK_GREEN)
-            screen.blit(text, (constants.WIDTH // 2 - 400, constants.HEIGHT - 350))
+            fullscreen.blit(text, (self.get_desktop_width() // 2 - 400, self.get_desktop_height() - 350))
 
         img: pygame.Surface = pygame.image.load(constants.ROOT + "/media/shooter_off.png")
         if shooter is not None and shooter.isOnline():
             img = pygame.image.load(constants.ROOT + "/media/shooter.png")
 
         # Add shooter icon depending on ESP32 status
-        screen.blit(img, (constants.WIDTH - img.get_width(), 0))
+        fullscreen.blit(img, (self.get_desktop_width() - img.get_width(), 0))
 
     def draw_traffic_light(self, screen: pygame.Surface, green_light: bool) -> None:
         # Draw the light in the bottom part of the screen
-        position: tuple[int, int] = (constants.WIDTH // 4, constants.HEIGHT // 4 * 3)
-        radius: int = min(constants.WIDTH // 8, constants.HEIGHT // 8) - 4
+        position: tuple[int, int] = (self.get_desktop_width() // 4, self.get_desktop_height() // 5 * 4)
+        radius: int = min(self.get_desktop_width() // 10, self.get_desktop_height() // 10) - 4
         if green_light:
             pygame.draw.circle(screen, constants.GREEN, position, radius)
         else:
@@ -128,15 +143,15 @@ class GameScreen:
                     5,
                 )
 
-    def draw_phase_overlay(self, screen: pygame.Surface, game_state: str) -> None:
+    def draw_phase_overlay(self, surface: pygame.Surface, game_state: str) -> None:
         """Display game status.
 
         Parameters:
-            screen (pygame.Surface): The PyGame screen.
+            surface (pygame.Surface): The PyGame screen.
             game_state (str): Current game state.
         """
-        text = self._font_small.render(f"Phase: {game_state}", True, FONT_COLOR)
-        screen.blit(text, (20, screen.get_height() // 2 + 20))
+        text = self._font_small.render(f"Fase: {game_state}", True, FONT_COLOR)
+        surface.blit(text, (surface.get_width() // 2 + 20, 20))
 
     def draw_text(
         self,
@@ -181,7 +196,7 @@ class GameScreen:
         return positions
 
     # Function to draw blurred diamond
-    def draw_blurred_diamond(self, surface: pygame.image, x: int, y: int, size: int):
+    def draw_blurred_diamond(self, surface: pygame.image, x: int, y: int, size: int) -> None:
         diamond = pygame.Surface((size, size), pygame.SRCALPHA)
         pygame.draw.polygon(
             diamond,
@@ -192,7 +207,7 @@ class GameScreen:
         diamond = pygame.transform.smoothscale(diamond, (size, size))
         surface.blit(diamond, (x, y), special_flags=pygame.BLEND_RGBA_ADD)
 
-    def display_won(self, surface: pygame.Surface, amount: int, font: pygame.font):
+    def display_won(self, surface: pygame.Surface, amount: int, font: pygame.font) -> None:
         pig_img = pygame.image.load(constants.ROOT + "/media/pig.png")
         amount = f"₩ {amount:,}"
         text = font.render(amount, True, (255, 215, 0))
@@ -244,22 +259,22 @@ class GameScreen:
             cpt += 1
         return risultato
 
-    def setup_ratios(self, frame: cv2.UMat):
+    def setup_ratios(self, frame: cv2.UMat) -> None:
         aspect_ratio: float = frame.shape[1] / frame.shape[0]
-        self._x_ratio: float = frame.shape[1] / (constants.WIDTH // 2)
-        self._y_ratio: float = frame.shape[0] / ((constants.WIDTH // 2) / aspect_ratio)
+        self._x_ratio: float = frame.shape[1] / (self.get_desktop_width() // 2)
+        self._y_ratio: float = frame.shape[0] / ((self.get_desktop_width() // 2) / aspect_ratio)
         self._view_port: tuple[int, int] = (
             int(frame.shape[1] / self._x_ratio),
             int(frame.shape[0] / self._y_ratio),
         )
         print(
             f"Ratios: {self._x_ratio}, {self._y_ratio}, Webcam: {frame.shape[1]}x{frame.shape[0]}, "
-            f"Window: {constants.WIDTH}x{constants.HEIGHT}, View port={self._view_port[1]}x{self._view_port[0]}"
+            f"Window: {self.get_desktop_width()}x{self.get_desktop_height()}, View port={self._view_port[1]}x{self._view_port[0]}"
         )
 
     def display_players(
         self, screen: pygame.Surface, players: list[dict] = None, background: tuple[int, int, int] = (0, 0, 0)
-    ):
+    ) -> None:
 
         if players is None:
             players = self.fake_players()

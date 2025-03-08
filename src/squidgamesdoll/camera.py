@@ -6,13 +6,15 @@ from cv2_enumerate_cameras import enumerate_cameras
 
 class Camera:
     @staticmethod
-    def getCameraIndex() -> int:
+    def getCameraIndex(preferred_idx: int = -1) -> int:
         index = -1
         print("Listing webcams:")
         for camera_info in enumerate_cameras(cv2.CAP_DSHOW):
             print(f"\t {camera_info.index}: {camera_info.name}")
             if camera_info.name == "HD Pro Webcam C920" or camera_info.name == "Logi C270 HD WebCam":
                 index = camera_info.index
+            if camera_info.index == preferred_idx:
+                return preferred_idx
         return index
 
     def __init__(self, index: int):
