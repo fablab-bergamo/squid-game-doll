@@ -71,6 +71,9 @@ class SquidGame:
                 p.set_coords(new_p.get_coords())
             else:
                 if allow_registration:
+                    face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
+                    if face is not None:
+                        new_p.set_face(face)
                     players.append(new_p)
         return players
 
@@ -194,7 +197,7 @@ class SquidGame:
                 self.green_sound.stop()
                 self.red_sound.stop()
                 self.eliminate_sound.stop()
-                self.players = self.tracker.process_frame(frame)
+                self.players = []
                 self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
@@ -205,7 +208,7 @@ class SquidGame:
                         break
 
                     new_players = self.tracker.process_frame(frame)
-                    self.players = new_players  # No need to merge
+                    self.players = self.merge_players_lists(frame, [], new_players, True)
                     self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
                     time_remaining = int(REGISTRATION_DELAY_S - time.time() + start_registration)
                     self.game_screen.draw_text(
@@ -222,7 +225,7 @@ class SquidGame:
                             running = False
                             return
 
-                    clock.tick(frame_rate)
+                    clock.tick(5)
 
                 self.game_state = constants.GREEN_LIGHT
                 self.green_sound.play()
@@ -258,6 +261,10 @@ class SquidGame:
                 ):
                     for player in self.players:
                         if player.has_moved() and not player.is_eliminated():
+                            player.set_eliminated(True)
+                            self.red_sound.stop()
+                            self.green_sound.stop()
+                            self.eliminate_sound.play()
                             if not self.no_tracker:
                                 self.laser_tracker.target = player.get_target()
                                 self.laser_tracker.start()
@@ -271,8 +278,6 @@ class SquidGame:
                                         self.laser_tracker.update_frame(frame)
                                     clock.tick(frame_rate)
                                 self.laser_tracker.stop()
-                            player.set_eliminated(True)
-                            self.eliminate_sound.play()
 
             elif self.game_state in [constants.GAMEOVER, constants.VICTORY]:
                 # Restart after 10 seconds

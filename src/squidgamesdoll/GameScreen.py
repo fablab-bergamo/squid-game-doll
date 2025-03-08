@@ -43,16 +43,18 @@ class GameScreen:
         # Convert OpenCV BGR to RGB for PyGame
         video_surface: pygame.Surface = opencv_to_pygame(webcam_frame, self._view_port)
 
+        if game_state in [constants.INIT, constants.GREEN_LIGHT, constants.RED_LIGHT]:
+            self.draw_bounding_boxes(video_surface, players, game_state != constants.INIT)
+
         if game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
-            self.draw_light(screen, game_state == constants.GREEN_LIGHT)
-            self.draw_bounding_boxes(video_surface, players, True)
+            self.draw_traffic_light(screen, game_state == constants.GREEN_LIGHT)
 
         screen.blit(video_surface, (0, 0))
 
         self.draw_phase_overlay(screen, game_state)
 
         players_surface: pygame.Surface = pygame.Surface((constants.WIDTH // 2, constants.HEIGHT))
-        self.display_players(players_surface, self.convert_player_list(players), constants.PINK)
+        self.display_players(players_surface, self.convert_player_list(players), constants.SALMON)
 
         screen.blit(players_surface, (constants.WIDTH // 2, 0))
 
@@ -76,7 +78,7 @@ class GameScreen:
         # Add shooter icon depending on ESP32 status
         screen.blit(img, (constants.WIDTH - img.get_width(), 0))
 
-    def draw_light(self, screen: pygame.Surface, green_light: bool) -> None:
+    def draw_traffic_light(self, screen: pygame.Surface, green_light: bool) -> None:
         # Draw the light in the bottom part of the screen
         position: tuple[int, int] = (constants.WIDTH // 4, constants.HEIGHT // 4 * 3)
         radius: int = min(constants.WIDTH // 8, constants.HEIGHT // 8) - 4
@@ -295,7 +297,7 @@ class GameScreen:
             color = constants.YELLOW
             if player["visible"]:
                 if player["active"]:
-                    color = constants.DARK_GREEN
+                    color = constants.GREEN
                 else:
                     color = constants.RED
 
