@@ -9,9 +9,9 @@ class Camera:
     def getCameraIndex(preferred_idx: int = -1) -> int:
         index = -1
         print("Listing webcams:")
-        for camera_info in enumerate_cameras(cv2.CAP_DSHOW):
+        for camera_info in enumerate_cameras():
             print(f"\t {camera_info.index}: {camera_info.name}")
-            if camera_info.name == "HD Pro Webcam C920" or camera_info.name == "Logi C270 HD WebCam":
+            if camera_info.name == "HD Pro Webcam C920" or camera_info.name == "Logi C270 HD WebCam" or camera_info.name == "Webcam C170: Webcam C170":
                 index = camera_info.index
             if camera_info.index == preferred_idx:
                 return preferred_idx

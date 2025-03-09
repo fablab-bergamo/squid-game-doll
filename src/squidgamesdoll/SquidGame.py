@@ -78,10 +78,13 @@ class SquidGame:
         return players
 
     def load_model(self, webcam_idx: int):
+        print("Loading model...")
         self.tracker = PlayerTracker()
+        print("Loading face extractor")
         self.face_extractor = FaceExtractor()
-        # Use DSHOW on Windows to avoid slow startup
-        self.cap: cv2.VideoCapture = cv2.VideoCapture(webcam_idx, cv2.CAP_DSHOW)
+        print("Opening webcam...")
+	# Use DSHOW on Windows to avoid slow startup
+        self.cap: cv2.VideoCapture = cv2.VideoCapture(webcam_idx) #, cv2.CAP_DSHOW)
 
         # Configure webcam stream settings
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
@@ -91,6 +94,7 @@ class SquidGame:
 
         ret, _ = self.cap.read()
         while not ret:
+            print("Failure to acquire webcam stream")
             ret, _ = self.cap.read()
             time.sleep(0.1)
         print("load_model complete")
@@ -386,10 +390,10 @@ def command_line_args() -> any:
 if __name__ == "__main__":
     # Disable hardware acceleration for webcam on Windows
     os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
-
-    import ctypes
-
-    ctypes.windll.user32.SetProcessDPIAware()
+    import platform
+    if platform.system() != 'Linux':
+	    import ctypes
+	    ctypes.windll.user32.SetProcessDPIAware()
 
     pygame.init()
 

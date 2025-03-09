@@ -176,3 +176,4 @@ yolov8m.pt
 output.mp4
 /Include
 *.prof
+yolov8m.onnx
