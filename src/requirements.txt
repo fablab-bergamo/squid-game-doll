@@ -15,5 +15,5 @@ scikit_learn==1.6.1
 scipy
 simple_pid==2.0.1
 scikit-image
-torch==2.5.1+cu121
+torch
 ultralytics==8.3.59

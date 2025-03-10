@@ -1,12 +1,17 @@
 # squid-game-doll
-An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking.
 
-# Geometry
+An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking. Also, a shooter unit with a laser pointer is used to designate eliminated players.
+
+## Installation on Raspberry PI 5 with AI KIT
+
+* See INSTALL.md
+
+## Geometry of play space
 
 * Expected play area 10 x 10 m indoor
 * In order to hit a 50 cm wide target @ 10m the laser shall be precise 2.8° in horizontal axis. This should be doable with standard servos and 3D-printed pan&tilt platform for the laser (see hardware folder).
 
-# Detecting the red laser dot
+## Detecting the red laser dot
 
 In order to reliably point the laser to the eliminated player, laser dot position must be acquired, positioning error calculated, and angles corrected accordingly.
 In the example picture below, red laser dot is found on the webcam and a visor is added on top of predicted position.
@@ -152,7 +157,7 @@ python ./src/squidgamedoll/SquidGame.py -m 0 -w 0 -t -i 192.168.45.50
 
 * Use cProfile + snakeviz
 
-```python
+```shell
 pip install snakeviz
 python -m cProfile -o game.prof  .\src\squidgamesdoll\game.py
 snakeviz .\game.prof
@@ -165,8 +170,4 @@ snakeviz .\game.prof
 * Sensibility threshold is pixel based, so large moved are authorized far from the camera, very little close to the camera
 * Speed of laser pointing
 * Python packaging
-* Speed of YOLOv8-m (around 300 ms per frame on PC)
-
-### Hardware
-
-* RaspberryPi 5 with AI KIT or Jetson Orin Nano 
+* Speed of YOLOv8-m (around 300 ms per frame on PC) ; TBC on Raspberry Pi
