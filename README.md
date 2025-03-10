@@ -127,7 +127,7 @@ Using pygame as rendering engine see game.py
 * mediapipe / FaceDetection see FaceExtractor.py
 * Used to create the player tiles on the left part of the screen
 
-## How to install
+## How to install on PC (see INSTALL.MD for Raspberry)
 
 * Create a venv, and install requirements from list in src directory
 
