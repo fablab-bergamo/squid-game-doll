@@ -17,3 +17,5 @@ simple_pid==2.0.1
 scikit-image
 torch
 ultralytics==8.3.59
+supervision
+loguru

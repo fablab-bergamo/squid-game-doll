@@ -116,16 +116,18 @@ Using pygame as rendering engine see game.py
 
 ![image](https://github.com/user-attachments/assets/4f3aed2e-ce2e-4f75-a8dc-2d508aff0b47)
 
+### Player detection (YOLO model)
 
-### Player detection
-
-* YOLO v8 medium with tracking see players_tracker.py. Performance w/ CUDA RTX2060 30fps, on AMD CPU 3fps.
-* YOLO returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold around 10 px.
+* On PC, YOLO v8 medium with tracking see players_tracker.py. Performance w/ CUDA RTX2060 30fps, on AMD CPU 3fps.
+* On Raspberry, evaluating YOLOV11m
+* YOLO returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold around 15 px.
+* Pre-compiled models available for Hailo 8L (AI KIT on Raspberry) : https://github.com/hailo-ai/hailo_model_zoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst
 
 ### Face detection
 
 * mediapipe / FaceDetection see FaceExtractor.py
 * Used to create the player tiles on the left part of the screen
+* Quite slow, running on CPU
 
 ## How to install on PC (see INSTALL.MD for Raspberry)
 
@@ -170,4 +172,4 @@ snakeviz .\game.prof
 * Sensibility threshold is pixel based, so large moved are authorized far from the camera, very little close to the camera
 * Speed of laser pointing
 * Python packaging
-* Speed of YOLOv8-m (around 300 ms per frame on PC) ; TBC on Raspberry Pi
+

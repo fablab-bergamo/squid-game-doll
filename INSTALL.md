@@ -3,42 +3,22 @@
 ## Hardware
 
 * Make sure Raspberry Pi 5 and AI KIT are configured properly
-- Webcam (USB) is configured and visible
+* Webcam (USB) is configured and visible
 
 ## Software
-
-* Download precompiled HEF model https://github.com/hailo-ai/hailo_model_zoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst
- (I have used yolov8m both on PC and Raspberry)
 
 * Install HAILO software on Raspberry Pi
 
 ```shell
 sudo apt install hailo-all
+sudo apt install python3-gi
 sudo reboot
 ```
 
-* Create virtual environment with reference to system packages (hailo is installed above globally) from squid-game-doll directory
+* Run install script to create venv and install requirements
 
 ```shell
-python3 -m venv --system-site-packages .venv
-```
-* Activate venv
-
-```shell
-source .venv/bin/activate
-```
-* Test hailo import module is working fine with python shell
-
-```shell
-python
->>>import hailo
->>>exit()
-```
-
-* Install other required Python packages with PIP
-
-```shell
-pip install -r ./src/requirements.txt
+./install.sh
 ```
 
 * Run SquidGame.py and check webcam index

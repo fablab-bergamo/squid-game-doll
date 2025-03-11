@@ -177,3 +177,4 @@ output.mp4
 /Include
 *.prof
 yolov8m.onnx
+yolov11m.hef

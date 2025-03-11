@@ -1,24 +1,26 @@
 from threading import Thread
 import pygame
 import cv2
-import numpy as np
 import random
 import time
 import os
 from GameScreen import GameScreen
-from PlayerTracker import PlayerTracker, Player
+from BasePlayerTracker import BasePlayerTracker
+from PlayerTrackerUL import PlayerTrackerUL
+from Player import Player
 from FaceExtractor import FaceExtractor
 from camera import Camera
 import constants
 from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker
+import platform
 
 
 class SquidGame:
     def __init__(self, disable_tracker: bool, desktop_size: tuple[int, int], display_idx: int, ip: str) -> None:
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
-        self.tracker: PlayerTracker = None  # Initialize later
+        self.tracker: BasePlayerTracker = None  # Initialize later
         self.FAKE: bool = False
         self.face_extractor: FaceExtractor = None  # Initialize later
         self.players: list[Player] = []
@@ -78,16 +80,24 @@ class SquidGame:
         return players
 
     def load_model(self, webcam_idx: int):
-        print("Loading model...")
-        self.tracker = PlayerTracker()
+
+        if platform.system() == "Linux":
+            from PlayerTrackerHailo import PlayerTrackerHailo
+
+            print("Loading HAILO model...")
+            self.tracker = PlayerTrackerHailo("yolov11m.hef")
+        else:
+            print("Loading Ultralytics model...")
+            self.tracker = PlayerTrackerUL()
+
         print("Loading face extractor")
         self.face_extractor = FaceExtractor()
         print("Opening webcam...")
-	# Use DSHOW on Windows to avoid slow startup
-        self.cap: cv2.VideoCapture = cv2.VideoCapture(webcam_idx) #, cv2.CAP_DSHOW)
+        # Use DSHOW on Windows to avoid slow startup
+        self.cap: cv2.VideoCapture = cv2.VideoCapture(webcam_idx)  # , cv2.CAP_DSHOW)
 
         # Configure webcam stream settings
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
         self.cap.set(cv2.CAP_PROP_FPS, 15.0)
@@ -235,7 +245,7 @@ class SquidGame:
                             running = False
                             return
 
-                    clock.tick(5)
+                    clock.tick(10)
 
                 self.game_state = constants.GREEN_LIGHT
                 self.green_sound.play()
@@ -388,12 +398,12 @@ def command_line_args() -> any:
 
 
 if __name__ == "__main__":
-    # Disable hardware acceleration for webcam on Windows
-    os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
-    import platform
-    if platform.system() != 'Linux':
-	    import ctypes
-	    ctypes.windll.user32.SetProcessDPIAware()
+    if platform.system() != "Linux":
+        import ctypes
+
+        ctypes.windll.user32.SetProcessDPIAware()
+        # Disable hardware acceleration for webcam on Windows
+        os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
     pygame.init()
 
