@@ -1,43 +1,48 @@
 # squid-game-doll
 
-An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking. Also, a shooter unit with a laser pointer is used to designate eliminated players.
+An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking.
+Also, a shooter unit with a laser pointer is used to designate eliminated players. 
 
-## Installation on Raspberry PI 5 with AI KIT
+## Open issues / Tasks
 
-* See INSTALL.md
+* (DOLL) Build a 3D model for a doll with red LED eyes and moving head
+* (VISION) How to combine laser red dot recognition requirements (low exposure) with players recognition requirements (normal exposure)
+* (LASER SHOOTER) Maybe using a depth estimator model to calculate the angles rather than adjusting based on a video stream
+* (GAMEPLAY) How to terminate the game (finish line logic missing)
+* (GAMEPLAY) Have a player registration step or not ??
+* (GAMEPLAY) Sensibility threshold to be shot is based on rectangle center movements, so large moves are authorized far from the camera, very little close to the camera. 
+* (LASER SHOOTER) Speed of laser pointing - slow to converge, about 10-15 s
+* (Various) Software quality: github actions for python packaging, some basic automated tests
+ 
+## Hardware
+
+* Installation on Raspberry PI 5 with AI KIT, see dedicated file [INSTALL.md](https://github.com/fablab-bergamo/squid-game-doll/blob/main/INSTALL.md)
+* ESP32C2 MINI Wemos board for servo control and doll control with Micropython (see esp32 folder)
+* Logitech webcam HD PRO Webcam C920 on Windows 11
+* Green laser 5mW (11 EUR) : https://aliexpress.com/item/1005005346537253.html . This model has high luminiosity with respect to red laser, but has poor focus. This may be better for eye safety.
+* Red laser 5mW (3 EUR) : https://aliexpress.com/item/1005008087745092.html . This model has good focus.
+
+## Dev tools used in this project 
+
+* VS Code with Python extension
+* Thonny for ESP32 development
+* Python 3.11/3.12 with main libraries opencv, ultralytics, hailo, numpy, pygame.
 
 ## Geometry of play space
 
 * Expected play area 10 x 10 m indoor
 * In order to hit a 50 cm wide target @ 10m the laser shall be precise 2.8° in horizontal axis. This should be doable with standard servos and 3D-printed pan&tilt platform for the laser (see hardware folder).
 
-## Detecting the red laser dot
+## (VISION) Detecting the red laser dot
 
 In order to reliably point the laser to the eliminated player, laser dot position must be acquired, positioning error calculated, and angles corrected accordingly.
 In the example picture below, red laser dot is found on the webcam and a visor is added on top of predicted position.
 
 ![image](https://github.com/user-attachments/assets/b3f5dd56-1ecf-4783-9174-87988d44a1f1)
 
-
-## Tools used
-
-* Python 3.11, libraries Numpy, OpenCV-python. See laser-pict-gen.py
-
-```shell
-pip install opencv-python numpy
-```
-* Logitech webcam HD PRO Webcam C920 on Windows 11
-
-* Green laser 5mW (11 EUR) : https://aliexpress.com/item/1005005346537253.html . This model has high luminiosity with respect to red laser, but has poor focus. This may be better for eye safety.
-
-* Red laser 5mW (3 EUR) : https://aliexpress.com/item/1005008087745092.html . This model has good focus.
-
-* ESP32C2 MINI Wemos board for servo control.
-
 ## Current approach
 
 * Choose a channel from the webcam picture (R,G,B) or convert to grayscale. 
-
 * Apply a threshold to the picture to find the brightest pixels
 
 ```python
@@ -110,7 +115,7 @@ import cv2
 | Laplace transform to find rapid variations around the spot | It's more for contour detection and it finds a lot of rapid variations in normal interior scenes, or faces | ??? |
 | HSV thresholds based on fixed value | Red laser is not fully red on the picture, white is present at the center | Implement adaptive adaptation on V value? |
 
-## Game itself
+## The game itself
 
 Using pygame as rendering engine see game.py
 
@@ -119,17 +124,17 @@ Using pygame as rendering engine see game.py
 ### Player detection (YOLO model)
 
 * On PC, YOLO v8 medium with tracking see players_tracker.py. Performance w/ CUDA RTX2060 30fps, on AMD CPU 3fps.
-* On Raspberry, evaluating YOLOV11m
-* YOLO returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold around 15 px.
+* On Raspberry, evaluating YOLOV11m (approx 10 fps)
+* YOLO model returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold around 15 px.
 * Pre-compiled models available for Hailo 8L (AI KIT on Raspberry) : https://github.com/hailo-ai/hailo_model_zoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst
 
-### Face detection
+### Face detection for player board
 
 * mediapipe / FaceDetection see FaceExtractor.py
 * Used to create the player tiles on the left part of the screen
 * Quite slow, running on CPU
 
-## How to install on PC (see INSTALL.MD for Raspberry)
+### How to install/run on PC (see INSTALL.MD for Raspberry)
 
 * Create a venv, and install requirements from list in src directory
 
@@ -155,7 +160,7 @@ python ./src/squidgamedoll/SquidGame.py
 python ./src/squidgamedoll/SquidGame.py -m 0 -w 0 -t -i 192.168.45.50
 ```
 
-## How to profile
+## How to profile Python and check what is slow
 
 * Use cProfile + snakeviz
 
@@ -164,12 +169,4 @@ pip install snakeviz
 python -m cProfile -o game.prof  .\src\squidgamesdoll\game.py
 snakeviz .\game.prof
 ```
-
-### Open issues
-
-* Reliability of player detections ; players must be visible at all time (occlusions not tested)
-* Have a player registration step or not
-* Sensibility threshold is pixel based, so large moved are authorized far from the camera, very little close to the camera
-* Speed of laser pointing
-* Python packaging
 
