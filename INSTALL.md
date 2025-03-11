@@ -3,11 +3,15 @@
 ## Hardware
 
 * Make sure Raspberry Pi 5 and AI KIT are configured properly
-* Webcam (USB) is configured and visible
+* Webcam is configured and visible. This has been tested with USB Camera but native Raspberry cam should be usable.
+
+```shell
+v4l2-ctl --list-devices
+```
 
 ## Software
 
-* Install HAILO software on Raspberry Pi
+* Install HAILO software stack on Raspberry Pi:
 
 ```shell
 sudo apt install hailo-all
@@ -15,13 +19,29 @@ sudo apt install python3-gi
 sudo reboot
 ```
 
-* Run install script to create venv and install requirements
+* Check Hailo chip is recognized with hailortcli command:
+
+```shell
+(.venv) $ hailortcli fw-control identify
+Executing on device: 0000:01:00.0
+Identifying board
+Control Protocol Version: 2
+Firmware Version: 4.20.0 (release,app,extended context switch buffer)
+Logger Version: 0
+Board Name: Hailo-8
+Device Architecture: HAILO8L
+Serial Number: xxxxxxxxxxxxxxx
+Part Number: HM21LB1C2LAE
+Product Name: HAILO-8L AI ACC M.2 B+M KEY MODULE EXT TMP
+```
+
+* Run install script to create venv and install Python requirements and HEF model
 
 ```shell
 ./install.sh
 ```
 
-* Run SquidGame.py and check webcam index
+* Run SquidGame.py and check webcam index:
 
 ```shell
 python ./src/squidgamesdolls/SquidGame.py
