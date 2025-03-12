@@ -21,6 +21,7 @@ GREEN_LIGHT: str = "GREEN_LIGHT"
 RED_LIGHT: str = "RED_LIGHT"
 VICTORY: str = "VICTORY"
 GAMEOVER: str = "GAME OVER"
+CONFIG: str = "CONFIG"
 
 # Various
 ROOT = os.path.dirname(__file__)

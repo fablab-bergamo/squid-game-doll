@@ -196,8 +196,6 @@ class SquidGame:
         MIN_RED_LIGHT_DELAY_S: float = 0.8
 
         while running:
-            screen.fill(constants.SALMON)
-
             ret, frame = self.cap.read()
             if not ret:
                 break
@@ -207,10 +205,33 @@ class SquidGame:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if self.game_screen.is_button_click(event):
+                    if self.game_screen.is_reset_button_click(event):
                         self.game_state = constants.INIT  # Reset the game
                         self.players.clear()
                         self.last_switch_time = time.time()
+                    if self.game_screen.is_config_button_click(event):
+                        self.game_state = constants.CONFIG  # Config the game
+                        self.players.clear()
+                        self.last_switch_time = time.time()
+
+            # Initial config (exposure, exclusion zone, finish line)
+            if self.game_state == constants.CONFIG:
+                while True:
+                    ret, frame = self.cap.read()
+                    if not ret:
+                        break
+                    self.game_screen.update_config_screen(screen, frame, self.shooter)
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            running = False
+                            return
+                        if self.game_screen.is_reset_button_click(event):
+                            self.game_state = constants.INIT  # Reset the game
+                            self.players.clear()
+                            self.last_switch_time = time.time()
+                        # Handle config
+                    pygame.display.flip()
+                    clock.tick(10)
 
             # Game Logic
             if self.game_state == constants.INIT:
@@ -218,7 +239,7 @@ class SquidGame:
                 self.red_sound.stop()
                 self.eliminate_sound.stop()
                 self.players = []
-                self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
+                self.game_screen.update_game_screen(screen, frame, self.game_state, self.players, self.shooter)
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
                 start_registration = time.time()
@@ -229,7 +250,7 @@ class SquidGame:
 
                     new_players = self.tracker.process_frame(frame)
                     self.players = self.merge_players_lists(frame, [], new_players, True)
-                    self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
+                    self.game_screen.update_game_screen(screen, frame, self.game_state, self.players, self.shooter)
                     time_remaining = int(REGISTRATION_DELAY_S - time.time() + start_registration)
                     self.game_screen.draw_text(
                         screen,
@@ -262,7 +283,7 @@ class SquidGame:
                     self.game_state = constants.GREEN_LIGHT if green_light else constants.RED_LIGHT
                     (self.red_sound if green_light else self.green_sound).stop()
                     (self.green_sound if green_light else self.red_sound).play()
-                    self.delay_s = random.randint(2, 10) / 2
+                    self.delay_s = random.randint(2, 6) / 2
 
                 # New player positions
                 self.players = self.merge_players_lists(frame, self.players, self.tracker.process_frame(frame), False)
@@ -317,7 +338,7 @@ class SquidGame:
                 self.game_state = constants.GAMEOVER
                 self.last_switch_time = time.time()
 
-            self.game_screen.update_screen(screen, frame, self.game_state, self.players, self.shooter)
+            self.game_screen.update_game_screen(screen, frame, self.game_state, self.players, self.shooter)
 
             pygame.display.flip()
             # Limit the frame rate
@@ -350,7 +371,6 @@ class SquidGame:
             print("Error: Cannot read from webcam")
             return
 
-        self.game_screen.setup_ratios(frame)
         self.game_main_loop(screen)
 
         # Cleanup
