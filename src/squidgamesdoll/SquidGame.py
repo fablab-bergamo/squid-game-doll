@@ -28,6 +28,9 @@ class SquidGame:
         # 무궁화 꽃이 피었습니다
         self.red_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/red_light.mp3")
         self.eliminate_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/eliminated.mp3")
+        self.init_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/init.mp3")
+        self.victory_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/success.mp3")
+        self.gunshot_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/gunshot.mp3")
         self.game_state: str = constants.INIT
         self.last_switch_time: float = time.time()
         self.delay_s: int = random.randint(2, 5)
@@ -60,9 +63,12 @@ class SquidGame:
 
         # Update game state
         if self.players and all(player.is_eliminated() or player.is_winner() for player in self.players):
-            self.game_state = (
-                constants.VICTORY if any(player.is_winner() for player in self.players) else constants.GAMEOVER
-            )
+            if any(player.is_winner() for player in self.players):
+                self.game_state = constants.VICTORY
+                self.victory_sound.play()
+            else:
+                self.game_state = constants.GAMEOVER
+
             self.last_switch_time = time.time()
 
     def merge_players_lists(
@@ -260,6 +266,7 @@ class SquidGame:
                 self.green_sound.stop()
                 self.red_sound.stop()
                 self.eliminate_sound.stop()
+                self.init_sound.play()
                 self.players = []
                 self.game_screen.update_game_screen(
                     screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
