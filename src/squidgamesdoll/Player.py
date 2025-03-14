@@ -13,6 +13,13 @@ class Player:
         self._last_position = coords
         self._eliminated = False
         self._visible = False
+        self._winner = False
+
+    def is_winner(self) -> bool:
+        return self._winner
+
+    def set_winner(self):
+        self._winner = True
 
     def get_id(self) -> int:
         return self._id

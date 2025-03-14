@@ -80,6 +80,7 @@ class GameScreen:
         game_state: str,
         players: list[Player],
         shooter: LaserShooter,
+        finish_line_perc: float,
     ) -> None:
 
         fullscreen.fill(constants.SALMON)
@@ -94,6 +95,7 @@ class GameScreen:
 
         if game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
             self.draw_traffic_light(fullscreen, game_state == constants.GREEN_LIGHT)
+            self.draw_finish_line(video_surface, finish_line_perc)
 
         fullscreen.blit(video_surface, (x_web, y_web))
 
@@ -187,6 +189,15 @@ class GameScreen:
         """
         text = self._font_small.render(f"Fase: {game_state}", True, FONT_COLOR)
         surface.blit(text, (surface.get_width() // 2 + 20, 20))
+
+    def draw_finish_line(self, webcam_surface: pygame.Surface, finish_percent: float = 0.9):
+        pygame.draw.line(
+            webcam_surface,
+            constants.DARK_GREEN,
+            (0, int(webcam_surface.get_height() * finish_percent)),
+            (webcam_surface.get_width(), int(webcam_surface.get_height() * finish_percent)),
+            width=2,
+        )
 
     def draw_text(
         self,
@@ -296,11 +307,12 @@ class GameScreen:
             risultato.append(
                 {
                     "number": cpt,
-                    "active": not player.is_eliminated(),
+                    "active": not player.is_eliminated() and not player.is_winner(),
                     "image": img,
                     "rectangle": player.get_rect(),
                     "id": player.get_id(),
                     "visible": player.is_visible(),
+                    "winner": player.is_winner(),
                 }
             )
             cpt += 1
@@ -360,7 +372,7 @@ class GameScreen:
 
             # Apply red tint
             red_overlay = pygame.Surface((constants.PLAYER_SIZE, constants.PLAYER_SIZE), pygame.SRCALPHA)
-            red_overlay.fill(constants.RED)
+            red_overlay.fill(constants.DARK_GREEN if player["winner"] else constants.RED)
             img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_MULT)
 
             if not player["active"]:

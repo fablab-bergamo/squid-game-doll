@@ -36,12 +36,34 @@ class SquidGame:
         self.no_tracker: bool = disable_tracker
         self.shooter: LaserShooter = None
         self.laser_tracker: LaserTracker = None
+        self.finish_line_y: float = constants.FINISH_LINE_PERC
 
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
             self.laser_tracker = LaserTracker(self.shooter)
 
         print(f"SquidGame(res={desktop_size} on #{display_idx}, tracker disabled={disable_tracker}, ip={ip})")
+
+    def check_endgame_conditions(self, frame_height: int) -> None:
+        """
+        Checks each player to see if they have reached the finish line (bottom of bounding box at or above finish_line_y).
+        Then, if every player is either a winner or eliminated, switches the game state to VICTORY.
+        """
+        for player in self.players:
+            # Only consider players not already eliminated or marked as winner.
+            if not player.is_eliminated() and not player.is_winner():
+                x1, y1, x2, y2 = player.get_coords()
+                # If the bottom of the player's rectangle is above or equal to the finish line,
+                # mark the player as a winner.
+                if y2 >= self.finish_line_y * frame_height:
+                    player.set_winner()
+
+        # Update game state
+        if self.players and all(player.is_eliminated() or player.is_winner() for player in self.players):
+            self.game_state = (
+                constants.VICTORY if any(player.is_winner() for player in self.players) else constants.GAMEOVER
+            )
+            self.last_switch_time = time.time()
 
     def merge_players_lists(
         self, webcam_frame: cv2.UMat, players: list[Player], visible_players: list[Player], allow_registration: bool
@@ -239,7 +261,9 @@ class SquidGame:
                 self.red_sound.stop()
                 self.eliminate_sound.stop()
                 self.players = []
-                self.game_screen.update_game_screen(screen, frame, self.game_state, self.players, self.shooter)
+                self.game_screen.update_game_screen(
+                    screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
+                )
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
                 start_registration = time.time()
@@ -250,7 +274,9 @@ class SquidGame:
 
                     new_players = self.tracker.process_frame(frame)
                     self.players = self.merge_players_lists(frame, [], new_players, True)
-                    self.game_screen.update_game_screen(screen, frame, self.game_state, self.players, self.shooter)
+                    self.game_screen.update_game_screen(
+                        screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
+                    )
                     time_remaining = int(REGISTRATION_DELAY_S - time.time() + start_registration)
                     self.game_screen.draw_text(
                         screen,
@@ -320,6 +346,10 @@ class SquidGame:
                                     clock.tick(frame_rate)
                                 self.laser_tracker.stop()
 
+                # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
+                h, _, _ = frame.shape
+                self.check_endgame_conditions(h)
+
             elif self.game_state in [constants.GAMEOVER, constants.VICTORY]:
                 # Restart after 10 seconds
                 if time.time() - self.last_switch_time > 20:
@@ -328,17 +358,9 @@ class SquidGame:
                     self.last_switch_time = time.time()
                     continue
 
-            # Check for victory
-            # Verifica se ci sono ancora giocatori rimasti
-            if (
-                len([p for p in self.players if p.is_eliminated()]) == len(self.players)
-                and len(self.players) > 0
-                and self.game_state != constants.GAMEOVER
-            ):
-                self.game_state = constants.GAMEOVER
-                self.last_switch_time = time.time()
-
-            self.game_screen.update_game_screen(screen, frame, self.game_state, self.players, self.shooter)
+            self.game_screen.update_game_screen(
+                screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
+            )
 
             pygame.display.flip()
             # Limit the frame rate

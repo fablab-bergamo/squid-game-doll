@@ -23,6 +23,8 @@ VICTORY: str = "VICTORY"
 GAMEOVER: str = "GAME OVER"
 CONFIG: str = "CONFIG"
 
+FINISH_LINE_PERC = 0.9
+
 # Various
 ROOT = os.path.dirname(__file__)
 ESP32_IP = "192.168.45.90"
