@@ -29,7 +29,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
         self.model_h, self.model_w, _ = self.hailo_inference.get_input_shape()
 
         # Start the asynchronous inference in a separate thread
-        self.inference_thread = threading.Thread(target=self.hailo_inference.run)
+        self.inference_thread = threading.Thread(target=self.hailo_inference.run, daemon=True)
         self.inference_thread.start()
 
     def process_frame(self, frame: cv2.UMat) -> list[Player]:
