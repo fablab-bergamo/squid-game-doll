@@ -436,6 +436,15 @@ def command_line_args() -> any:
         default="192.168.45.50",
         required=False,
     )
+    parser.add_argument(
+        "-j",
+        "--joystick",
+        help="sets the joystick index",
+        dest="joystick",
+        type=int,
+        default=-1,
+        required=False,
+    )
     return parser.parse_args()
 
 

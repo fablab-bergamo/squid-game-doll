@@ -27,6 +27,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
         # Initialize the Hailo inference engine
         self.hailo_inference = HailoAsyncInference(hef_path, self.input_queue, self.output_queue)
         self.model_h, self.model_w, _ = self.hailo_inference.get_input_shape()
+        self.tracker = sv.ByteTrack(frame_rate=15, lost_track_buffer=45)
 
         # Start the asynchronous inference in a separate thread
         self.inference_thread = threading.Thread(target=self.hailo_inference.run, daemon=True)
@@ -65,6 +66,8 @@ class PlayerTrackerHailo(BasePlayerTracker):
 
             # Convert Hailo inference output into Supervision detections
             detections_sv = self.__extract_detections(results, ratios, self.score_thresh)
+            detections_sv = self.tracker.update_with_detections(detections_sv)
+
             # Convert detections into Player objects using the base class helper
             players = self.supervision_to_players(detections_sv)
 

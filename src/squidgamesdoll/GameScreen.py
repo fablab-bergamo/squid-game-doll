@@ -29,6 +29,8 @@ class GameScreen:
         self._desktop_size: tuple[int, int] = desktop_size
         self._display_idx = display_idx
 
+        self.first_run = True
+
     def get_desktop_width(self) -> int:
         return self._desktop_size[0]
 
@@ -120,7 +122,7 @@ class GameScreen:
             fullscreen.blit(text, (self.get_desktop_width() // 2 - 400, self.get_desktop_height() - 350))
 
         if game_state == constants.VICTORY:
-            text = self._font_big.render("VICTORY!", True, constants.DARK_GREEN)
+            text = self._font_big.render("VICTORY!", True, constants.LIGHT_GREEN)
             fullscreen.blit(text, (self.get_desktop_width() // 2 - 400, self.get_desktop_height() - 350))
 
         img: pygame.Surface = pygame.image.load(constants.ROOT + "/media/shooter_off.png")
@@ -340,10 +342,12 @@ class GameScreen:
         y = (available_height - h3) // 2
 
         self._ratio = w2 / w3
+        if self.first_run:
+            print(
+                f"Webcam {w2, h2} -> on screen {w1, h1} : {w3, h3} in position {x, y} (webcam-to-screen ratio {self._ratio})"
+            )
+            self.first_run = False
 
-        print(
-            f"Webcam {w2, h2} -> on screen {w1, h1} : {w3, h3} in position {x, y} (webcam-to-screen ratio {self._ratio})"
-        )
         return (w3, h3), (x, y)
 
     def display_players(
@@ -372,7 +376,7 @@ class GameScreen:
 
             # Apply red tint
             red_overlay = pygame.Surface((constants.PLAYER_SIZE, constants.PLAYER_SIZE), pygame.SRCALPHA)
-            red_overlay.fill(constants.DARK_GREEN if player["winner"] else constants.RED)
+            red_overlay.fill(constants.GREEN if player["winner"] else constants.RED)
             img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_MULT)
 
             if not player["active"]:
