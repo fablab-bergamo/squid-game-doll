@@ -27,7 +27,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
         # Initialize the Hailo inference engine
         self.hailo_inference = HailoAsyncInference(hef_path, self.input_queue, self.output_queue)
         self.model_h, self.model_w, _ = self.hailo_inference.get_input_shape()
-        self.tracker = sv.ByteTrack(frame_rate=15, lost_track_buffer=45)
+        self.tracker = sv.ByteTrack(frame_rate=10, lost_track_buffer=80, minimum_matching_threshold=0.9)
 
         # Start the asynchronous inference in a separate thread
         self.inference_thread = threading.Thread(target=self.hailo_inference.run, daemon=True)

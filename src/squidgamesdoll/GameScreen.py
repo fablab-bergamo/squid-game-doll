@@ -52,25 +52,25 @@ class GameScreen:
         self._active_buttons[idx] = callback
 
     def get_button_color(self, idx: int) -> pygame.Color:
-        if idx == 0:
+        if idx == 1:
             return (255, 0, 0)
-        elif idx == 1:
-            return (255, 255, 0)
         elif idx == 2:
-            return (0, 255, 0)
+            return (255, 255, 0)
         elif idx == 3:
+            return (0, 255, 0)
+        elif idx == 0:
             return (0, 0, 255)
 
         return (255, 0, 0)
 
     def get_button_text(self, idx: int) -> str:
-        if idx == 0:
+        if idx == 1:
             return "A"
-        elif idx == 1:
-            return "B"
         elif idx == 2:
-            return "Y"
+            return "B"
         elif idx == 3:
+            return "Y"
+        elif idx == 0:
             return "X"
         return "?"
 
@@ -171,6 +171,7 @@ class GameScreen:
             self.draw_traffic_light(fullscreen, game_state == constants.GREEN_LIGHT)
             self.draw_finish_line(video_surface, finish_line_perc)
 
+        video_surface = pygame.transform.flip(video_surface, True, False)
         fullscreen.blit(video_surface, (x_web, y_web))
 
         # self.draw_phase_overlay(fullscreen, game_state)
@@ -245,6 +246,7 @@ class GameScreen:
             x, y, w, h = player.get_rect()
             # transforms the coordinates from the webcam frame to the pygame frame using the ratios
             x, y, w, h = x / self._ratio, y / self._ratio, w / self._ratio, h / self._ratio
+            # Flip along central vertical
             pygame.draw.rect(frame_surface, color, (x, y, w, h), 3)
 
             # Draw the last position
@@ -282,10 +284,10 @@ class GameScreen:
     def draw_finish_line(self, webcam_surface: pygame.Surface, finish_percent: float = 0.9):
         pygame.draw.line(
             webcam_surface,
-            constants.DARK_GREEN,
+            constants.GREEN,
             (0, int(webcam_surface.get_height() * finish_percent)),
             (webcam_surface.get_width(), int(webcam_surface.get_height() * finish_percent)),
-            width=2,
+            width=15,
         )
 
     def draw_text(

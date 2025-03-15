@@ -84,6 +84,7 @@ class SquidGame:
         self.green_sound.play()
         pygame.time.delay(1000)
         self.last_switch_time = time.time()
+        self.delay_s = random.randint(2, 6) / 2
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
         return True
@@ -276,7 +277,7 @@ class SquidGame:
         frame_rate: float = 15.0
         # Create a clock object to manage the frame rate
         clock: pygame.time.Clock = pygame.time.Clock()
-        MIN_RED_LIGHT_DELAY_S: float = 0.5
+        MIN_RED_LIGHT_DELAY_S: float = 0.7
 
         self.switch_to_init()
 
@@ -346,6 +347,8 @@ class SquidGame:
                     (self.red_sound if green_light else self.green_sound).stop()
                     (self.green_sound if green_light else self.red_sound).play()
                     self.delay_s = random.randint(2, 6) / 2
+                    if self.game_state == constants.RED_LIGHT:
+                        self.delay_s += 2
 
                 # New player positions
                 self.players = self.merge_players_lists(frame, self.players, self.tracker.process_frame(frame), False)
@@ -398,6 +401,7 @@ class SquidGame:
             pygame.display.flip()
             # Limit the frame rate
             clock.tick(frame_rate)
+            print("FPS=", clock.get_fps())
 
     def start_game(self, webcam_idx: int = 0) -> None:
         """Start the Squid Game (Green Light Red Light) with the given webcam index.

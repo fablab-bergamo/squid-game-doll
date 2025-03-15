@@ -66,5 +66,5 @@ class FaceExtractor:
 
                 return face_crop
 
-        print("No face detected")
+        # print("No face detected")
         return None
