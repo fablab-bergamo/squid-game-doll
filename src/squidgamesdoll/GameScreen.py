@@ -84,20 +84,22 @@ class GameScreen:
             )
             surface.blit(text, (center[0] - text.get_width() // 2, center[1] - text.get_height() // 2))
 
-    def handle_buttons(self, joystick: pygame.joystick.JoystickType) -> None:
+    def handle_buttons(self, joystick: pygame.joystick.JoystickType) -> bool:
         if joystick == None:
-            return
+            return True
         for idx, fun in self.active_buttons.items():
             if joystick.get_button(idx):
-                fun()
+                return fun()
+        return True
 
-    def handle_buttons_click(self, surface: pygame.Surface, event: pygame.event):
+    def handle_buttons_click(self, surface: pygame.Surface, event: pygame.event) -> bool:
         for idx, fun in self.active_buttons.items():
             y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 90
             v1 = pygame.math.Vector2(surface.get_width() - 45, y_pos)
             v2 = pygame.math.Vector2(pygame.mouse.get_pos())
             if v1.distance_to(v2) < 40:
-                fun()
+                return fun()
+        return True
 
     def get_desktop_width(self) -> int:
         return self._desktop_size[0]

@@ -54,9 +54,11 @@ class SquidGame:
             self.shooter = LaserShooter(ip)
             self.laser_tracker = LaserTracker(self.shooter)
 
-        print(f"SquidGame(res={desktop_size} on #{display_idx}, tracker disabled={disable_tracker}, ip={ip})")
+        print(
+            f"SquidGame(res={desktop_size} on #{display_idx}, tracker disabled={disable_tracker} (ip={ip}), joystick={self.joystick is not None})"
+        )
 
-    def switch_to_init(self):
+    def switch_to_init(self) -> bool:
         self.game_state = constants.INIT
         self.players.clear()
         self.last_switch_time = time.time()
@@ -67,29 +69,36 @@ class SquidGame:
         self.start_registration = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
+        return True
 
-    def switch_to_config(self):
+    def switch_to_config(self) -> bool:
         self.game_state = constants.CONFIG
         self.players.clear()
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
+        return True
 
-    def switch_to_game(self):
+    def switch_to_game(self) -> bool:
         self.game_state = constants.GREEN_LIGHT
         self.green_sound.play()
         pygame.time.delay(1000)
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
+        return True
 
-    def switch_to_endgame(self, endgame_str: str):
+    def switch_to_endgame(self, endgame_str: str) -> bool:
         self.game_state = endgame_str
         if endgame_str == constants.VICTORY:
             self.victory_sound.play()
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
+        return True
+
+    def close_loading_screen(self) -> bool:
+        return False
 
     def check_endgame_conditions(self, frame_height: int) -> None:
         """
@@ -193,11 +202,9 @@ class SquidGame:
         logo_img = pygame.transform.scale(logo_img, (400, 200))  # Adjust size as needed
         logo_img.set_colorkey((0, 0, 0))
 
-        click_img = pygame.image.load(constants.ROOT + "/media/mouse_click.gif")
-
         # Animation parameters
         logo_x = (self.game_screen.get_desktop_width() - logo_img.get_width()) // 2
-        logo_y = self.game_screen.get_desktop_width() - logo_img.get_height()
+        logo_y = self.game_screen.get_desktop_height() - logo_img.get_height()
         alpha = 0
         fade_in = True
 
@@ -206,14 +213,15 @@ class SquidGame:
         t: Thread = Thread(target=self.load_model, args=[webcam_idx])
         t.start()
 
+        self.game_screen.reset_active_buttons()
+        self.game_screen.set_active_button(0, self.close_loading_screen)
+
         running = True
         while running:
+            running = self.handle_events(screen)
+
             screen.fill(constants.DARK_GREEN)
             screen.blit(loading_screen_img, (0, 0))
-
-            for event in pygame.event.get():
-                if event.type in [pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN]:
-                    running = False
 
             # Handle logo fade-in and fade-out
             if fade_in:
@@ -231,13 +239,7 @@ class SquidGame:
             screen.blit(logo_img, (logo_x, logo_y))
 
             if not t.is_alive():
-                screen.blit(
-                    click_img,
-                    (
-                        self.game_screen.get_desktop_width() - click_img.get_width(),
-                        self.game_screen.get_desktop_height() - click_img.get_height(),
-                    ),
-                )
+                self.game_screen.draw_active_buttons(screen)
 
             pygame.display.flip()
             pygame.time.wait(50)
@@ -253,9 +255,9 @@ class SquidGame:
             if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                self.game_screen.handle_buttons_click(screen, event)
+                return self.game_screen.handle_buttons_click(screen, event)
             elif event.type == pygame.JOYBUTTONDOWN:
-                self.game_screen.handle_buttons(self.joystick)
+                return self.game_screen.handle_buttons(self.joystick)
 
         return True
 
@@ -502,4 +504,9 @@ if __name__ == "__main__":
     if index == -1:
         print("No compatible webcam found")
         exit(1)
-    game.start_game(index)
+
+    while True:
+        try:
+            game.start_game(index)
+        except Exception as e:
+            print("Exception", e)
