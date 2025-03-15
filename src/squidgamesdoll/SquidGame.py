@@ -276,7 +276,7 @@ class SquidGame:
         frame_rate: float = 15.0
         # Create a clock object to manage the frame rate
         clock: pygame.time.Clock = pygame.time.Clock()
-        MIN_RED_LIGHT_DELAY_S: float = 0.8
+        MIN_RED_LIGHT_DELAY_S: float = 0.5
 
         self.switch_to_init()
 
@@ -327,6 +327,10 @@ class SquidGame:
 
                     running = self.handle_events(screen)
 
+                    # Stay there until one player registers
+                    if len(self.players) == 0:
+                        self.start_registration = time.time()
+
                     clock.tick(frame_rate)
 
                 self.switch_to_game()
@@ -354,29 +358,30 @@ class SquidGame:
                         player.set_last_position(player.get_coords())
 
                 # Check for movements during the red light
-                if (
-                    self.game_state == constants.RED_LIGHT
-                    and time.time() - self.last_switch_time > MIN_RED_LIGHT_DELAY_S
-                ):
-                    for player in self.players:
-                        if player.has_moved() and not player.is_eliminated():
-                            player.set_eliminated(True)
-                            self.red_sound.stop()
-                            self.green_sound.stop()
-                            self.eliminate_sound.play()
-                            if not self.no_tracker:
-                                self.laser_tracker.target = player.get_target()
-                                self.laser_tracker.start()
-                                start_time = time.time()
-                                KILL_DELAY_S: int = 5
-                                while (
-                                    time.time() - start_time < KILL_DELAY_S
-                                ) and not self.laser_tracker.shot_complete():
-                                    ret, frame = self.cap.read()
-                                    if ret:
-                                        self.laser_tracker.update_frame(frame)
-                                    clock.tick(frame_rate)
-                                self.laser_tracker.stop()
+                if self.game_state == constants.RED_LIGHT:
+                    if time.time() - self.last_switch_time > MIN_RED_LIGHT_DELAY_S:
+                        for player in self.players:
+                            if player.has_moved() and not player.is_eliminated():
+                                player.set_eliminated(True)
+                                self.red_sound.stop()
+                                self.green_sound.stop()
+                                self.eliminate_sound.play()
+                                if not self.no_tracker:
+                                    self.laser_tracker.target = player.get_target()
+                                    self.laser_tracker.start()
+                                    start_time = time.time()
+                                    KILL_DELAY_S: int = 5
+                                    while (
+                                        time.time() - start_time < KILL_DELAY_S
+                                    ) and not self.laser_tracker.shot_complete():
+                                        ret, frame = self.cap.read()
+                                        if ret:
+                                            self.laser_tracker.update_frame(frame)
+                                        clock.tick(frame_rate)
+                                    self.laser_tracker.stop()
+                    else:
+                        # Grace period
+                        player.set_last_position(player.get_coords())
 
                 # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
                 h, _, _ = frame.shape
@@ -492,7 +497,11 @@ if __name__ == "__main__":
     if args.joystick != -1:
         joystick = pygame.joystick.Joystick(args.joystick)
         print(f"Using joystick: {joystick.get_name()}")
-
+    else:
+        print("Joysticks:")
+        for idx in range(0, pygame.joystick.get_count()):
+            print(f"\t{idx}:{pygame.joystick.Joystick(idx).get_name()}")
+        print("-")
     game = SquidGame(
         disable_tracker=not args.tracker, desktop_size=size, display_idx=monitor, ip=args.ip, joystick=joystick
     )
