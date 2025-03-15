@@ -101,8 +101,8 @@ class SquidGame:
             if not player.is_eliminated() and not player.is_winner():
                 x1, y1, x2, y2 = player.get_coords()
                 # If the bottom of the player's rectangle is above or equal to the finish line,
-                # mark the player as a winner.
-                if y2 >= self.finish_line_y * frame_height:
+                # mark the player as a winner. At least two seconds after last transition.
+                if y2 >= self.finish_line_y * frame_height and time.time() - self.last_switch_time > 2:
                     player.set_winner()
 
         # Update game state
@@ -319,9 +319,9 @@ class SquidGame:
                     self.game_screen.draw_text(
                         screen,
                         f"{time_remaining}",
-                        (screen.get_width() // 2, screen.get_height() // 2),
+                        (screen.get_width() // 2 - 150, screen.get_height() // 2 - 150),
                         constants.WHITE,
-                        200,
+                        300,
                     )
                     pygame.display.flip()
 
