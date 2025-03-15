@@ -48,6 +48,7 @@ class SquidGame:
         self.laser_tracker: LaserTracker = None
         self.finish_line_y: float = constants.FINISH_LINE_PERC
         self.joystick: pygame.joystick.JoystickType = joystick
+        self.start_registration = time.time()
 
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
@@ -63,11 +64,32 @@ class SquidGame:
         self.red_sound.stop()
         self.eliminate_sound.stop()
         self.init_sound.play()
+        self.start_registration = time.time()
+        self.game_screen.reset_active_buttons()
+        self.game_screen.set_active_button(0, self.switch_to_init)
 
     def switch_to_config(self):
         self.game_state = constants.CONFIG
         self.players.clear()
         self.last_switch_time = time.time()
+        self.game_screen.reset_active_buttons()
+        self.game_screen.set_active_button(0, self.switch_to_init)
+
+    def switch_to_game(self):
+        self.game_state = constants.GREEN_LIGHT
+        self.green_sound.play()
+        pygame.time.delay(1000)
+        self.last_switch_time = time.time()
+        self.game_screen.reset_active_buttons()
+        self.game_screen.set_active_button(0, self.switch_to_init)
+
+    def switch_to_endgame(self, endgame_str: str):
+        self.game_state = endgame_str
+        if endgame_str == constants.VICTORY:
+            self.victory_sound.play()
+        self.last_switch_time = time.time()
+        self.game_screen.reset_active_buttons()
+        self.game_screen.set_active_button(0, self.switch_to_init)
 
     def check_endgame_conditions(self, frame_height: int) -> None:
         """
@@ -86,12 +108,9 @@ class SquidGame:
         # Update game state
         if self.players and all(player.is_eliminated() or player.is_winner() for player in self.players):
             if any(player.is_winner() for player in self.players):
-                self.game_state = constants.VICTORY
-                self.victory_sound.play()
+                self.switch_to_endgame(constants.VICTORY)
             else:
-                self.game_state = constants.GAMEOVER
-
-            self.last_switch_time = time.time()
+                self.switch_to_endgame(constants.GAMEOVER)
 
     def merge_players_lists(
         self, webcam_frame: cv2.UMat, players: list[Player], visible_players: list[Player], allow_registration: bool
@@ -234,9 +253,9 @@ class SquidGame:
             if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                self.game_screen.handle_buttons_click(screen, event, self)
+                self.game_screen.handle_buttons_click(screen, event)
             elif event.type == pygame.JOYBUTTONDOWN:
-                self.game_screen.handle_buttons(self, self.joystick)
+                self.game_screen.handle_buttons(self.joystick)
 
         return True
 
@@ -257,6 +276,8 @@ class SquidGame:
         clock: pygame.time.Clock = pygame.time.Clock()
         MIN_RED_LIGHT_DELAY_S: float = 0.8
 
+        self.switch_to_init()
+
         while running:
             ret, frame = self.cap.read()
             if not ret:
@@ -266,8 +287,6 @@ class SquidGame:
 
             # Initial config (exposure, exclusion zone, finish line)
             if self.game_state == constants.CONFIG:
-                self.game_screen.reset_active_buttons()
-                self.game_screen.set_active_button(0, self.switch_to_init)
                 while running:
                     ret, frame = self.cap.read()
                     if not ret:
@@ -275,22 +294,18 @@ class SquidGame:
                     self.game_screen.update_config_screen(screen, frame, self.shooter)
                     running = self.handle_events(screen)
                     pygame.display.flip()
-                    clock.tick(10)
+                    clock.tick(frame_rate)
 
             # Game Logic
             if self.game_state == constants.INIT:
-                self.game_screen.reset_active_buttons()
-                self.game_screen.set_active_button(0, self.switch_to_init)
-                self.game_screen.set_active_button(1, self.switch_to_config)
-
                 self.players = []
                 self.game_screen.update_game_screen(
                     screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
                 )
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
-                start_registration = time.time()
-                while time.time() - start_registration < REGISTRATION_DELAY_S:
+                self.start_registration = time.time()
+                while time.time() - self.start_registration < REGISTRATION_DELAY_S:
                     ret, frame = self.cap.read()
                     if not ret:
                         break
@@ -300,7 +315,7 @@ class SquidGame:
                     self.game_screen.update_game_screen(
                         screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
                     )
-                    time_remaining = int(REGISTRATION_DELAY_S - time.time() + start_registration)
+                    time_remaining = int(REGISTRATION_DELAY_S - time.time() + self.start_registration)
                     self.game_screen.draw_text(
                         screen,
                         f"{time_remaining}",
@@ -312,12 +327,9 @@ class SquidGame:
 
                     running = self.handle_events(screen)
 
-                    clock.tick(10)
+                    clock.tick(frame_rate)
 
-                self.game_state = constants.GREEN_LIGHT
-                self.green_sound.play()
-                pygame.time.delay(1000)
-                self.last_switch_time = time.time()
+                self.switch_to_game()
 
             elif self.game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
                 # Switch phase randomly (1-5 seconds)
@@ -373,9 +385,7 @@ class SquidGame:
             elif self.game_state in [constants.GAMEOVER, constants.VICTORY]:
                 # Restart after 10 seconds
                 if time.time() - self.last_switch_time > 20:
-                    self.game_state = constants.INIT
-                    self.players.clear()
-                    self.last_switch_time = time.time()
+                    self.switch_to_init()
                     continue
 
             self.game_screen.update_game_screen(

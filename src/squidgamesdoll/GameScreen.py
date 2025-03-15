@@ -18,9 +18,11 @@ FONT_COLOR: tuple[int, int, int] = constants.RED
 
 class GameScreen:
     def __init__(self, desktop_size: tuple[int, int], display_idx: int):
-        self._font_lcd: pygame.font.Font = pygame.font.Font(constants.ROOT + "/media/font_lcd.ttf", 48)
-        self._font_small: pygame.font.Font = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 36)
-        self._font_big: pygame.font.Font = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 85)
+        self._font_lcd: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/font_lcd.ttf", 48)
+        self._font_small: pygame.font.FontType = pygame.font.Font(
+            constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 36
+        )
+        self._font_big: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 85)
 
         # Position and size of reinit button
         self._reset_button: pygame.Rect = pygame.Rect(desktop_size[0] - 210, desktop_size[1] - 60, 200, 50)
@@ -66,29 +68,29 @@ class GameScreen:
         return "?"
 
     def draw_active_buttons(self, surface: pygame.Surface) -> None:
-        for idx, _ in enumerate(self.active_buttons):
-            y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 100
-            center = (surface.get_width() - 50, y_pos)
-            pygame.draw.circle(surface, self.get_button_color(idx), center, 45)
+        for idx, _ in self.active_buttons.items():
+            y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 90
+            center = (surface.get_width() - 45, y_pos)
+            pygame.draw.circle(surface, self.get_button_color(idx), center, 40)
             text = self._font_small.render(
-                self.get_button_text(idx), True, constants.WHITE, self.get_button_color(idx)
+                self.get_button_text(idx), True, constants.BLACK, self.get_button_color(idx)
             )
             surface.blit(text, (center[0] - text.get_width() // 2, center[1] - text.get_height() // 2))
 
-    def handle_buttons(self, game, joystick: pygame.joystick.JoystickType) -> None:
+    def handle_buttons(self, joystick: pygame.joystick.JoystickType) -> None:
         if joystick == None:
             return
-        for idx, fun in enumerate(self.active_buttons):
+        for idx, fun in self.active_buttons.items():
             if joystick.get_button(idx):
-                fun(game)
+                fun()
 
-    def handle_buttons_click(self, surface: pygame.Surface, event: pygame.event, game):
-        for idx, fun in enumerate(self.active_buttons):
-            y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 100
-            v1 = pygame.math.Vector2(surface.get_width() - 50, y_pos)
+    def handle_buttons_click(self, surface: pygame.Surface, event: pygame.event):
+        for idx, fun in self.active_buttons.items():
+            y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 90
+            v1 = pygame.math.Vector2(surface.get_width() - 45, y_pos)
             v2 = pygame.math.Vector2(pygame.mouse.get_pos())
-            if v1.distance_to(v2) < 45:
-                fun(game)
+            if v1.distance_to(v2) < 40:
+                fun()
 
     def get_desktop_width(self) -> int:
         return self._desktop_size[0]
@@ -162,7 +164,7 @@ class GameScreen:
 
         fullscreen.blit(video_surface, (x_web, y_web))
 
-        self.draw_phase_overlay(fullscreen, game_state)
+        # self.draw_phase_overlay(fullscreen, game_state)
 
         players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), constants.PLAYER_SIZE))
 
@@ -170,9 +172,8 @@ class GameScreen:
 
         fullscreen.blit(players_surface, (0, self.get_desktop_height() - constants.PLAYER_SIZE))
 
-        self.draw_reset_button(fullscreen)
-
-        self.draw_config_button(fullscreen)
+        # self.draw_reset_button(fullscreen)
+        # self.draw_config_button(fullscreen)
 
         if game_state not in [constants.INIT]:
             won = sum([100_000_000 for p in players if p.is_eliminated()])
@@ -272,7 +273,7 @@ class GameScreen:
         color: tuple[int, int, int] = FONT_COLOR,
         size: int = 85,
     ) -> None:
-        font: pygame.font.Font = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", size)
+        font: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", size)
         text_surface = font.render(text, True, color)
         screen.blit(text_surface, location)
 
@@ -330,12 +331,12 @@ class GameScreen:
         diamond = pygame.transform.smoothscale(diamond, (size, size))
         surface.blit(diamond, (x, y), special_flags=pygame.BLEND_RGBA_ADD)
 
-    def display_won(self, surface: pygame.Surface, amount: int, font: pygame.font) -> None:
+    def display_won(self, surface: pygame.Surface, amount: int, font: pygame.font.FontType) -> None:
         pig_img = pygame.image.load(constants.ROOT + "/media/pig.png")
         amount = f"₩ {amount:,}"
         text = font.render(amount, True, (255, 215, 0))
-        pos = (0, 0)
-        text_pos = (pig_img.get_width() + 50, 0)
+        pos = (surface.get_width() // 3, 0)
+        text_pos = (pos[0] + pig_img.get_width() + 50, (pig_img.get_height() - text.get_height()) // 2)
         surface.blit(pig_img, pos)
         surface.blit(text, text_pos)
 
