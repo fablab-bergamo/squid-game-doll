@@ -17,7 +17,14 @@ import platform
 
 
 class SquidGame:
-    def __init__(self, disable_tracker: bool, desktop_size: tuple[int, int], display_idx: int, ip: str) -> None:
+    def __init__(
+        self,
+        disable_tracker: bool,
+        desktop_size: tuple[int, int],
+        display_idx: int,
+        ip: str,
+        joystick: pygame.joystick.JoystickType,
+    ) -> None:
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
         self.tracker: BasePlayerTracker = None  # Initialize later
@@ -40,12 +47,27 @@ class SquidGame:
         self.shooter: LaserShooter = None
         self.laser_tracker: LaserTracker = None
         self.finish_line_y: float = constants.FINISH_LINE_PERC
+        self.joystick: pygame.joystick.JoystickType = joystick
 
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
             self.laser_tracker = LaserTracker(self.shooter)
 
         print(f"SquidGame(res={desktop_size} on #{display_idx}, tracker disabled={disable_tracker}, ip={ip})")
+
+    def switch_to_init(self):
+        self.game_state = constants.INIT
+        self.players.clear()
+        self.last_switch_time = time.time()
+        self.green_sound.stop()
+        self.red_sound.stop()
+        self.eliminate_sound.stop()
+        self.init_sound.play()
+
+    def switch_to_config(self):
+        self.game_state = constants.CONFIG
+        self.players.clear()
+        self.last_switch_time = time.time()
 
     def check_endgame_conditions(self, frame_height: int) -> None:
         """
@@ -206,6 +228,18 @@ class SquidGame:
 
         intro_sound.fadeout(1)
 
+    def handle_events(self, screen: pygame.Surface) -> bool:
+        # Handle Events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                self.game_screen.handle_buttons_click(screen, event, self)
+            elif event.type == pygame.JOYBUTTONDOWN:
+                self.game_screen.handle_buttons(self, self.joystick)
+
+        return True
+
     def game_main_loop(self, screen: pygame.Surface) -> None:
         """Main game loop for the Squid Game (Green Light Red Light).
         Parameters:
@@ -228,45 +262,27 @@ class SquidGame:
             if not ret:
                 break
 
-            # Handle Events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if self.game_screen.is_reset_button_click(event):
-                        self.game_state = constants.INIT  # Reset the game
-                        self.players.clear()
-                        self.last_switch_time = time.time()
-                    if self.game_screen.is_config_button_click(event):
-                        self.game_state = constants.CONFIG  # Config the game
-                        self.players.clear()
-                        self.last_switch_time = time.time()
+            running = self.handle_events(screen)
 
             # Initial config (exposure, exclusion zone, finish line)
             if self.game_state == constants.CONFIG:
-                while True:
+                self.game_screen.reset_active_buttons()
+                self.game_screen.set_active_button(0, self.switch_to_init)
+                while running:
                     ret, frame = self.cap.read()
                     if not ret:
                         break
                     self.game_screen.update_config_screen(screen, frame, self.shooter)
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            running = False
-                            return
-                        if self.game_screen.is_reset_button_click(event):
-                            self.game_state = constants.INIT  # Reset the game
-                            self.players.clear()
-                            self.last_switch_time = time.time()
-                        # Handle config
+                    running = self.handle_events(screen)
                     pygame.display.flip()
                     clock.tick(10)
 
             # Game Logic
             if self.game_state == constants.INIT:
-                self.green_sound.stop()
-                self.red_sound.stop()
-                self.eliminate_sound.stop()
-                self.init_sound.play()
+                self.game_screen.reset_active_buttons()
+                self.game_screen.set_active_button(0, self.switch_to_init)
+                self.game_screen.set_active_button(1, self.switch_to_config)
+
                 self.players = []
                 self.game_screen.update_game_screen(
                     screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
@@ -294,10 +310,7 @@ class SquidGame:
                     )
                     pygame.display.flip()
 
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            running = False
-                            return
+                    running = self.handle_events(screen)
 
                     clock.tick(10)
 
@@ -467,7 +480,14 @@ if __name__ == "__main__":
 
     args = command_line_args()
     size, monitor = SquidGame.get_desktop(args.monitor)
-    game = SquidGame(disable_tracker=not args.tracker, desktop_size=size, display_idx=monitor, ip=args.ip)
+    joystick = None
+    if args.joystick != -1:
+        joystick = pygame.joystick.Joystick(args.joystick)
+        print(f"Using joystick: {joystick.get_name()}")
+
+    game = SquidGame(
+        disable_tracker=not args.tracker, desktop_size=size, display_idx=monitor, ip=args.ip, joystick=joystick
+    )
     index: int = Camera.getCameraIndex(args.webcam)
     if index == -1:
         print("No compatible webcam found")

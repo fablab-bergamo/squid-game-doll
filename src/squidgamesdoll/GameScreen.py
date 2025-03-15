@@ -7,6 +7,7 @@ from img_processing import opencv_to_pygame
 from Player import Player
 import constants
 from LaserShooter import LaserShooter
+from collections.abc import Callable
 
 BUTTON_COLOR: tuple[int, int, int] = (255, 0, 0)  # Red like Squid Game theme
 BUTTON_HOVER_COLOR: tuple[int, int, int] = (200, 0, 0)
@@ -30,6 +31,64 @@ class GameScreen:
         self._display_idx = display_idx
 
         self.first_run = True
+        self.active_buttons = {}
+
+    def reset_active_buttons(self):
+        self.active_buttons = {}
+
+    def set_active_button(self, idx: int, callback: Callable) -> None:
+        if callback == None:
+            del self.active_buttons[idx]
+
+        self.active_buttons[idx] = callback
+
+    def get_button_color(self, idx: int) -> pygame.Color:
+        if idx == 0:
+            return (255, 0, 0)
+        elif idx == 1:
+            return (255, 255, 0)
+        elif idx == 2:
+            return (0, 255, 0)
+        elif idx == 3:
+            return (0, 0, 255)
+
+        return (255, 0, 0)
+
+    def get_button_text(self, idx: int) -> str:
+        if idx == 0:
+            return "A"
+        elif idx == 1:
+            return "B"
+        elif idx == 2:
+            return "Y"
+        elif idx == 3:
+            return "X"
+        return "?"
+
+    def draw_active_buttons(self, surface: pygame.Surface) -> None:
+        for idx, _ in enumerate(self.active_buttons):
+            y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 100
+            center = (surface.get_width() - 50, y_pos)
+            pygame.draw.circle(surface, self.get_button_color(idx), center, 45)
+            text = self._font_small.render(
+                self.get_button_text(idx), True, constants.WHITE, self.get_button_color(idx)
+            )
+            surface.blit(text, (center[0] - text.get_width() // 2, center[1] - text.get_height() // 2))
+
+    def handle_buttons(self, game, joystick: pygame.joystick.JoystickType) -> None:
+        if joystick == None:
+            return
+        for idx, fun in enumerate(self.active_buttons):
+            if joystick.get_button(idx):
+                fun(game)
+
+    def handle_buttons_click(self, surface: pygame.Surface, event: pygame.event, game):
+        for idx, fun in enumerate(self.active_buttons):
+            y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 100
+            v1 = pygame.math.Vector2(surface.get_width() - 50, y_pos)
+            v2 = pygame.math.Vector2(pygame.mouse.get_pos())
+            if v1.distance_to(v2) < 45:
+                fun(game)
 
     def get_desktop_width(self) -> int:
         return self._desktop_size[0]
@@ -74,6 +133,8 @@ class GameScreen:
 
         # Add shooter icon depending on ESP32 status
         fullscreen.blit(img, (self.get_desktop_width() - img.get_width(), 0))
+
+        self.draw_active_buttons(fullscreen)
 
     def update_game_screen(
         self,
@@ -131,6 +192,8 @@ class GameScreen:
 
         # Add shooter icon depending on ESP32 status
         fullscreen.blit(img, (self.get_desktop_width() - img.get_width(), 0))
+
+        self.draw_active_buttons(fullscreen)
 
     def draw_traffic_light(self, screen: pygame.Surface, green_light: bool) -> None:
         # Draw the light in the bottom part of the screen
