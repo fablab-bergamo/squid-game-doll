@@ -39,17 +39,17 @@ class GameScreen:
         self._desktop_size: tuple[int, int] = desktop_size
         self._display_idx = display_idx
 
-        self.first_run = True
-        self.active_buttons = {}
+        self._first_run = True
+        self._active_buttons = {}
 
     def reset_active_buttons(self):
-        self.active_buttons = {}
+        self._active_buttons = {}
 
     def set_active_button(self, idx: int, callback: Callable) -> None:
         if callback == None:
-            del self.active_buttons[idx]
+            del self._active_buttons[idx]
 
-        self.active_buttons[idx] = callback
+        self._active_buttons[idx] = callback
 
     def get_button_color(self, idx: int) -> pygame.Color:
         if idx == 0:
@@ -75,8 +75,8 @@ class GameScreen:
         return "?"
 
     def draw_active_buttons(self, surface: pygame.Surface) -> None:
-        for idx, _ in self.active_buttons.items():
-            y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 90
+        for idx, _ in self._active_buttons.items():
+            y_pos = surface.get_height() - (len(self._active_buttons) - idx) * 90
             center = (surface.get_width() - 45, y_pos)
             pygame.draw.circle(surface, self.get_button_color(idx), center, 40)
             text = self._font_button.render(
@@ -87,14 +87,14 @@ class GameScreen:
     def handle_buttons(self, joystick: pygame.joystick.JoystickType) -> bool:
         if joystick == None:
             return True
-        for idx, fun in self.active_buttons.items():
+        for idx, fun in self._active_buttons.items():
             if joystick.get_button(idx):
                 return fun()
         return True
 
     def handle_buttons_click(self, surface: pygame.Surface, event: pygame.event) -> bool:
-        for idx, fun in self.active_buttons.items():
-            y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 90
+        for idx, fun in self._active_buttons.items():
+            y_pos = surface.get_height() - (len(self._active_buttons) - idx) * 90
             v1 = pygame.math.Vector2(surface.get_width() - 45, y_pos)
             v2 = pygame.math.Vector2(pygame.mouse.get_pos())
             if v1.distance_to(v2) < 40:
@@ -120,7 +120,7 @@ class GameScreen:
             return True
         return False
 
-    def update_config_screen(
+    def update_config(
         self,
         fullscreen: pygame.Surface,
         webcam_frame: cv2.UMat,
@@ -147,7 +147,7 @@ class GameScreen:
 
         self.draw_active_buttons(fullscreen)
 
-    def update_game_screen(
+    def update(
         self,
         fullscreen: pygame.Surface,
         webcam_frame: cv2.UMat,
@@ -178,7 +178,7 @@ class GameScreen:
         players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), constants.PLAYER_SIZE))
 
         self.display_players(
-            players_surface, self.convert_player_list(players), constants.SALMON, game_state == constants.VICTORY
+            players_surface, self._convert_player_list(players), constants.SALMON, game_state == constants.VICTORY
         )
 
         fullscreen.blit(players_surface, (0, self.get_desktop_height() - constants.PLAYER_SIZE))
@@ -381,7 +381,7 @@ class GameScreen:
 
         return masked_image
 
-    def convert_player_list(self, players: list[Player]) -> list[dict]:
+    def _convert_player_list(self, players: list[Player]) -> list[dict]:
         # Creiamo un dizionario per mantenere giocatori unici con il loro stato
         risultato: list[dict] = []
         cpt: int = 1
@@ -427,11 +427,11 @@ class GameScreen:
         y = (available_height - h3) // 2
 
         self._ratio = w2 / w3
-        if self.first_run:
+        if self._first_run:
             print(
                 f"Webcam {w2, h2} -> on screen {w1, h1} : {w3, h3} in position {x, y} (webcam-to-screen ratio {self._ratio})"
             )
-            self.first_run = False
+            self._first_run = False
 
         return (w3, h3), (x, y)
 
@@ -448,8 +448,8 @@ class GameScreen:
 
         num = sum(1 for player in players if player["active"])
 
-        text = self._font_small.render(f"{num} Giocator{'e' if num <= 1 else 'i'}", True, constants.GREEN)
-        screen.blit(text, (screen.get_width() // 2 - 100, 0))
+        text = self._font_small.render(f"{num} giocator{'e' if num <= 1 else 'i'}", True, constants.GREEN)
+        screen.blit(text, ((screen.get_width() - text.get_width()) // 2, screen.get_height() - text.get_height()))
 
         for i, player in enumerate(players):
             if i >= len(player_positions):

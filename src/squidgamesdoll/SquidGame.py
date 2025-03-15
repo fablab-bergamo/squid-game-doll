@@ -293,7 +293,7 @@ class SquidGame:
                     ret, frame = self.cap.read()
                     if not ret:
                         break
-                    self.game_screen.update_config_screen(screen, frame, self.shooter)
+                    self.game_screen.update_config(screen, frame, self.shooter)
                     running = self.handle_events(screen)
                     pygame.display.flip()
                     clock.tick(frame_rate)
@@ -301,9 +301,7 @@ class SquidGame:
             # Game Logic
             if self.game_state == constants.INIT:
                 self.players = []
-                self.game_screen.update_game_screen(
-                    screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
-                )
+                self.game_screen.update(screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y)
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
                 self.start_registration = time.time()
@@ -314,7 +312,7 @@ class SquidGame:
 
                     new_players = self.tracker.process_frame(frame)
                     self.players = self.merge_players_lists(frame, [], new_players, True)
-                    self.game_screen.update_game_screen(
+                    self.game_screen.update(
                         screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
                     )
                     time_remaining = int(REGISTRATION_DELAY_S - time.time() + self.start_registration)
@@ -390,9 +388,7 @@ class SquidGame:
                     self.switch_to_init()
                     continue
 
-            self.game_screen.update_game_screen(
-                screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
-            )
+            self.game_screen.update(screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y)
 
             pygame.display.flip()
             # Limit the frame rate
