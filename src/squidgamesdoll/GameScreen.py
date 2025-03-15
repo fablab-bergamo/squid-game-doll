@@ -18,14 +18,18 @@ FONT_COLOR: tuple[int, int, int] = constants.RED
 
 class GameScreen:
     def __init__(self, desktop_size: tuple[int, int], display_idx: int):
-        self._font_lcd: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/font_lcd.ttf", 36)
+        self._font_lcd: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/font_lcd.ttf", 48)
         self._font_small: pygame.font.FontType = pygame.font.Font(
             constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 36
         )
+        self._font_button: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Bold.ttf", 42)
         self._font_smaller: pygame.font.FontType = pygame.font.Font(
             constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 24
         )
-        self._font_big: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 85)
+        self._font_big: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 90)
+        self._font_bigger: pygame.font.FontType = pygame.font.Font(
+            constants.ROOT + "/media/SpaceGrotesk-Bold.ttf", 128
+        )
 
         # Position and size of reinit button
         self._reset_button: pygame.Rect = pygame.Rect(desktop_size[0] - 210, desktop_size[1] - 60, 200, 50)
@@ -75,7 +79,7 @@ class GameScreen:
             y_pos = surface.get_height() - (len(self.active_buttons) - idx) * 90
             center = (surface.get_width() - 45, y_pos)
             pygame.draw.circle(surface, self.get_button_color(idx), center, 40)
-            text = self._font_small.render(
+            text = self._font_button.render(
                 self.get_button_text(idx), True, constants.BLACK, self.get_button_color(idx)
             )
             surface.blit(text, (center[0] - text.get_width() // 2, center[1] - text.get_height() // 2))
@@ -185,12 +189,24 @@ class GameScreen:
             self.display_won(fullscreen, won, self._font_big)
 
         if game_state == constants.GAMEOVER:
-            text = self._font_big.render("GAME OVER! No vincitori...", True, constants.WHITE)
-            fullscreen.blit(text, (self.get_desktop_width() // 2 - 400, self.get_desktop_height() - 350))
+            text = self._font_bigger.render("GAME OVER!", True, constants.RED)
+            fullscreen.blit(
+                text,
+                (
+                    (self.get_desktop_width() - text.get_width()) // 2,
+                    (self.get_desktop_height() - text.get_height()) // 2,
+                ),
+            )
 
         if game_state == constants.VICTORY:
-            text = self._font_big.render("VICTORY!", True, constants.LIGHT_GREEN)
-            fullscreen.blit(text, (self.get_desktop_width() // 2 - 400, self.get_desktop_height() - 350))
+            text = self._font_bigger.render("VICTORY!", True, constants.GREEN)
+            fullscreen.blit(
+                text,
+                (
+                    (self.get_desktop_width() - text.get_width()) // 2,
+                    (self.get_desktop_height() - text.get_height()) // 2,
+                ),
+            )
 
         img: pygame.Surface = pygame.image.load(constants.ROOT + "/media/shooter_off.png")
         if shooter is not None and shooter.isOnline():
