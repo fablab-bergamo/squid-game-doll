@@ -18,9 +18,12 @@ FONT_COLOR: tuple[int, int, int] = constants.RED
 
 class GameScreen:
     def __init__(self, desktop_size: tuple[int, int], display_idx: int):
-        self._font_lcd: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/font_lcd.ttf", 48)
+        self._font_lcd: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/font_lcd.ttf", 36)
         self._font_small: pygame.font.FontType = pygame.font.Font(
             constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 36
+        )
+        self._font_smaller: pygame.font.FontType = pygame.font.Font(
+            constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 24
         )
         self._font_big: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 85)
 
@@ -168,7 +171,9 @@ class GameScreen:
 
         players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), constants.PLAYER_SIZE))
 
-        self.display_players(players_surface, self.convert_player_list(players), constants.SALMON)
+        self.display_players(
+            players_surface, self.convert_player_list(players), constants.SALMON, game_state == constants.VICTORY
+        )
 
         fullscreen.blit(players_surface, (0, self.get_desktop_height() - constants.PLAYER_SIZE))
 
@@ -306,13 +311,10 @@ class GameScreen:
     # Arrange players in a triangle
     def get_player_positions(self, players: list, screen_width: int) -> list:
         positions = []
-        cpt = 0
         start_x, start_y = 0, 0
-        positions.append((start_x, start_y))
-        for p in players[1:]:
+        for cpt, _ in enumerate(players):
             x = start_x + (cpt * constants.PLAYER_SIZE + 20)
             y = start_y
-            cpt += 1
             if x > self._desktop_size[0]:
                 print("Too many players")
                 break
@@ -379,6 +381,7 @@ class GameScreen:
                     "id": player.get_id(),
                     "visible": player.is_visible(),
                     "winner": player.is_winner(),
+                    "eliminated": player.is_eliminated(),
                 }
             )
             cpt += 1
@@ -415,7 +418,11 @@ class GameScreen:
         return (w3, h3), (x, y)
 
     def display_players(
-        self, screen: pygame.Surface, players: list[dict] = None, background: tuple[int, int, int] = (0, 0, 0)
+        self,
+        screen: pygame.Surface,
+        players: list[dict] = None,
+        background: tuple[int, int, int] = (0, 0, 0),
+        game_ended: bool = False,
     ) -> None:
 
         player_positions = self.get_player_positions(players, screen.get_width())
@@ -455,6 +462,12 @@ class GameScreen:
                 else:
                     color = constants.RED
 
-            text = self._font_small.render(str(player["number"]), True, color)
-            text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.7))
+            if game_ended and player["winner"]:
+                total_prize = 100_000_000 * len([p for p in players if p["eliminated"]])
+                per_person = total_prize // len([p for p in players if p["winner"]])
+                text = self._font_smaller.render(f"₩ {per_person:,}", True, constants.YELLOW)
+                text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.8))
+            else:
+                text = self._font_lcd.render(str(player["number"]), True, color)
+                text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.7))
             screen.blit(text, text_rect.topleft)
