@@ -41,7 +41,7 @@ class SquidGame:
         self.gunshot_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/gunshot.mp3")
         self.game_state: str = constants.INIT
         self.last_switch_time: float = time.time()
-        self.delay_s: int = random.randint(2, 5)
+        self.delay_s: float = 1.0
         self.game_screen = GameScreen(desktop_size, display_idx)
         self.no_tracker: bool = disable_tracker
         self.shooter: LaserShooter = None
@@ -62,7 +62,9 @@ class SquidGame:
         )
 
     def switch_to_init(self) -> bool:
+        print("Switch to INIT")
         self.game_state = constants.INIT
+        self.cam.reinit()
         self.players.clear()
         self.last_switch_time = time.time()
         self.green_sound.stop()
@@ -75,7 +77,30 @@ class SquidGame:
         self.game_screen.set_active_button(0, self.switch_to_init)
         return True
 
+    def switch_to_redlight(self) -> bool:
+        print("Switch to REDLIGHT")
+        if not self.no_tracker:
+            self.shooter.rotate_head(False)
+        self.last_switch_time = time.time() + constants.GRACE_PERIOD_RED_LIGHT_S
+        self.game_state = constants.RED_LIGHT
+        self.green_sound.stop()
+        self.red_sound.play()
+        self.delay_s = random.random() * 6 + constants.MINIMUM_RED_LIGHT_S
+        return True
+
+    def switch_to_greenlight(self) -> bool:
+        print("Switch to GREENLIGHT")
+        if not self.no_tracker:
+            self.shooter.rotate_head(True)
+        self.last_switch_time = time.time()
+        self.game_state = constants.GREEN_LIGHT
+        self.green_sound.play()
+        self.red_sound.stop()
+        self.delay_s = random.random() * 4 + constants.MINIMUM_GREEN_LIGHT_S
+        return True
+
     def switch_to_config(self) -> bool:
+        print("Switch to CONFIG")
         self.game_state = constants.CONFIG
         self.players.clear()
         self.last_switch_time = time.time()
@@ -84,16 +109,14 @@ class SquidGame:
         return True
 
     def switch_to_game(self) -> bool:
-        self.game_state = constants.GREEN_LIGHT
-        self.green_sound.play()
+        print("Switch to GAME")
         pygame.time.delay(1000)
-        self.last_switch_time = time.time()
-        self.delay_s = random.randint(2, 6) / 2
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
-        return True
+        return self.switch_to_greenlight()
 
     def switch_to_loading(self) -> bool:
+        print("Switch to LOADING")
         self.game_state = constants.LOADING
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
@@ -101,6 +124,7 @@ class SquidGame:
         return True
 
     def switch_to_endgame(self, endgame_str: str) -> bool:
+        print("Switch to ENDGAME")
         self.game_state = endgame_str
         if endgame_str == constants.VICTORY:
             self.victory_sound.play()
@@ -110,6 +134,7 @@ class SquidGame:
         return True
 
     def close_loading_screen(self) -> bool:
+        print("close_loading_screen")
         self.game_state = constants.INIT
         return False
 
@@ -343,18 +368,12 @@ class SquidGame:
                 self.switch_to_game()
 
             elif self.game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
-                # Switch phase randomly (1-5 seconds)
+                # Has current light delay elapsed?
                 if time.time() - self.last_switch_time > self.delay_s:
-                    green_light = not green_light
-                    if not self.no_tracker:
-                        self.shooter.rotate_head(green_light)
-                    self.last_switch_time = time.time()
-                    self.game_state = constants.GREEN_LIGHT if green_light else constants.RED_LIGHT
-                    (self.red_sound if green_light else self.green_sound).stop()
-                    (self.green_sound if green_light else self.red_sound).play()
-                    self.delay_s = random.randint(2, 6) / 2
-                    if self.game_state == constants.RED_LIGHT:
-                        self.delay_s += 2
+                    if self.game_state == constants.GREEN_LIGHT:
+                        self.switch_to_redlight()
+                    else:
+                        self.switch_to_greenlight()
 
                 # New player positions
                 self.players = self.merge_players_lists(frame, self.players, self.tracker.process_frame(frame), False)
@@ -399,7 +418,7 @@ class SquidGame:
             elif self.game_state in [constants.GAMEOVER, constants.VICTORY]:
                 # Restart after 10 seconds
                 if time.time() - self.last_switch_time > 20:
-                    self.switch_to_init()
+                    self.switch_to_loading()
                     continue
 
             self.game_screen.update(screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y)
@@ -427,7 +446,6 @@ class SquidGame:
             print("Error: Cannot read from webcam")
             return
 
-        self.switch_to_init()
         self.game_main_loop(screen)
 
         # Cleanup

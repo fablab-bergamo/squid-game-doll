@@ -25,6 +25,9 @@ CONFIG: str = "CONFIG"
 LOADING: str = "LOADING"
 
 FINISH_LINE_PERC = 0.9
+GRACE_PERIOD_RED_LIGHT_S = 0.5
+MINIMUM_RED_LIGHT_S = 3.0
+MINIMUM_GREEN_LIGHT_S = 2.0
 
 # Various
 ROOT = os.path.dirname(__file__)

@@ -171,3 +171,7 @@ python -m cProfile -o game.prof  .\src\squidgamesdoll\game.py
 snakeviz .\game.prof
 ```
 
+## Webcam info
+
+* https://forum.opencv.org/t/opencv-camera-low-fps/567/4
+* Camera indexes are dependent on capabilities (CAP_DSHOW and CAP_V4L2)
