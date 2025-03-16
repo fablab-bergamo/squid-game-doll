@@ -62,7 +62,7 @@ class BasePlayerTracker:
         frame = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
 
         # Apply Gaussian Blur to reduce noise
-        frame = cv2.GaussianBlur(frame, (5, 5), 0)
+        # frame = cv2.GaussianBlur(frame, (5, 5), 0)
 
         # Normalize brightness and contrast using histogram equalization
         lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)  # Convert to LAB color space
