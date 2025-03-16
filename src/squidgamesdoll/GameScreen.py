@@ -224,8 +224,11 @@ class GameScreen:
 
     def draw_traffic_light(self, screen: pygame.Surface, green_light: bool) -> None:
         # Draw the light in the bottom part of the screen
-        position: tuple[int, int] = (self.get_desktop_width() // 4, self.get_desktop_height() // 5 * 4)
-        radius: int = min(self.get_desktop_width() // 10, self.get_desktop_height() // 10) - 4
+        radius: int = min(self.get_desktop_width() // 20, self.get_desktop_height() // 20) - 4
+        position: tuple[int, int] = (
+            self.get_desktop_width() - radius,
+            min(radius * 5, self.get_desktop_height() - radius - 4),
+        )
         if green_light:
             pygame.draw.circle(screen, constants.GREEN, position, radius)
         else:
@@ -284,13 +287,16 @@ class GameScreen:
         surface.blit(text, (surface.get_width() // 2 + 20, 20))
 
     def draw_finish_line(self, webcam_surface: pygame.Surface, finish_percent: float = 0.9):
-        pygame.draw.line(
-            webcam_surface,
-            constants.GREEN,
-            (0, int(webcam_surface.get_height() * finish_percent)),
-            (webcam_surface.get_width(), int(webcam_surface.get_height() * finish_percent)),
-            width=15,
-        )
+        width = 16
+        step = webcam_surface.get_width() // 20
+        for start_x in range(0, webcam_surface.get_width(), step):
+            pygame.draw.line(
+                webcam_surface,
+                constants.PINK + (45,),
+                (start_x, int(webcam_surface.get_height() * finish_percent + width // 2)),
+                (start_x + step // 2, int(webcam_surface.get_height() * finish_percent + width // 2)),
+                width=width,
+            )
 
     def draw_text(
         self,

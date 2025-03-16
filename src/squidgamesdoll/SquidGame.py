@@ -299,12 +299,10 @@ class SquidGame:
         screen (pygame.Surface): The PyGame full screen object.
         """
         # Game Loop
-        green_light: bool = True
         running: bool = True
-        frame_rate: float = 15.0
+        frame_rate: float = 10.0
         # Create a clock object to manage the frame rate
         clock: pygame.time.Clock = pygame.time.Clock()
-        MIN_RED_LIGHT_DELAY_S: float = 0.7
 
         self.switch_to_init()
 
@@ -387,7 +385,7 @@ class SquidGame:
 
                 # Check for movements during the red light
                 if self.game_state == constants.RED_LIGHT:
-                    if time.time() - self.last_switch_time > MIN_RED_LIGHT_DELAY_S:
+                    if time.time() > self.last_switch_time:
                         for player in self.players:
                             if player.has_moved() and not player.is_eliminated():
                                 player.set_eliminated(True)
@@ -408,7 +406,7 @@ class SquidGame:
                                         clock.tick(frame_rate)
                                     self.laser_tracker.stop()
                     else:
-                        # Grace period
+                        # Update memory of last position
                         player.set_last_position(player.get_coords())
 
                 # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
@@ -426,7 +424,7 @@ class SquidGame:
             pygame.display.flip()
             # Limit the frame rate
             clock.tick(frame_rate)
-            print("FPS=", clock.get_fps())
+            print(f"FPS={clock.get_fps()}")
 
     def start_game(self) -> None:
         """Start the Squid Game (Green Light Red Light)"""
