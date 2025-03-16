@@ -2,14 +2,16 @@ import cv2
 import numpy as np
 from time import sleep
 from cv2_enumerate_cameras import enumerate_cameras
+import platform
+import threading
 
 
 class GameCamera:
     @staticmethod
     def getCameraIndex(preferred_idx: int = -1) -> int:
         index = -1
-        print("Listing webcams:")
-        for camera_info in enumerate_cameras():
+        print(f"Listing webcams with capabiilities:{GameCamera.get_cv2_cap()}):")
+        for camera_info in enumerate_cameras(GameCamera.get_cv2_cap()):
             print(f"\t {camera_info.index}: {camera_info.name}")
             if (
                 camera_info.name == "HD Pro Webcam C920"
@@ -43,6 +45,7 @@ class GameCamera:
             self.valid = True
 
         self.exposure = -1
+        self.lock = threading.Lock()
 
     def __del__(self):
         """
@@ -102,7 +105,7 @@ class GameCamera:
 
     @staticmethod
     def get_native_resolution(idx: int) -> tuple[int, int]:
-        for camera_info in enumerate_cameras():
+        for camera_info in enumerate_cameras(GameCamera.get_cv2_cap()):
             if idx == camera_info.index:
                 if "HD Pro Webcam C920" in camera_info.name:
                     return (1920, 1080)
@@ -130,6 +133,13 @@ class GameCamera:
         self.exposure = exposure
         sleep(0.5)
 
+    @staticmethod
+    def get_cv2_cap() -> int:
+        cap = cv2.CAP_ANY
+        if platform.system() != "Linux":
+            cap = cv2.CAP_DSHOW
+        return cap
+
     def __setup_webcam(self, index: int) -> cv2.VideoCapture:
         """
         Sets up the webcam with the given index and returns the video capture object.
@@ -140,7 +150,8 @@ class GameCamera:
         Returns:
         cv2.VideoCapture: The video capture object for the webcam.
         """
-        cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+
+        cap = cv2.VideoCapture(index, GameCamera.get_cv2_cap())
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         resolution = GameCamera.get_native_resolution(index)
         if resolution is None:
@@ -150,6 +161,7 @@ class GameCamera:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
         cap.set(cv2.CAP_PROP_FPS, 10.0)
+        cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
         cap.read()
         return cap
 
@@ -157,15 +169,23 @@ class GameCamera:
         return self.cap.isOpened()
 
     def read(self) -> tuple[bool, cv2.UMat]:
-        return self.cap.read()
+        self.lock.acquire()
+        try:
+            return self.cap.read()
+        finally:
+            self.lock.release()
 
     def read_resize(self) -> cv2.UMat:
-        if not self.isOpened():
+        self.lock.acquire()
+        try:
+            if not self.isOpened():
+                return None
+
+            res, frame = self.cap.read()
+            if res:
+                height, width, _ = frame.shape
+                return cv2.resize(frame, (960, 540))
+
             return None
-
-        res, frame = self.cap.read()
-        if res:
-            height, width, _ = frame.shape
-            return cv2.resize(frame, (960, 540))
-
-        return None
+        finally:
+            self.lock.release()

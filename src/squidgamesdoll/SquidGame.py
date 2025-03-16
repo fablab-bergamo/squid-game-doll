@@ -110,7 +110,7 @@ class SquidGame:
         return True
 
     def close_loading_screen(self) -> bool:
-        self.switch_to_init()
+        self.game_state = constants.INIT
         return False
 
     def check_endgame_conditions(self, frame_height: int) -> None:
