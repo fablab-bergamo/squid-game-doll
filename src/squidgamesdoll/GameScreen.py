@@ -89,6 +89,7 @@ class GameScreen:
             return True
         for idx, fun in self._active_buttons.items():
             if joystick.get_button(idx):
+                print(f"Joystick button {idx}: calling {fun.__name__}")
                 return fun()
         return True
 
@@ -98,6 +99,7 @@ class GameScreen:
             v1 = pygame.math.Vector2(surface.get_width() - 45, y_pos)
             v2 = pygame.math.Vector2(pygame.mouse.get_pos())
             if v1.distance_to(v2) < 40:
+                print(f"Click on button {idx}: calling {fun.__name__}")
                 return fun()
         return True
 

@@ -49,6 +49,8 @@ class SquidGame:
         self.finish_line_y: float = constants.FINISH_LINE_PERC
         self.joystick: pygame.joystick.JoystickType = joystick
         self.start_registration = time.time()
+        self._init_done = False
+        self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
 
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
@@ -65,6 +67,7 @@ class SquidGame:
         self.green_sound.stop()
         self.red_sound.stop()
         self.eliminate_sound.stop()
+        self.intro_sound.stop()
         self.init_sound.play()
         self.start_registration = time.time()
         self.game_screen.reset_active_buttons()
@@ -89,16 +92,24 @@ class SquidGame:
         self.game_screen.set_active_button(0, self.switch_to_init)
         return True
 
+    def switch_to_loading(self) -> bool:
+        self.game_state = constants.LOADING
+        self.last_switch_time = time.time()
+        self.game_screen.reset_active_buttons()
+        self.game_screen.set_active_button(0, self.switch_to_init)
+        return True
+
     def switch_to_endgame(self, endgame_str: str) -> bool:
         self.game_state = endgame_str
         if endgame_str == constants.VICTORY:
             self.victory_sound.play()
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
-        self.game_screen.set_active_button(0, self.switch_to_init)
+        self.game_screen.set_active_button(0, self.switch_to_loading)
         return True
 
     def close_loading_screen(self) -> bool:
+        self.switch_to_init()
         return False
 
     def check_endgame_conditions(self, frame_height: int) -> None:
@@ -188,9 +199,10 @@ class SquidGame:
             time.sleep(0.1)
         print("load_model complete")
 
+        self._init_done = True
+
     def loading_screen(self, screen: pygame.Surface, webcam_idx: int) -> None:
-        # Load sounds
-        intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
+        clock = pygame.time.Clock()
 
         # Add loading screen picture during intro sound
         loading_screen_img = pygame.image.load(constants.ROOT + "/media/loading_screen.webp")
@@ -209,10 +221,11 @@ class SquidGame:
         alpha = 0
         fade_in = True
 
-        intro_sound.play(loops=-1)
+        self.intro_sound.play(loops=-1)
 
-        t: Thread = Thread(target=self.load_model, args=[webcam_idx])
-        t.start()
+        if not self._init_done:
+            t: Thread = Thread(target=self.load_model, args=[webcam_idx])
+            t.start()
 
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.close_loading_screen)
@@ -239,16 +252,16 @@ class SquidGame:
             logo_img.set_alpha(alpha)
             screen.blit(logo_img, (logo_x, logo_y))
 
-            if not t.is_alive():
+            if self._init_done:
                 self.game_screen.draw_active_buttons(screen)
 
             pygame.display.flip()
-            pygame.time.wait(50)
+            clock.tick(30)
 
-        if t.is_alive():
+        if not self._init_done and t.is_alive():
             t.join()
 
-        intro_sound.fadeout(1)
+        self.intro_sound.fadeout(1)
 
     def handle_events(self, screen: pygame.Surface) -> bool:
         # Handle Events
@@ -262,7 +275,7 @@ class SquidGame:
 
         return True
 
-    def game_main_loop(self, screen: pygame.Surface) -> None:
+    def game_main_loop(self, screen: pygame.Surface, webcam_idx: int) -> None:
         """Main game loop for the Squid Game (Green Light Red Light).
         Parameters:
         cap (cv2.VideoCapture): The video capture object from the webcam.
@@ -298,6 +311,10 @@ class SquidGame:
                     running = self.handle_events(screen)
                     pygame.display.flip()
                     clock.tick(frame_rate)
+
+            if self.game_state == constants.LOADING:
+                self.loading_screen(screen, webcam_idx)
+                self.switch_to_init()
 
             # Game Logic
             if self.game_state == constants.INIT:
@@ -418,19 +435,14 @@ class SquidGame:
 
         self.loading_screen(screen, webcam_idx)
 
-        self.game_state = constants.INIT
-        self.players = []  # Reset players list
-
-        # Timing for Red/Green Light
-        self.last_switch_time = time.time()
-
         # Compute aspect ratio and view port for webcam
         ret, frame = self.cap.read()
         if not ret:
             print("Error: Cannot read from webcam")
             return
 
-        self.game_main_loop(screen)
+        self.switch_to_init()
+        self.game_main_loop(screen, webcam_idx)
 
         # Cleanup
         self.cap.release()
