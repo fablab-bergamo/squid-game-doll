@@ -1,14 +1,14 @@
 # squid-game-doll
 
 An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking.
-Also, a shooter unit with a laser pointer is used to designate eliminated players. 
+Also, a moving doll with a laser pan&tilt unit is foreseen to signal the game phase and shoot moving players.
 
 ## Open issues / Tasks
 
-* ~~ (DOLL) Build a 3D model for a doll with red LED eyes and moving head ~~ 
+* ~~(DOLL) Build a 3D model for a doll with red LED eyes and moving head~~ 
 * (VISION) How to combine laser red dot recognition requirements (low exposure) with players recognition requirements (normal exposure)
 * (LASER SHOOTER) Maybe using a depth estimator model to calculate the angles rather than adjusting based on a video stream
-* ~~ (GAMEPLAY) How to terminate the game (finish line logic missing) ~~ 
+* ~~(GAMEPLAY) How to terminate the game (finish line logic missing)~~ 
 * (GAMEPLAY) Have a player registration step or not ??
 * (GAMEPLAY) Sensibility threshold to be shot is based on rectangle center movements, so large moves are authorized far from the camera, very little close to the camera. 
 * (LASER SHOOTER) Speed of laser pointing - slow to converge, about 10-15 s
