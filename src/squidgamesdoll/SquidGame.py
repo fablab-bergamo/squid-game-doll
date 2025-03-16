@@ -9,7 +9,7 @@ from BasePlayerTracker import BasePlayerTracker
 from PlayerTrackerUL import PlayerTrackerUL
 from Player import Player
 from FaceExtractor import FaceExtractor
-from camera import Camera
+from GameCamera import GameCamera
 import constants
 from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker
@@ -24,6 +24,7 @@ class SquidGame:
         display_idx: int,
         ip: str,
         joystick: pygame.joystick.JoystickType,
+        cam: GameCamera,
     ) -> None:
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
@@ -42,7 +43,6 @@ class SquidGame:
         self.last_switch_time: float = time.time()
         self.delay_s: int = random.randint(2, 5)
         self.game_screen = GameScreen(desktop_size, display_idx)
-        self.cap: cv2.VideoCapture = None  # Initialize later
         self.no_tracker: bool = disable_tracker
         self.shooter: LaserShooter = None
         self.laser_tracker: LaserTracker = None
@@ -51,6 +51,7 @@ class SquidGame:
         self.start_registration = time.time()
         self._init_done = False
         self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
+        self.cam: GameCamera = cam
 
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
@@ -169,7 +170,7 @@ class SquidGame:
                     players.append(new_p)
         return players
 
-    def load_model(self, webcam_idx: int):
+    def load_model(self):
 
         if platform.system() == "Linux":
             from PlayerTrackerHailo import PlayerTrackerHailo
@@ -183,25 +184,17 @@ class SquidGame:
         print("Loading face extractor")
         self.face_extractor = FaceExtractor()
         print("Opening webcam...")
-        # Use DSHOW on Windows to avoid slow startup
-        self.cap: cv2.VideoCapture = cv2.VideoCapture(webcam_idx)  # , cv2.CAP_DSHOW)
 
-        # Configure webcam stream settings
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
-        self.cap.set(cv2.CAP_PROP_FPS, 15.0)
-
-        ret, _ = self.cap.read()
+        ret, _ = self.cam.read()
         while not ret:
             print("Failure to acquire webcam stream")
-            ret, _ = self.cap.read()
+            ret, _ = self.cam.read()
             time.sleep(0.1)
         print("load_model complete")
 
         self._init_done = True
 
-    def loading_screen(self, screen: pygame.Surface, webcam_idx: int) -> None:
+    def loading_screen(self, screen: pygame.Surface) -> None:
         clock = pygame.time.Clock()
 
         # Add loading screen picture during intro sound
@@ -224,7 +217,7 @@ class SquidGame:
         self.intro_sound.play(loops=-1)
 
         if not self._init_done:
-            t: Thread = Thread(target=self.load_model, args=[webcam_idx])
+            t: Thread = Thread(target=self.load_model, args=[], daemon=True)
             t.start()
 
         self.game_screen.reset_active_buttons()
@@ -275,14 +268,10 @@ class SquidGame:
 
         return True
 
-    def game_main_loop(self, screen: pygame.Surface, webcam_idx: int) -> None:
+    def game_main_loop(self, screen: pygame.Surface) -> None:
         """Main game loop for the Squid Game (Green Light Red Light).
         Parameters:
-        cap (cv2.VideoCapture): The video capture object from the webcam.
         screen (pygame.Surface): The PyGame full screen object.
-        view_port (tuple): The view port for the webcam (width, height).
-        x_ratio (float): The aspect ratio for the x-axis between webcam frame and viewport.
-        y_ratio (float): The aspect ratio for the y-axis between webcam frame and viewport.
         """
         # Game Loop
         green_light: bool = True
@@ -295,7 +284,7 @@ class SquidGame:
         self.switch_to_init()
 
         while running:
-            ret, frame = self.cap.read()
+            ret, frame = self.cam.read()
             if not ret:
                 break
 
@@ -304,7 +293,7 @@ class SquidGame:
             # Initial config (exposure, exclusion zone, finish line)
             if self.game_state == constants.CONFIG:
                 while running:
-                    ret, frame = self.cap.read()
+                    ret, frame = self.cam.read()
                     if not ret:
                         break
                     self.game_screen.update_config(screen, frame, self.shooter)
@@ -313,7 +302,7 @@ class SquidGame:
                     clock.tick(frame_rate)
 
             if self.game_state == constants.LOADING:
-                self.loading_screen(screen, webcam_idx)
+                self.loading_screen(screen)
                 self.switch_to_init()
 
             # Game Logic
@@ -324,7 +313,7 @@ class SquidGame:
                 REGISTRATION_DELAY_S: int = 15
                 self.start_registration = time.time()
                 while time.time() - self.start_registration < REGISTRATION_DELAY_S:
-                    ret, frame = self.cap.read()
+                    ret, frame = self.cam.read()
                     if not ret:
                         break
 
@@ -394,7 +383,7 @@ class SquidGame:
                                     while (
                                         time.time() - start_time < KILL_DELAY_S
                                     ) and not self.laser_tracker.shot_complete():
-                                        ret, frame = self.cap.read()
+                                        ret, frame = self.cam.read()
                                         if ret:
                                             self.laser_tracker.update_frame(frame)
                                         clock.tick(frame_rate)
@@ -420,11 +409,8 @@ class SquidGame:
             clock.tick(frame_rate)
             print("FPS=", clock.get_fps())
 
-    def start_game(self, webcam_idx: int = 0) -> None:
-        """Start the Squid Game (Green Light Red Light) with the given webcam index.
-        Parameters:
-            webcam_idx (int): The index of the webcam to use.
-        """
+    def start_game(self) -> None:
+        """Start the Squid Game (Green Light Red Light)"""
         # Initialize screen
         screen: pygame.Surface = pygame.display.set_mode(
             (self.game_screen.get_desktop_width(), self.game_screen.get_desktop_width()),
@@ -433,19 +419,19 @@ class SquidGame:
         )
         pygame.display.set_caption("Squid Games - Green Light, Red Light")
 
-        self.loading_screen(screen, webcam_idx)
+        self.loading_screen(screen)
 
         # Compute aspect ratio and view port for webcam
-        ret, frame = self.cap.read()
+        ret, frame = self.cam.read()
         if not ret:
             print("Error: Cannot read from webcam")
             return
 
         self.switch_to_init()
-        self.game_main_loop(screen, webcam_idx)
+        self.game_main_loop(screen)
 
         # Cleanup
-        self.cap.release()
+        self.cam.release()
 
     @staticmethod
     def get_desktop(preferred_monitor=0) -> (tuple[int, int], int):
@@ -518,16 +504,24 @@ if __name__ == "__main__":
         for idx in range(0, pygame.joystick.get_count()):
             print(f"\t{idx}:{pygame.joystick.Joystick(idx).get_name()}")
         print("-")
-    game = SquidGame(
-        disable_tracker=not args.tracker, desktop_size=size, display_idx=monitor, ip=args.ip, joystick=joystick
-    )
-    index: int = Camera.getCameraIndex(args.webcam)
-    if index == -1:
+
+    cam = GameCamera(args.webcam)
+
+    if not cam.valid:
         print("No compatible webcam found")
         exit(1)
 
+    game = SquidGame(
+        disable_tracker=not args.tracker,
+        desktop_size=size,
+        display_idx=monitor,
+        ip=args.ip,
+        joystick=joystick,
+        cam=cam,
+    )
+
     while True:
         try:
-            game.start_game(index)
+            game.start_game()
         except Exception as e:
             print("Exception", e)

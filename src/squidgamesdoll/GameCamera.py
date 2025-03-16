@@ -4,29 +4,44 @@ from time import sleep
 from cv2_enumerate_cameras import enumerate_cameras
 
 
-class Camera:
+class GameCamera:
     @staticmethod
     def getCameraIndex(preferred_idx: int = -1) -> int:
         index = -1
         print("Listing webcams:")
         for camera_info in enumerate_cameras():
             print(f"\t {camera_info.index}: {camera_info.name}")
-            if camera_info.name == "HD Pro Webcam C920" or camera_info.name == "Logi C270 HD WebCam" or camera_info.name == "Webcam C170: Webcam C170":
+            if (
+                camera_info.name == "HD Pro Webcam C920"
+                or camera_info.name == "Logi C270 HD WebCam"
+                or camera_info.name == "Webcam C170: Webcam C170"
+            ):
                 index = camera_info.index
             if camera_info.index == preferred_idx:
                 return preferred_idx
         return index
 
-    def __init__(self, index: int):
+    def __init__(self, index: int = -1):
         """
         Initializes the Camera object with the given webcam index.
 
         Parameters:
         index (int): The index of the webcam to use.
         """
+        if index == -1:
+            # Try to find
+            index = GameCamera.getCameraIndex(index)
+            if index != -1:
+                print("Trying with webcam idx", index)
+
         self.cap = self.__setup_webcam(index)
+
         if not self.cap.isOpened():
             print(f"Failure opening webcam idx {index}")
+            self.valid = False
+        else:
+            self.valid = True
+
         self.exposure = -1
 
     def __del__(self):
@@ -85,6 +100,22 @@ class Camera:
         print(f"Exposure adjusted: 1/{ int(2**(-1*current_exposure))}")
         self.exposure = current_exposure
 
+    @staticmethod
+    def get_native_resolution(idx: int) -> tuple[int, int]:
+        for camera_info in enumerate_cameras():
+            if idx == camera_info.index:
+                if "HD Pro Webcam C920" in camera_info.name:
+                    return (1920, 1080)
+                elif "Logi C270 HD WebCam" in camera_info.name:
+                    return (1280, 720)
+                elif "Webcam C170" in camera_info.name:
+                    return (1024, 768)
+                else:
+                    print("Returning default resolution for webcam", camera_info.name)
+                    return (1024, 768)
+        print("Invalid index for camera resolution", idx)
+        return None
+
     def set_exposure(self, exposure: int):
         """
         Sets the exposure for the given video capture device.
@@ -111,13 +142,22 @@ class Camera:
         """
         cap = cv2.VideoCapture(index, cv2.CAP_DSHOW)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        resolution = GameCamera.get_native_resolution(index)
+        if resolution is None:
+            raise ValueError("Invalid camera index", index)
+        else:
+            print("Using webcam resolution", resolution)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
         cap.set(cv2.CAP_PROP_FPS, 10.0)
+        cap.read()
         return cap
 
     def isOpened(self) -> bool:
         return self.cap.isOpened()
+
+    def read(self) -> tuple[bool, cv2.UMat]:
+        return self.cap.read()
 
     def read_resize(self) -> cv2.UMat:
         if not self.isOpened():
