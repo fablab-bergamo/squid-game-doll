@@ -1,14 +1,14 @@
 # squid-game-doll
 
 An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking.
-Also, a shooter unit with a laser pointer is used to designate eliminated players. 
+Also, a moving doll with a laser pan&tilt unit is foreseen to signal the game phase and shoot moving players.
 
 ## Open issues / Tasks
 
-* (DOLL) Build a 3D model for a doll with red LED eyes and moving head
+* ~~(DOLL) Build a 3D model for a doll with red LED eyes and moving head~~ 
 * (VISION) How to combine laser red dot recognition requirements (low exposure) with players recognition requirements (normal exposure)
 * (LASER SHOOTER) Maybe using a depth estimator model to calculate the angles rather than adjusting based on a video stream
-* (GAMEPLAY) How to terminate the game (finish line logic missing)
+* ~~(GAMEPLAY) How to terminate the game (finish line logic missing)~~ 
 * (GAMEPLAY) Have a player registration step or not ??
 * (GAMEPLAY) Sensibility threshold to be shot is based on rectangle center movements, so large moves are authorized far from the camera, very little close to the camera. 
 * (LASER SHOOTER) Speed of laser pointing - slow to converge, about 10-15 s
@@ -18,7 +18,8 @@ Also, a shooter unit with a laser pointer is used to designate eliminated player
 
 * Installation on Raspberry PI 5 with AI KIT, see dedicated file [INSTALL.md](https://github.com/fablab-bergamo/squid-game-doll/blob/main/INSTALL.md)
 * ESP32C2 MINI Wemos board for servo control and doll control with Micropython (see esp32 folder)
-* Logitech webcam HD PRO Webcam C920 on Windows 11
+* Logitech webcam HD PRO Webcam C920 on Windows 11 / Raspberry PI 5
+* 3 x SG90 servomotors
 * Green laser 5mW (11 EUR) : https://aliexpress.com/item/1005005346537253.html . This model has high luminiosity with respect to red laser, but has poor focus. This may be better for eye safety.
 * Red laser 5mW (3 EUR) : https://aliexpress.com/item/1005008087745092.html . This model has good focus.
 
