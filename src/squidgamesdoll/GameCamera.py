@@ -4,13 +4,14 @@ from time import sleep
 from cv2_enumerate_cameras import enumerate_cameras
 import platform
 import threading
+import sys
 
 
 class GameCamera:
     @staticmethod
     def getCameraIndex(preferred_idx: int = -1) -> int:
         index = -1
-        print(f"Listing webcams with capabiilities:{GameCamera.get_cv2_cap()}):")
+        print(f"Listing webcams with capabilities:{GameCamera.get_cv2_cap()}:")
         for camera_info in enumerate_cameras(GameCamera.get_cv2_cap()):
             print(f"\t {camera_info.index}: {camera_info.name}")
             if (
@@ -45,6 +46,7 @@ class GameCamera:
             self.valid = True
 
         self.exposure = -1
+        self.index = index
         self.lock = threading.Lock()
 
     def __del__(self):
@@ -135,7 +137,7 @@ class GameCamera:
 
     @staticmethod
     def get_cv2_cap() -> int:
-        cap = cv2.CAP_ANY
+        cap = cv2.CAP_V4L2
         if platform.system() != "Linux":
             cap = cv2.CAP_DSHOW
         return cap
@@ -160,8 +162,13 @@ class GameCamera:
             print("Using webcam resolution", resolution)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
-        cap.set(cv2.CAP_PROP_FPS, 10.0)
+        # cap.set(cv2.CAP_PROP_FPS, 10.0)
         cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
+        # cap.set(cv2.CAP_PROP_CONVERT_RGB, 1)
+        codec = int(cap.get(cv2.CAP_PROP_FOURCC)).to_bytes(4, byteorder=sys.byteorder).decode()
+        print("\tWebcam codec: ", codec)
+        format = cap.get(cv2.CAP_PROP_FORMAT)
+        print("\tWebcam frame format: ", format)
         cap.read()
         return cap
 
@@ -172,6 +179,19 @@ class GameCamera:
         self.lock.acquire()
         try:
             return self.cap.read()
+        finally:
+            self.lock.release()
+
+    def reinit(self) -> bool:
+        self.lock.acquire()
+        try:
+            print("Reinit webcam", self.index)
+            if self.cap.isOpened():
+                self.cap.release()
+
+            self.cap = None
+            self.cap = self.__setup_webcam(self.index)
+            return self.isOpened()
         finally:
             self.lock.release()
 
