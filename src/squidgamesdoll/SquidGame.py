@@ -13,6 +13,7 @@ from GameCamera import GameCamera
 import constants
 from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker
+from GameConfig import GameConfig
 import platform
 
 
@@ -52,6 +53,7 @@ class SquidGame:
         self._init_done = False
         self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
         self.cam: GameCamera = cam
+        self.config: GameConfig = GameConfig()
 
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
@@ -75,6 +77,7 @@ class SquidGame:
         self.start_registration = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
+        self.game_screen.set_active_button(1, self.switch_to_config)
         return True
 
     def switch_to_redlight(self) -> bool:
@@ -106,6 +109,7 @@ class SquidGame:
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
+        self.game_screen.set_click_callback(self.config.config_callback)
         return True
 
     def switch_to_game(self) -> bool:
@@ -307,7 +311,7 @@ class SquidGame:
         self.switch_to_init()
 
         while running:
-            ret, frame = self.cam.read()
+            ret, webcam_frame = self.cam.read()
             if not ret:
                 break
 
@@ -315,14 +319,16 @@ class SquidGame:
 
             # Initial config (exposure, exclusion zone, finish line)
             if self.game_state == constants.CONFIG:
-                while running:
-                    ret, frame = self.cam.read()
+                c_running = True
+                while c_running:
+                    ret, webcam_frame = self.cam.read()
                     if not ret:
                         break
-                    self.game_screen.update_config(screen, frame, self.shooter)
-                    running = self.handle_events(screen)
+                    self.game_screen.update_config(screen, webcam_frame, self.shooter, game_conf=self.config)
+                    c_running = self.handle_events(screen)
                     pygame.display.flip()
                     clock.tick(frame_rate)
+                self.switch_to_init()
 
             if self.game_state == constants.LOADING:
                 self.loading_screen(screen)
@@ -331,19 +337,21 @@ class SquidGame:
             # Game Logic
             if self.game_state == constants.INIT:
                 self.players = []
-                self.game_screen.update(screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y)
+                self.game_screen.update(
+                    screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
+                )
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
                 self.start_registration = time.time()
                 while time.time() - self.start_registration < REGISTRATION_DELAY_S:
-                    ret, frame = self.cam.read()
+                    ret, webcam_frame = self.cam.read()
                     if not ret:
                         break
 
-                    new_players = self.tracker.process_frame(frame)
-                    self.players = self.merge_players_lists(frame, [], new_players, True)
+                    new_players = self.tracker.process_frame(webcam_frame)
+                    self.players = self.merge_players_lists(webcam_frame, [], new_players, True)
                     self.game_screen.update(
-                        screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y
+                        screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
                     )
                     time_remaining = int(REGISTRATION_DELAY_S - time.time() + self.start_registration)
                     self.game_screen.draw_text(
@@ -363,7 +371,9 @@ class SquidGame:
 
                     clock.tick(frame_rate)
 
-                self.switch_to_game()
+                # User may have switched mode
+                if self.game_state != constants.CONFIG:
+                    self.switch_to_game()
 
             elif self.game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
                 # Has current light delay elapsed?
@@ -374,7 +384,9 @@ class SquidGame:
                         self.switch_to_greenlight()
 
                 # New player positions
-                self.players = self.merge_players_lists(frame, self.players, self.tracker.process_frame(frame), False)
+                self.players = self.merge_players_lists(
+                    webcam_frame, self.players, self.tracker.process_frame(webcam_frame), False
+                )
 
                 # Update last position while the green light is on
                 if self.game_state == constants.GREEN_LIGHT:
@@ -387,7 +399,7 @@ class SquidGame:
                 if self.game_state == constants.RED_LIGHT:
                     if time.time() > self.last_switch_time:
                         for player in self.players:
-                            if player.has_moved() and not player.is_eliminated():
+                            if player.has_moved() and not player.is_eliminated() and not player.is_winner():
                                 player.set_eliminated(True)
                                 self.red_sound.stop()
                                 self.green_sound.stop()
@@ -400,9 +412,9 @@ class SquidGame:
                                     while (
                                         time.time() - start_time < KILL_DELAY_S
                                     ) and not self.laser_tracker.shot_complete():
-                                        ret, frame = self.cam.read()
+                                        ret, webcam_frame = self.cam.read()
                                         if ret:
-                                            self.laser_tracker.update_frame(frame)
+                                            self.laser_tracker.update_frame(webcam_frame)
                                         clock.tick(frame_rate)
                                     self.laser_tracker.stop()
                     else:
@@ -410,7 +422,7 @@ class SquidGame:
                         player.set_last_position(player.get_coords())
 
                 # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
-                h, _, _ = frame.shape
+                h, _, _ = webcam_frame.shape
                 self.check_endgame_conditions(h)
 
             elif self.game_state in [constants.GAMEOVER, constants.VICTORY]:
@@ -419,7 +431,9 @@ class SquidGame:
                     self.switch_to_loading()
                     continue
 
-            self.game_screen.update(screen, frame, self.game_state, self.players, self.shooter, self.finish_line_y)
+            self.game_screen.update(
+                screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
+            )
 
             pygame.display.flip()
             # Limit the frame rate
@@ -541,3 +555,4 @@ if __name__ == "__main__":
             game.start_game()
         except Exception as e:
             print("Exception", e)
+            raise e

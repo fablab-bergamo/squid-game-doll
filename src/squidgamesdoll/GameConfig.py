@@ -8,6 +8,9 @@ class GameConfig:
         self._starting_line: tuple[tuple[int, int], tuple[int, int]] = ((0, 0), (0, 0))
         self._excl_rects: list[pygame.Rect] = []
         self._exposure_corr: int = 0
+        self._current_point = None
+        self._video_feed_pos: tuple[int, int] = (0, 0)
+        self._video_feed: pygame.Surface = None
 
     def set_exposure_corr(self, correction: int):
         self._exposure_corr = correction
@@ -40,3 +43,33 @@ class GameConfig:
             rect = pygame.Rect(left=r.left * ratio, top=r.top * ratio, width=r.width * ratio, height=r.height * ratio)
             result.append(rect)
         return result
+
+    def set_screen_config(self, video_feed: pygame.Surface, video_feed_pos: tuple[int, int]):
+        self._video_feed = video_feed
+        self._video_feed_pos = video_feed_pos
+
+    def config_callback(
+        self,
+        event: pygame.event,
+    ) -> bool:
+        relative_pos = (event.pos[0] - self._video_feed_pos[0], event.pos[1] - self._video_feed_pos[1])
+        if (
+            relative_pos[0] < 0
+            or relative_pos[0] > self._video_feed.get_width()
+            or relative_pos[1] < 0
+            or relative_pos[1] > self._video_feed.get_height()
+        ):
+            print("Click outside video feed boundaries")
+        else:
+            if self._current_point is None:
+                self._current_point = relative_pos
+            else:
+                width = relative_pos[0] - self._current_point[0]
+                height = relative_pos[1] - self._current_point[1]
+                if width > 0 and height > 0:
+                    rect = pygame.Rect(
+                        left=self._current_point[0], top=self._current_point[1], width=width, height=height
+                    )
+                    self.add_rect(rect)
+                self._current_point = None
+        return True

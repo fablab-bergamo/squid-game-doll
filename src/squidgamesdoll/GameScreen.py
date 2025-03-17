@@ -8,6 +8,7 @@ from Player import Player
 import constants
 from LaserShooter import LaserShooter
 from collections.abc import Callable
+from GameConfig import GameConfig
 
 BUTTON_COLOR: tuple[int, int, int] = (255, 0, 0)  # Red like Squid Game theme
 BUTTON_HOVER_COLOR: tuple[int, int, int] = (200, 0, 0)
@@ -41,15 +42,20 @@ class GameScreen:
 
         self._first_run = True
         self._active_buttons = {}
+        self._click_callback = None
 
     def reset_active_buttons(self):
         self._active_buttons = {}
+        self._click_callback = None
 
     def set_active_button(self, idx: int, callback: Callable) -> None:
         if callback == None:
             del self._active_buttons[idx]
 
         self._active_buttons[idx] = callback
+
+    def set_click_callback(self, callback: Callable) -> None:
+        self._click_callback = callback
 
     def get_button_color(self, idx: int) -> pygame.Color:
         if idx == 1:
@@ -101,6 +107,8 @@ class GameScreen:
             if v1.distance_to(v2) < 40:
                 print(f"Click on button {idx}: calling {fun.__name__}")
                 return fun()
+        if self._click_callback is not None:
+            return self._click_callback(event)
         return True
 
     def get_desktop_width(self) -> int:
@@ -123,10 +131,7 @@ class GameScreen:
         return False
 
     def update_config(
-        self,
-        fullscreen: pygame.Surface,
-        webcam_frame: cv2.UMat,
-        shooter: LaserShooter,
+        self, fullscreen: pygame.Surface, webcam_frame: cv2.UMat, shooter: LaserShooter, game_conf: GameConfig
     ) -> None:
 
         fullscreen.fill(constants.DARK_GREEN)
@@ -135,6 +140,12 @@ class GameScreen:
 
         # Convert OpenCV BGR to RGB for PyGame
         video_surface: pygame.Surface = opencv_to_pygame(webcam_frame, (w, h))
+
+        game_conf.set_screen_config(video_feed=video_surface, video_feed_pos=(x_web, y_web))
+
+        # Draw exclusion rectangles
+        for excl_rec in game_conf.get_rects():
+            pygame.draw.rect(surface=video_surface, color=constants.BLACK, rect=excl_rec)
 
         fullscreen.blit(video_surface, (x_web, y_web))
 
@@ -252,13 +263,20 @@ class GameScreen:
             # transforms the coordinates from the webcam frame to the pygame frame using the ratios
             x, y, w, h = x / self._ratio, y / self._ratio, w / self._ratio, h / self._ratio
             # Flip along central vertical
-            pygame.draw.rect(frame_surface, color, (x, y, w, h), 3)
+            pygame.draw.rect(frame_surface, color, (x, y, w, h), 3, border_radius=10)
+
+            render = self._font_smaller.render(str(player.get_id()), True, color)
+            render = pygame.transform.flip(render, True, False)
+            text_rect: pygame.Rect = render.get_rect(
+                center=(x + w // 2, max(render.get_height() // 2, y - render.get_height() // 2))
+            )
+            frame_surface.blit(render, text_rect)
 
             # Draw the last position
             if add_previous_pos and player.get_last_position() is not None and not player.is_eliminated():
                 x, y, w, h = player.get_last_rect()
                 x, y, w, h = x / self._ratio, y / self._ratio, w / self._ratio, h / self._ratio
-                pygame.draw.rect(frame_surface, constants.WHITE, (x, y, w, h), 1)
+                pygame.draw.rect(frame_surface, constants.WHITE, (x, y, w, h), 1, border_radius=10)
 
             if player.is_eliminated():
                 pygame.draw.line(
