@@ -65,14 +65,15 @@ async def rotate_head():
 async def pulse_eyes():
     """Asynchronous function to create a pulsing effect on the LEDs."""
     print("Running pulse_eyes...")
+    step = 50
     while True:
         # Gradually increase brightness
-        for duty in range(0, 1024, 25):  # Steps of 10 for smooth effect
+        for duty in range(0, 1024, step):  # Steps of 10 for smooth effect
             set_brightness(duty)
             await asyncio.sleep(0.02)  # Small delay for smooth transition
 
         # Gradually decrease brightness
-        for duty in range(1023, -1, -25):
+        for duty in range(1023, -1, -step):
             set_brightness(duty)
             await asyncio.sleep(0.02)
 
@@ -90,10 +91,17 @@ async def head_positionning():
 
 
 async def blink():
+    import network
+
+    wlan = network.WLAN(network.STA_IF)
+
     np = neopixel.NeoPixel(Pin(INTEGRATED_RGB), 1)
     print("Running blink...")
     while True:
-        np[0] = (0, 16, 0)
+        if wlan.isconnected():
+            np[0] = (0, 16, 0)
+        else:
+            np[0] = (16, 0, 0)
         np.write()
         await asyncio.sleep_ms(1000)
         np[0] = (0, 0, 0)
