@@ -26,6 +26,7 @@ class SquidGame:
         ip: str,
         joystick: pygame.joystick.JoystickType,
         cam: GameCamera,
+        model: str,
     ) -> None:
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
@@ -54,7 +55,7 @@ class SquidGame:
         self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
         self.cam: GameCamera = cam
         self.config: GameConfig = GameConfig()
-
+        self.model: str = model
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
             self.laser_tracker = LaserTracker(self.shooter)
@@ -204,11 +205,18 @@ class SquidGame:
         if platform.system() == "Linux":
             from PlayerTrackerHailo import PlayerTrackerHailo
 
-            print("Loading HAILO model...")
-            self.tracker = PlayerTrackerHailo("yolov11m.hef")
+            print(f"Loading HAILO model ({self.model})...")
+            # self.tracker = PlayerTrackerHailo("yolov11m.hef")
+            if self.model != "":
+                self.tracker = PlayerTrackerHailo(self.model)
+            else:
+                self.tracker = PlayerTrackerHailo()
         else:
-            print("Loading Ultralytics model...")
-            self.tracker = PlayerTrackerUL()
+            print(f"Loading Ultralytics model ({self.model})...")
+            if self.model != "":
+                self.tracker = PlayerTrackerUL(self.model)
+            else:
+                self.tracker = PlayerTrackerUL()
 
         print("Loading face extractor")
         self.face_extractor = FaceExtractor()
@@ -510,6 +518,15 @@ def command_line_args() -> any:
         default=-1,
         required=False,
     )
+    parser.add_argument(
+        "-m",
+        "--model",
+        help="specify model for player recognition",
+        dest="model",
+        type=str,
+        default="",
+        required=False,
+    )
     return parser.parse_args()
 
 
@@ -548,6 +565,7 @@ if __name__ == "__main__":
         ip=args.ip,
         joystick=joystick,
         cam=cam,
+        model=args.model,
     )
 
     while True:
