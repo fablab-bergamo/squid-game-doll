@@ -214,7 +214,6 @@ class LaserShooter:
         if not self.__checksocket():
             return None
 
-        data = bytes("angles", "utf-8")
         try:
             print(f"--> {data}")
             self.aliensocket.sendall(data)
@@ -241,7 +240,6 @@ class LaserShooter:
         """
         if not self.__checksocket():
             return None
-        data = bytes("limits", "utf-8")
         try:
             print(f"--> {data}")
             self.aliensocket.sendall(data)
@@ -251,8 +249,8 @@ class LaserShooter:
             retval = ast.literal_eval(response.decode("utf-8"))
             print(f"get_limits={retval}")
             return retval
-        except:
-            print("get_angles: failure to contact ESP32")
+        except Exception as e:
+            print(f"get_limits: failure to contact ESP32: {e}")
             try:
                 self.aliensocket.close()
             except:
