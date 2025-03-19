@@ -1,7 +1,7 @@
 from numpy.linalg import norm
 import numpy as np
 import socket
-from time import time
+from time import time, sleep
 from simple_pid import PID
 import ast
 
@@ -35,9 +35,6 @@ class LaserShooter:
     def init_PID(self) -> bool:
         """
         Initializes the PID controllers for horizontal and vertical movements.
-
-        Returns:
-        bool: True if PID initialization is successful, False otherwise.
         """
         if self.limits is None:
             self.limits = self.get_limits()
@@ -81,7 +78,6 @@ class LaserShooter:
     def rotate_head(self, green_light: bool) -> bool:
         if green_light:
             return self._send_msg("GREEN")
-
         return self._send_msg("RED")
 
     def isOnline(self) -> bool:
@@ -155,10 +151,9 @@ class LaserShooter:
         if not self.pid_ok:
             self.pid_ok = self.init_PID()
             if not self.pid_ok:
-                print("PID nok")
+                print("PID not initialized")
                 return 0.0
 
-        # compute the positionning error in abs distance
         if target is None or laser is None:
             return 0
 
@@ -185,7 +180,6 @@ class LaserShooter:
                 output_v = self.prev_output_v - RATE_OF_CHANGE
 
         if output_h != self.prev_output_h or output_v != self.prev_output_v:
-            # Send only on changes
             if self.send_angles((output_h, output_v)):
                 self.prev_output_h = output_h
                 self.prev_output_v = output_v
@@ -268,21 +262,28 @@ class LaserShooter:
             return None
 
     def __checksocket(self) -> bool:
+        # ### CHANGED: Implement auto-reconnect with retry logic
         if self.aliensocket is None:
-            self.aliensocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                print(f"__checksocket: connecting to {self.ip_address}:{self.port}")
-                self.aliensocket.settimeout(0.2)
-                self.aliensocket.connect((self.ip_address, self.port))
-            except Exception as e:
-                print(f"__checksocket: failure to connect : {e}")
+            attempt = 0
+            while attempt < 5:
                 try:
-                    self.aliensocket.close()
-                except:
-                    pass
-                self.aliensocket = None
-                self._is_online = False
-                return False
+                    print(f"__checksocket: connecting to {self.ip_address}:{self.port} (attempt {attempt+1})")
+                    self.aliensocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.aliensocket.settimeout(0.5)  # ### CHANGED: Slightly longer timeout for reconnection
+                    self.aliensocket.connect((self.ip_address, self.port))
+                    self._is_online = True
+                    return True
+                except Exception as e:
+                    print(f"__checksocket: connection attempt {attempt+1} failed: {e}")
+                    try:
+                        self.aliensocket.close()
+                    except:
+                        pass
+                    self.aliensocket = None
+                    self._is_online = False
+                    attempt += 1
+                    sleep(1)  # ### CHANGED: Wait a second before retrying
+            return False
         return True
 
     def _send_msg(self, message: str) -> bool:
@@ -291,13 +292,13 @@ class LaserShooter:
         if not self.__checksocket():
             return False
 
-        data = bytes(str(message), "utf-8")
+        data = bytes(str(message) + "\n", "utf-8")  # ### CHANGED: Append newline as delimiter
         try:
             print(f"<-- {data}")
             self.aliensocket.sendall(data)
             self.aliensocket.recv(128)
-        except:
-            print("send_msg: failure to contact ESP32")
+        except Exception as e:
+            print(f"_send_msg: failure to contact ESP32: {e}")
             self.aliensocket.close()
             self.aliensocket = None
             self._is_online = False
@@ -323,14 +324,13 @@ class LaserShooter:
 
         # Round angles to 2 decimals, servos will not be able to do better than 0.1° anyways
         target = (round(angles[0], 2), round(angles[1], 2))
-
-        data = bytes(str(target), "utf-8")
+        data = bytes(str(target) + "\n", "utf-8")  # ### CHANGED: Added newline delimiter
         try:
             print(f"<-- {data}")
             self.aliensocket.sendall(data)
             self.aliensocket.recv(128)
-        except:
-            print("send_angles: failure to contact ESP32")
+        except Exception as e:
+            print(f"send_angles: failure to contact ESP32: {e}")
             self.aliensocket.close()
             self.aliensocket = None
             self._is_online = False
@@ -365,13 +365,12 @@ class LaserShooter:
         if time() - self.last_sent > self.min_period_S:
             self.last_sent = time()
         else:
-            # Avoid sending instructions too quickly
             return True
 
         self.current_pos = self.get_angles()
 
         if self.current_pos is None:
-            print(f"Failure to get current angles!")
+            print("Failure to get current angles!")
             return False
 
         target = self.current_pos
@@ -388,7 +387,7 @@ class LaserShooter:
         if self.limits is None:
             self.limits = self.get_limits()
 
-        # Limits
+        # Enforce limits
         if target[0] < self.limits[0][0]:
             target = (self.limits[0][0], target[1])
         if target[0] > self.limits[0][1]:
@@ -400,8 +399,4 @@ class LaserShooter:
             target = (target[0], self.limits[1][1])
 
         result = self.send_angles(target)
-
-        # Update position from ESP32
-        # self.current_pos = self.get_angles()
-
         return result

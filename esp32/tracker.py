@@ -4,6 +4,7 @@ import asyncio, socket
 import random
 import neopixel
 from Servo import Servo
+import ast  # ### CHANGED: Added ast import for safe literal evaluation
 
 H_SERVO_PIN = 5
 V_SERVO_PIN = 4
@@ -112,119 +113,117 @@ async def blink():
 async def blink_laser():
     global force_off, laser
     print("Running blink laser...")
-    blink = True
+    blink_state = True
     while True:
         if force_off:
             laser.value(True)
         else:
-            laser.value(blink)
-        blink = not blink
+            laser.value(blink_state)
+        blink_state = not blink_state
         await asyncio.sleep_ms(100)
-
-
-# possible commands
 
 
 async def handle_client(reader, writer):
     """
     Handles client requests and sends appropriate responses.
-
-    The function listens for various commands from the client and performs actions
-    such as updating target coordinates, starting/stopping test movements, and
-    controlling the laser. The possible commands and their responses are:
-
-    - "(x, y)": Updates the target coordinates to (x, y). Responds with "1" if successful, "0" otherwise.
-    - "?": Requests the current servo angles. Responds with a tuple of (horizontal_angle, vertical_angle).
-    - "limits": Requests the servo limits. Responds with a tuple of ((H_MIN, H_MAX), (V_MIN, V_MAX)).
-    - "test": Starts the test movement. Responds with "1".
-    - "stop": Stops the test movement. Responds with "1".
-    - "off": Forces the laser off. Responds with "1".
-    - "on": Forces the laser on. Responds with "1".
-    - "quit": Ends the client connection.
-
-    Parameters:
-    reader (StreamReader): The stream reader to read data from the client.
-    writer (StreamWriter): The stream writer to send data to the client.
     """
     global target_coord, test_mov, force_off, laser, shutdown_event, head_pos
     request = None
-    skipReply = False
     print("Handle client started")
 
-    while request != "quit":
-        try:
-            request = (await asyncio.wait_for(reader.read(128), timeout=0.5)).decode("utf8").strip()
-        except asyncio.TimeoutError:
-            continue
-        except Exception as e:
-            print(f"Error reading request: {e}")
-            await asyncio.sleep(0.1)
-
-        if request is None or len(request) == 0:
-            continue
-
-        print(f"<-- {request}")
-        response = "?\n"
-
-        if request.startswith("("):
+    try:
+        while True:
             try:
-                target_coord = eval(request)
-                response = "1"
+                data = await asyncio.wait_for(reader.read(128), timeout=0.5)
+                if not data:
+                    print("Client disconnected (EOF received).")
+                    break  # ### CHANGED: Check for empty data to detect disconnect
+                request = data.decode("utf8").strip()
+            except asyncio.TimeoutError:
+                continue
             except Exception as e:
-                print(f"Error updating target coordinates: {e}")
+                print(f"Error reading request: {e}")
+                await asyncio.sleep(0.1)
+                continue
+
+            if not request:
+                continue
+
+            print(f"<-- {request}")
+            response = "?\n"
+
+            if request.startswith("("):
+                try:
+                    # ### CHANGED: Using ast.literal_eval instead of eval for safety
+                    target_coord = ast.literal_eval(request)
+                    response = "1"
+                except Exception as e:
+                    print(f"Error updating target coordinates: {e}")
+                    response = "0"
+            elif request == "angles":
+                response = (round(motor_h.current_angle, 2), round(motor_v.current_angle, 2))
+            elif request == "limits":
+                response = ((H_MIN, H_MAX), (V_MIN, V_MAX))
+            elif request == "test":
+                test_mov = True
+                response = "1"
+            elif request == "stop":
+                test_mov = False
+                response = "1"
+            elif request == "off":
+                force_off = True
+                laser.value(True)
+                response = "1"
+            elif request == "on":
+                force_off = False
+                laser.value(False)
+                response = "1"
+            elif request == "h0":
+                head_pos = HEAD_MIN
+                response = "1"
+            elif request == "h1":
+                head_pos = HEAD_MAX
+                response = "1"
+            elif request == "quit":
+                response = "1"
+                writer.write(str(response).encode("utf8"))
+                await writer.drain()
+                break  # ### CHANGED: Break loop on quit command
+            else:
                 response = "0"
-        elif request == "angles":
-            response = (round(motor_h.current_angle, 2), round(motor_v.current_angle, 2))
-        elif request == "limits":
-            response = ((H_MIN, H_MAX), (V_MIN, V_MAX))
-        elif request == "test":
-            test_mov = True
-            response = "1"
-        elif request == "stop":
-            test_mov = False
-            response = "1"
-        elif request == "off":
-            force_off = True
-            laser.value(True)
-            response = "1"
-        elif request == "on":
-            force_off = False
-            laser.value(False)
-            response = "1"
-        elif request == "h0":
-            head_pos = HEAD_MIN
-            response = "1"
-        elif request == "h1":
-            head_pos = HEAD_MAX
-            response = "1"
-        elif request == "quit":
-            response = "1"
-        else:
-            response = "0"
 
-        print(f"--> {response}")
+            print(f"--> {response}")
+            try:
+                writer.write(str(response).encode("utf8"))
+                await writer.drain()
+            except Exception as e:
+                print(f"Error while responding: {e}")
+                break
+    except Exception as ex:
+        print(f"Unhandled error in client handler: {ex}")
+    finally:
         try:
-            writer.write(str(response).encode("utf8"))
-            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
         except Exception as e:
-            print(f"Error while responding: {e}")
-            break
-
-    writer.close()
-    await writer.wait_closed()
-    print("handle_client terminating.")
-    shutdown_event.set()
+            print(f"Error closing connection: {e}")
+        print("handle_client terminating.")
+        shutdown_event.set()  # Signal shutdown when a client disconnects unexpectedly
 
 
 async def run_server():
     print("Running server...")
     while True:
         shutdown_event.clear()
-        server = await asyncio.start_server(handle_client, "0.0.0.0", 15555)
-        print("Server started")
-        async with server:
-            await shutdown_event.wait()
-        print("leaving run_server")
+        try:
+            server = await asyncio.start_server(handle_client, "0.0.0.0", 15555)
+            print("Server started")
+            async with server:
+                await shutdown_event.wait()
+        except Exception as e:
+            print(f"Server error: {e}")
+        print("Restarting server after shutdown/restart delay...")
+        await asyncio.sleep(2)  # ### CHANGED: Add a delay before restarting server
 
 
 async def stop_servo():
@@ -317,7 +316,7 @@ async def run_tracking():
                 motor_v.move(v2)
                 await asyncio.sleep_ms(250)
         except Exception as e:
-            print(f"Error:{e}")
+            print(f"Error in run_tracking: {e}")
 
     print("Run tracking terminating")
 
