@@ -406,7 +406,7 @@ class SquidGame:
 
                 # Update last position while the green light is on
                 if self.game_state == constants.GREEN_LIGHT:
-                    if not self.no_tracker:
+                    if not self.no_tracker and self.shooter.is_laser_enabled():
                         self.shooter.set_laser(False)
                     for player in self.players:
                         player.set_last_position(player.get_coords())
@@ -420,7 +420,7 @@ class SquidGame:
                                 self.red_sound.stop()
                                 self.green_sound.stop()
                                 self.eliminate_sound.play()
-                                if not self.no_tracker:
+                                if not self.no_tracker and self.shooter.is_laser_enabled():
                                     self.laser_tracker.target = player.get_target()
                                     self.laser_tracker.start()
                                     start_time = time.time()

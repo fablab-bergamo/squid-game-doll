@@ -165,6 +165,7 @@ class GameCamera:
         # cap.set(cv2.CAP_PROP_FPS, 10.0)
         cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
         # cap.set(cv2.CAP_PROP_CONVERT_RGB, 1)
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc("M", "J", "P", "G"))
         codec = int(cap.get(cv2.CAP_PROP_FOURCC)).to_bytes(4, byteorder=sys.byteorder).decode()
         print("\tWebcam codec: ", codec)
         format = cap.get(cv2.CAP_PROP_FORMAT)

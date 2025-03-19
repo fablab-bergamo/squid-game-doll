@@ -8,7 +8,7 @@ import ast
 
 class LaserShooter:
 
-    def __init__(self, ipaddress: str, deadband_px: int = 10, max_frequency_hz: int = 10):
+    def __init__(self, ipaddress: str, deadband_px: int = 10, max_frequency_hz: int = 10, enable_laser: bool = True):
         """
         Initializes the LaserShooter object with the given IP address, deadband, and maximum frequency.
 
@@ -27,6 +27,10 @@ class LaserShooter:
         self.limits: tuple = self.get_limits()
         self.pid_ok: bool = self.init_PID()
         self.coeffs: tuple[float, float] = (50.0, 15.0)
+        self._enable_laser = enable_laser
+
+    def is_laser_enabled(self) -> bool:
+        return self.is_laser_enabled
 
     def set_coeffs(self, px_per_degree: tuple):
         if px_per_degree is not None:
