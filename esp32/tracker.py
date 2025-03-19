@@ -4,7 +4,6 @@ import asyncio, socket
 import random
 import neopixel
 from Servo import Servo
-import ast  # ### CHANGED: Added ast import for safe literal evaluation
 
 H_SERVO_PIN = 5
 V_SERVO_PIN = 4
@@ -33,6 +32,7 @@ motor_v = Servo(pin=V_SERVO_PIN)
 motor_head = Servo(pin=HEAD_SERVO_PIN)
 shutdown_event = asyncio.Event()
 force_off = False
+eyes_on = False
 
 laser = Pin(LASER_PIN, Pin.OUT)
 # Initialize PWM on the pin
@@ -65,30 +65,38 @@ async def rotate_head():
 
 async def pulse_eyes():
     """Asynchronous function to create a pulsing effect on the LEDs."""
+    global eyes_on
     print("Running pulse_eyes...")
-    step = 50
+    step = 40
     while True:
-        # Gradually increase brightness
-        for duty in range(0, 1024, step):  # Steps of 10 for smooth effect
-            set_brightness(duty)
-            await asyncio.sleep(0.02)  # Small delay for smooth transition
+        if not eyes_on:
+            set_brightness(1023)
+            await asyncio.sleep(0.05)
+        else:
+            # Gradually decrease brightness
+            for duty in range(1023, 256, -step):
+                set_brightness(duty)
+                await asyncio.sleep(0.02)
 
-        # Gradually decrease brightness
-        for duty in range(1023, -1, -step):
-            set_brightness(duty)
-            await asyncio.sleep(0.02)
+            # Gradually increase brightness
+            for duty in range(256, 1024, step):  # Steps of 10 for smooth effect
+                set_brightness(duty)
+                await asyncio.sleep(0.02)  # Small delay for smooth transition
 
 
 async def head_positionning():
     global head_pos, motor_head
     print("Running head_positionning...")
+
     while True:
-        if int(motor_head.current_angle - head_pos) != 0:
-            for angle in range(
-                int(motor_head.current_angle), int(head_pos), 1 if head_pos > motor_head.current_angle else -1
-            ):
+        if int(motor_head.current_angle) > int(head_pos):
+            motor_head.move(head_pos)
+            await asyncio.sleep(0.02)
+        elif int(motor_head.current_angle) < int(head_pos):
+            for angle in range(int(motor_head.current_angle), int(head_pos), 2):
                 motor_head.move(angle)
-        await asyncio.sleep(0.02)
+                await asyncio.sleep(0.02)
+        await asyncio.sleep(0.05)
 
 
 async def blink():
@@ -127,7 +135,7 @@ async def handle_client(reader, writer):
     """
     Handles client requests and sends appropriate responses.
     """
-    global target_coord, test_mov, force_off, laser, shutdown_event, head_pos
+    global target_coord, test_mov, force_off, laser, shutdown_event, head_pos, eyes_on
     request = None
     print("Handle client started")
 
@@ -154,8 +162,7 @@ async def handle_client(reader, writer):
 
             if request.startswith("("):
                 try:
-                    # ### CHANGED: Using ast.literal_eval instead of eval for safety
-                    target_coord = ast.literal_eval(request)
+                    target_coord = eval(request)
                     response = "1"
                 except Exception as e:
                     print(f"Error updating target coordinates: {e}")
@@ -183,6 +190,12 @@ async def handle_client(reader, writer):
                 response = "1"
             elif request == "h1":
                 head_pos = HEAD_MAX
+                response = "1"
+            elif request == "e0":
+                eyes_on = False
+                response = "1"
+            elif request == "e1":
+                eyes_on = True
                 response = "1"
             elif request == "quit":
                 response = "1"
@@ -353,12 +366,14 @@ async def check_limits():
 
 
 async def main():
+    set_brightness(1023)
+
     # asyncio.create_task(blink_laser())
     asyncio.create_task(blink())
     # asyncio.create_task(test_movement())
-    # asyncio.create_task(head_positionning())
+    asyncio.create_task(head_positionning())
     asyncio.create_task(pulse_eyes())
-    asyncio.create_task(rotate_head())
+    # asyncio.create_task(rotate_head())
     await test(motor_h)
     await test(motor_v)
     await asyncio.gather(run_server())  # , run_tracking())

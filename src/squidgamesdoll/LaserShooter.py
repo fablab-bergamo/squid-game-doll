@@ -80,6 +80,11 @@ class LaserShooter:
             return self._send_msg("h1")
         return self._send_msg("h0")
 
+    def set_eyes(self, eyes_on: bool) -> bool:
+        if eyes_on:
+            return self._send_msg("e1")
+        return self._send_msg("e0")
+
     def isOnline(self) -> bool:
         """
         Checks if the LaserShooter is online.
@@ -211,7 +216,7 @@ class LaserShooter:
         Returns:
         tuple: The current angles of the servos, or None if the ESP32 is not reachable.
         """
-        data = "angles\n"
+        data = bytes("angles" + "\n", "utf-8")  # ### CHANGED: Append newline as delimiter
 
         if not self.__checksocket():
             return None
@@ -240,7 +245,7 @@ class LaserShooter:
         Returns:
         tuple: The servo limits, or None if the ESP32 is not reachable.
         """
-        data = "limits\n"
+        data = bytes("limits" + "\n", "utf-8")  # ### CHANGED: Append newline as delimiter
         if not self.__checksocket():
             return None
         try:

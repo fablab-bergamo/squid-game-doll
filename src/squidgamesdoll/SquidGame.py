@@ -79,11 +79,15 @@ class SquidGame:
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
         self.game_screen.set_active_button(1, self.switch_to_config)
+        if not self.no_tracker:
+            self.shooter.set_eyes(False)
+            self.shooter.rotate_head(False)
         return True
 
     def switch_to_redlight(self) -> bool:
         print("Switch to REDLIGHT")
         if not self.no_tracker:
+            self.shooter.set_eyes(True)
             self.shooter.rotate_head(False)
         self.last_switch_time = time.time() + constants.GRACE_PERIOD_RED_LIGHT_S
         self.game_state = constants.RED_LIGHT
@@ -95,6 +99,7 @@ class SquidGame:
     def switch_to_greenlight(self) -> bool:
         print("Switch to GREENLIGHT")
         if not self.no_tracker:
+            self.shooter.set_eyes(False)
             self.shooter.rotate_head(True)
         self.last_switch_time = time.time()
         self.game_state = constants.GREEN_LIGHT
@@ -136,6 +141,9 @@ class SquidGame:
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_loading)
+        if not self.no_tracker:
+            self.shooter.rotate_head(False)
+            self.shooter.set_eyes(False)
         return True
 
     def close_loading_screen(self) -> bool:
@@ -519,7 +527,7 @@ def command_line_args() -> any:
         required=False,
     )
     parser.add_argument(
-        "-m",
+        "-md",
         "--model",
         help="specify model for player recognition",
         dest="model",
