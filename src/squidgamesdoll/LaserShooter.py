@@ -20,13 +20,13 @@ class LaserShooter:
         self._is_online = False
         self.ip_address = ipaddress
         self.port = 15555
-        self.aliensocket = None
-        self.last_sent = 0
-        self.deadband = deadband_px
-        self.min_period_S = 1.0 / max_frequency_hz
-        self.limits = self.get_limits()
-        self.pid_ok = self.init_PID()
-        self.coeffs = (50.0, 15.0)
+        self.aliensocket: socket = None
+        self.last_sent: int = 0
+        self.deadband: int = deadband_px
+        self.min_period_S: float = 1.0 / max_frequency_hz
+        self.limits: tuple = self.get_limits()
+        self.pid_ok: bool = self.init_PID()
+        self.coeffs: tuple[float, float] = (50.0, 15.0)
 
     def set_coeffs(self, px_per_degree: tuple):
         if px_per_degree is not None:
@@ -77,8 +77,8 @@ class LaserShooter:
 
     def rotate_head(self, green_light: bool) -> bool:
         if green_light:
-            return self._send_msg("GREEN")
-        return self._send_msg("RED")
+            return self._send_msg("h1")
+        return self._send_msg("h0")
 
     def isOnline(self) -> bool:
         """
@@ -211,6 +211,8 @@ class LaserShooter:
         Returns:
         tuple: The current angles of the servos, or None if the ESP32 is not reachable.
         """
+        data = "angles\n"
+
         if not self.__checksocket():
             return None
 
@@ -238,6 +240,7 @@ class LaserShooter:
         Returns:
         tuple: The servo limits, or None if the ESP32 is not reachable.
         """
+        data = "limits\n"
         if not self.__checksocket():
             return None
         try:
