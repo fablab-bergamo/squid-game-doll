@@ -35,8 +35,11 @@ force_off = False
 eyes_on = False
 
 laser = Pin(LASER_PIN, Pin.OUT)
+# Switch off at start
+laser.value(1)
+
 # Initialize PWM on the pin
-eyes_pwm = PWM(Pin(EYES_PIN), freq=1000)
+eyes_pwm = PWM(Pin(EYES_PIN), freq=1024)
 
 
 def set_brightness(duty):
@@ -54,12 +57,12 @@ async def rotate_head():
     while True:
         for angle in range(0, 181, 1):
             motor_head.move(angle)
-            await asyncio.sleep_ms(20)
+            await asyncio.sleep_ms(25)
         await asyncio.sleep(1)
 
         for angle in range(180, 0, -1):
             motor_head.move(angle)
-            await asyncio.sleep_ms(20)
+            await asyncio.sleep_ms(25)
         await asyncio.sleep(1)
 
 
@@ -71,17 +74,21 @@ async def pulse_eyes():
     while True:
         if not eyes_on:
             set_brightness(1023)
-            await asyncio.sleep(0.05)
+            await asyncio.sleep_ms(25)
         else:
             # Gradually decrease brightness
             for duty in range(1023, 256, -step):
                 set_brightness(duty)
-                await asyncio.sleep(0.02)
+                if not eyes_on:
+                    continue
+                await asyncio.sleep_ms(25)
 
             # Gradually increase brightness
             for duty in range(256, 1024, step):  # Steps of 10 for smooth effect
                 set_brightness(duty)
-                await asyncio.sleep(0.02)  # Small delay for smooth transition
+                if not eyes_on:
+                    continue
+                await asyncio.sleep_ms(25)  # Small delay for smooth transition
 
 
 async def head_positionning():
@@ -91,12 +98,12 @@ async def head_positionning():
     while True:
         if int(motor_head.current_angle) > int(head_pos):
             motor_head.move(head_pos)
-            await asyncio.sleep(0.02)
+            await asyncio.sleep_ms(25)
         elif int(motor_head.current_angle) < int(head_pos):
             for angle in range(int(motor_head.current_angle), int(head_pos), 2):
                 motor_head.move(angle)
-                await asyncio.sleep(0.02)
-        await asyncio.sleep(0.05)
+                await asyncio.sleep_ms(25)
+        await asyncio.sleep_ms(50)
 
 
 async def blink():

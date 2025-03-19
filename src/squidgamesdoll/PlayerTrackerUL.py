@@ -6,7 +6,7 @@ from BasePlayerTracker import BasePlayerTracker
 
 
 class PlayerTrackerUL(BasePlayerTracker):
-    def __init__(self, model_path: str = "yolov8m.pt") -> None:
+    def __init__(self, model_path: str = "yolo11x.pt") -> None:
         """
         Initialize the PlayerTracker with the given YOLO model.
 
