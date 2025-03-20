@@ -154,6 +154,9 @@ class GameCamera:
         """
 
         cap = cv2.VideoCapture(index, GameCamera.get_cv2_cap())
+        # Must set first the codec, then the rest
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
+
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         resolution = GameCamera.get_native_resolution(index)
         if resolution is None:
@@ -162,15 +165,13 @@ class GameCamera:
             print("Using webcam resolution", resolution)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
-        # cap.set(cv2.CAP_PROP_FPS, 10.0)
         cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
-        # cap.set(cv2.CAP_PROP_CONVERT_RGB, 1)
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc("M", "J", "P", "G"))
+
         codec = int(cap.get(cv2.CAP_PROP_FOURCC)).to_bytes(4, byteorder=sys.byteorder).decode()
         print("\tWebcam codec: ", codec)
         format = cap.get(cv2.CAP_PROP_FORMAT)
         print("\tWebcam frame format: ", format)
-        cap.read()
+
         return cap
 
     def isOpened(self) -> bool:

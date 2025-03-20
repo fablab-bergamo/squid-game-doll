@@ -293,8 +293,10 @@ class SquidGame:
             if self._init_done:
                 self.game_screen.draw_active_buttons(screen)
 
+            _, _ = self.cam.read()
             pygame.display.flip()
-            clock.tick(30)
+            clock.tick()
+            print(f"Camera FPS={round(clock.get_fps(),1)}")
 
         if not self._init_done and t.is_alive():
             t.join()
@@ -386,6 +388,7 @@ class SquidGame:
                         self.start_registration = time.time()
 
                     clock.tick(frame_rate)
+                    print(f"Reg FPS={round(clock.get_fps(),1)}")
 
                 # User may have switched mode
                 if self.game_state != constants.CONFIG:
@@ -454,7 +457,7 @@ class SquidGame:
             pygame.display.flip()
             # Limit the frame rate
             clock.tick(frame_rate)
-            print(f"FPS={clock.get_fps()}")
+            print(f"Play FPS={round(clock.get_fps(),1)}")
 
     def start_game(self) -> None:
         """Start the Squid Game (Green Light Red Light)"""
