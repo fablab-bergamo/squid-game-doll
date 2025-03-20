@@ -270,6 +270,7 @@ class SquidGame:
         self.game_screen.set_active_button(0, self.close_loading_screen)
 
         running = True
+
         while running:
             running = self.handle_events(screen)
 
@@ -368,7 +369,7 @@ class SquidGame:
                         break
 
                     new_players = self.tracker.process_frame(webcam_frame)
-                    self.players = self.merge_players_lists(webcam_frame, self.players, new_players, True)
+                    self.players = self.merge_players_lists(webcam_frame, [], new_players, True)
                     self.game_screen.update(
                         screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
                     )
@@ -568,6 +569,10 @@ if __name__ == "__main__":
 
     if not cam.valid:
         print("No compatible webcam found")
+        exit(1)
+
+    if args.model != "" and not os.path.exists(args.model):
+        print("Invalid model file")
         exit(1)
 
     game = SquidGame(

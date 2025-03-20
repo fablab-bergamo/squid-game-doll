@@ -70,8 +70,8 @@ class GameCamera:
         Sets the exposure using average brightness
         See https://www.researchgate.net/profile/Stefan-Toth-3/publication/350124875_Laser_spot_detection/links/605289e092851cd8ce4b5945/Laser-spot-detection.pdf
         """
-        frame = self.read_resize()
-        if frame is None:
+        ret, frame = self.read()
+        if not ret:
             print("Error: Unable to capture frame.")
             return
 
@@ -93,8 +93,8 @@ class GameCamera:
         while avg_value > AIV1:
             new_exposure = max(current_exposure - 1, -16)  # Adjust exposure step (limit to -10 for safety)
             self.set_exposure(new_exposure)
-            print(f"Exposure adjusted: {current_exposure} -> {new_exposure}")
-            frame = self.read_resize()
+            print(f"Exposure adjusted: {current_exposure} -> {new_exposure} (AVG={avg_value})")
+            ret, frame = self.read()
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             value_channel = hsv[:, :, 2]
             avg_value = np.mean(value_channel)
