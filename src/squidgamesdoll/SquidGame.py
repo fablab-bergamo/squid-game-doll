@@ -79,6 +79,7 @@ class SquidGame:
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
         self.game_screen.set_active_button(1, self.switch_to_config)
+        self.face_extractor.reset_memory()
         if not self.no_tracker:
             self.shooter.set_eyes(False)
             self.shooter.rotate_head(False)
@@ -188,12 +189,12 @@ class SquidGame:
 
             # Capture once face if player is known
             if p is not None and p.get_face() is None:
-                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
+                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords(), new_p.get_id())
                 if face is not None:
                     p.set_face(face)
             if p is not None and not p.is_eliminated() and new_p.is_eliminated():
                 # Update face on elimination
-                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
+                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords(), new_p.get_id())
                 if face is not None:
                     p.set_face(face)
 
@@ -202,7 +203,7 @@ class SquidGame:
                 p.set_coords(new_p.get_coords())
             else:
                 if allow_registration:
-                    face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
+                    face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords(), new_p.get_id())
                     if face is not None:
                         new_p.set_face(face)
                     players.append(new_p)
@@ -367,7 +368,7 @@ class SquidGame:
                         break
 
                     new_players = self.tracker.process_frame(webcam_frame)
-                    self.players = self.merge_players_lists(webcam_frame, [], new_players, True)
+                    self.players = self.merge_players_lists(webcam_frame, self.players, new_players, True)
                     self.game_screen.update(
                         screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
                     )

@@ -9,7 +9,7 @@ from BasePlayerTracker import BasePlayerTracker
 
 
 class PlayerTrackerHailo(BasePlayerTracker):
-    def __init__(self, hef_path: str = "yolov11m.hef", score_thresh: float = 0.5) -> None:
+    def __init__(self, hef_path: str = "yolov11m.hef", score_thresh: float = 0.4) -> None:
         """
         Initialize the Hailo-based player tracker.
 
@@ -25,7 +25,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
         self.output_queue = queue.Queue()
 
         # Initialize the Hailo inference engine
-        self.hailo_inference = HailoAsyncInference(hef_path, self.input_queue, self.output_queue)
+        self.hailo_inference = HailoAsyncInference(hef_path, self.input_queue, self.output_queue, 2)
         self.model_h, self.model_w, _ = self.hailo_inference.get_input_shape()
         self.tracker = sv.ByteTrack(frame_rate=10, lost_track_buffer=80, minimum_matching_threshold=0.8)
 

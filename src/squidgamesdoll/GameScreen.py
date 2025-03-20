@@ -179,10 +179,10 @@ class GameScreen:
 
         if game_state in [constants.INIT, constants.GREEN_LIGHT, constants.RED_LIGHT]:
             self.draw_bounding_boxes(video_surface, players, game_state != constants.INIT)
+            self.draw_finish_line(video_surface, finish_line_perc)
 
         if game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
             self.draw_traffic_light(fullscreen, game_state == constants.GREEN_LIGHT)
-            self.draw_finish_line(video_surface, finish_line_perc)
 
         video_surface = pygame.transform.flip(video_surface, True, False)
         fullscreen.blit(video_surface, (x_web, y_web))

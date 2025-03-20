@@ -7,4 +7,4 @@ wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.
 wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.0/hailo8l/yolov7e6.hef
 wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.0/hailo8l/yolov11x.hef
 # Fix FPS for logitech webcam
-v4l2-ctl -v width=1920,height=1080
+v4l2-ctl -v width=1920,height=1080,pixelformat=MJPG
