@@ -284,14 +284,14 @@ class GameScreen:
                     constants.RED,
                     (x, y),
                     (x + w, y + h),
-                    5,
+                    10,
                 )
                 pygame.draw.line(
                     frame_surface,
                     constants.RED,
                     (x + w, y),
                     (x, y + h),
-                    5,
+                    10,
                 )
 
     def draw_phase_overlay(self, surface: pygame.Surface, game_state: str) -> None:
