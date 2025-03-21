@@ -178,16 +178,15 @@ class GameScreen:
         video_surface: pygame.Surface = opencv_to_pygame(webcam_frame, (w, h))
 
         if game_state in [constants.INIT, constants.GREEN_LIGHT, constants.RED_LIGHT]:
-            self.draw_bounding_boxes(video_surface, players, game_state != constants.INIT)
-
-        if game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
-            self.draw_traffic_light(fullscreen, game_state == constants.GREEN_LIGHT)
             self.draw_finish_line(video_surface, finish_line_perc)
+
+        self.draw_bounding_boxes(video_surface, players, game_state != constants.INIT)
 
         video_surface = pygame.transform.flip(video_surface, True, False)
         fullscreen.blit(video_surface, (x_web, y_web))
 
-        # self.draw_phase_overlay(fullscreen, game_state)
+        if game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
+            self.draw_traffic_light(fullscreen, game_state == constants.GREEN_LIGHT)
 
         players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), constants.PLAYER_SIZE))
 
@@ -270,7 +269,7 @@ class GameScreen:
             text_rect: pygame.Rect = render.get_rect(
                 center=(x + w // 2, max(render.get_height() // 2, y - render.get_height() // 2))
             )
-            frame_surface.blit(render, text_rect)
+            # frame_surface.blit(render, text_rect)
 
             # Draw the last position
             if add_previous_pos and player.get_last_position() is not None and not player.is_eliminated():
@@ -488,7 +487,7 @@ class GameScreen:
             self.draw_blurred_diamond(screen, x, y, constants.PLAYER_SIZE)
 
             # Draw player image
-            img = player["image"].copy()
+            img = player["image"]
             img = self.mask_diamond(img)
 
             # Apply red tint
@@ -514,6 +513,6 @@ class GameScreen:
                 text = self._font_smaller.render(f"₩ {per_person:,}", True, constants.YELLOW)
                 text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.8))
             else:
-                text = self._font_lcd.render(str(player["number"]), True, color)
+                text = self._font_lcd.render(str(player["id"]), True, color)
                 text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.7))
             screen.blit(text, text_rect.topleft)

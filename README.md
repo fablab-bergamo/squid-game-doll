@@ -127,7 +127,7 @@ Using pygame as rendering engine see game.py
 * On PC, YOLO v8 medium with tracking see players_tracker.py. Performance w/ CUDA RTX2060 30fps, on AMD CPU 3fps.
 * On Raspberry, evaluating YOLOV11m (approx 10 fps)
 * YOLO model returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold around 15 px.
-* Pre-compiled models available for Hailo 8L (AI KIT on Raspberry) : https://github.com/hailo-ai/hailo_model_zoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst
+* Pre-compiled models available for Hailo 8L (AI KIT on Raspberry) : https://github.com/hailo-ai/hailo_model_wzoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst
 
 ### Face detection for player board
 

@@ -25,9 +25,9 @@ class PlayerTrackerHailo(BasePlayerTracker):
         self.output_queue = queue.Queue()
 
         # Initialize the Hailo inference engine
-        self.hailo_inference = HailoAsyncInference(hef_path, self.input_queue, self.output_queue)
+        self.hailo_inference = HailoAsyncInference(hef_path, self.input_queue, self.output_queue, 1)
         self.model_h, self.model_w, _ = self.hailo_inference.get_input_shape()
-        self.tracker = sv.ByteTrack(frame_rate=10, lost_track_buffer=80, minimum_matching_threshold=0.8)
+        self.tracker = sv.ByteTrack(frame_rate=5)
 
         # Start the asynchronous inference in a separate thread
         self.inference_thread = threading.Thread(target=self.hailo_inference.run, daemon=True)
@@ -49,7 +49,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
 
             # Preprocess: Resize frame to model input size if necessary
             if (video_h, video_w) != (self.model_h, self.model_w):
-                preprocessed_frame = cv2.resize(frame, (self.model_w, self.model_h))
+                preprocessed_frame = self.preprocess_frame(frame, (self.model_w, self.model_h))
             else:
                 preprocessed_frame = frame
 

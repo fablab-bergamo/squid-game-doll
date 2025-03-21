@@ -79,6 +79,7 @@ class SquidGame:
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
         self.game_screen.set_active_button(1, self.switch_to_config)
+        self.face_extractor.reset_memory()
         if not self.no_tracker:
             self.shooter.set_eyes(False)
             self.shooter.rotate_head(False)
@@ -188,12 +189,12 @@ class SquidGame:
 
             # Capture once face if player is known
             if p is not None and p.get_face() is None:
-                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
+                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords(), new_p.get_id())
                 if face is not None:
                     p.set_face(face)
             if p is not None and not p.is_eliminated() and new_p.is_eliminated():
                 # Update face on elimination
-                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
+                face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords(), new_p.get_id())
                 if face is not None:
                     p.set_face(face)
 
@@ -202,7 +203,7 @@ class SquidGame:
                 p.set_coords(new_p.get_coords())
             else:
                 if allow_registration:
-                    face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords())
+                    face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords(), new_p.get_id())
                     if face is not None:
                         new_p.set_face(face)
                     players.append(new_p)
@@ -269,6 +270,7 @@ class SquidGame:
         self.game_screen.set_active_button(0, self.close_loading_screen)
 
         running = True
+
         while running:
             running = self.handle_events(screen)
 
@@ -293,8 +295,10 @@ class SquidGame:
             if self._init_done:
                 self.game_screen.draw_active_buttons(screen)
 
+            _, _ = self.cam.read()
             pygame.display.flip()
-            clock.tick(30)
+            clock.tick()
+            print(f"Camera FPS={round(clock.get_fps(),1)}")
 
         if not self._init_done and t.is_alive():
             t.join()
@@ -386,6 +390,7 @@ class SquidGame:
                         self.start_registration = time.time()
 
                     clock.tick(frame_rate)
+                    print(f"Reg FPS={round(clock.get_fps(),1)}")
 
                 # User may have switched mode
                 if self.game_state != constants.CONFIG:
@@ -454,7 +459,7 @@ class SquidGame:
             pygame.display.flip()
             # Limit the frame rate
             clock.tick(frame_rate)
-            print(f"FPS={clock.get_fps()}")
+            print(f"Play FPS={round(clock.get_fps(),1)}")
 
     def start_game(self) -> None:
         """Start the Squid Game (Green Light Red Light)"""
@@ -564,6 +569,10 @@ if __name__ == "__main__":
 
     if not cam.valid:
         print("No compatible webcam found")
+        exit(1)
+
+    if args.model != "" and not os.path.exists(args.model):
+        print("Invalid model file")
         exit(1)
 
     game = SquidGame(
