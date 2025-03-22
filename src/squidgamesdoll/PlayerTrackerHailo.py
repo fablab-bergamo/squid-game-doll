@@ -9,7 +9,7 @@ from BasePlayerTracker import BasePlayerTracker
 
 
 class PlayerTrackerHailo(BasePlayerTracker):
-    def __init__(self, hef_path: str = "yolov11m.hef", score_thresh: float = 0.5) -> None:
+    def __init__(self, hef_path: str = "yolov11m.hef", score_thresh: float = 0.4) -> None:
         """
         Initialize the Hailo-based player tracker.
 
