@@ -152,7 +152,7 @@ class SquidGame:
         self.game_state = constants.INIT
         return False
 
-    def check_endgame_conditions(self, frame_height: int) -> None:
+    def check_endgame_conditions(self, frame_height: int, screen: cv2.UMat) -> None:
         """
         Checks each player to see if they have reached the finish line (bottom of bounding box at or above finish_line_y).
         Then, if every player is either a winner or eliminated, switches the game state to VICTORY.
@@ -169,8 +169,10 @@ class SquidGame:
         # Update game state
         if self.players and all(player.is_eliminated() or player.is_winner() for player in self.players):
             if any(player.is_winner() for player in self.players):
+                self.save_screen_to_disk(screen, "victory.png")
                 self.switch_to_endgame(constants.VICTORY)
             else:
+                self.save_screen_to_disk(screen, "gameover.png")
                 self.switch_to_endgame(constants.GAMEOVER)
 
     def merge_players_lists(
@@ -451,7 +453,7 @@ class SquidGame:
 
                 # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
                 h, _, _ = webcam_frame.shape
-                self.check_endgame_conditions(h)
+                self.check_endgame_conditions(h, screen)
 
             elif self.game_state in [constants.GAMEOVER, constants.VICTORY]:
                 # Restart after 10 seconds
