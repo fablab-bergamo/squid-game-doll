@@ -1,17 +1,18 @@
 # squid-game-doll
 
-An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking.
-Also, a moving doll with a laser pan&tilt unit is foreseen to signal the game phase and shoot moving players.
+An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking.  A moving doll is used to signal the game phase.
+First working version was demonstrated during Arduino Days 2025 in FabLab Bergamo (Italy). A future unit with a laser pan&tilt platform is foreseen in order to shoot moving players with a laser.
 
 ## Gameplay
 
 | Game phase | Screen | Doll |
 | -- | -- | -- |
-| Loading screen | loading screenshot | random to attract crowd |
-| Registration | player reg screenshot | facing, no eyes |
-| Green light | player play screenshot | rotated, no eyes |
-| Red light | player play screenshot | rotated, red eyes |
-| End game | prize distribution screenshot | facing, no eyes |
+| Loading screen | ![Loading screen](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/loading_screen.png?raw=true) | random to attract crowd |
+| Registration | player reg screenshot | ![facing, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_init.png?raw=true) |
+| Green light | player play screenshot | ![rotated, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_off.png?raw=true) |
+| Red light | player play screenshot | ![facing, red eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_on.png?raw=true) |
+| Elimination | player play screenshot | ![facing, red eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_on.png?raw=true) |
+| End game | prize distribution screenshot | ![facing, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_init.png?raw=true) |
 
 ## Open issues / Tasks
 
