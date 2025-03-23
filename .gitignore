@@ -179,3 +179,4 @@ output.mp4
 yolov8m.onnx
 yolov11m.hef
 *.pt
+*.hef

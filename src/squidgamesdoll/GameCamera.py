@@ -70,8 +70,8 @@ class GameCamera:
         Sets the exposure using average brightness
         See https://www.researchgate.net/profile/Stefan-Toth-3/publication/350124875_Laser_spot_detection/links/605289e092851cd8ce4b5945/Laser-spot-detection.pdf
         """
-        frame = self.read_resize()
-        if frame is None:
+        ret, frame = self.read()
+        if not ret:
             print("Error: Unable to capture frame.")
             return
 
@@ -93,8 +93,8 @@ class GameCamera:
         while avg_value > AIV1:
             new_exposure = max(current_exposure - 1, -16)  # Adjust exposure step (limit to -10 for safety)
             self.set_exposure(new_exposure)
-            print(f"Exposure adjusted: {current_exposure} -> {new_exposure}")
-            frame = self.read_resize()
+            print(f"Exposure adjusted: {current_exposure} -> {new_exposure} (AVG={avg_value})")
+            ret, frame = self.read()
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             value_channel = hsv[:, :, 2]
             avg_value = np.mean(value_channel)
@@ -154,6 +154,9 @@ class GameCamera:
         """
 
         cap = cv2.VideoCapture(index, GameCamera.get_cv2_cap())
+        # Must set first the codec, then the rest
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
+
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         resolution = GameCamera.get_native_resolution(index)
         if resolution is None:
@@ -162,15 +165,13 @@ class GameCamera:
             print("Using webcam resolution", resolution)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
-        # cap.set(cv2.CAP_PROP_FPS, 10.0)
         cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
-        # cap.set(cv2.CAP_PROP_CONVERT_RGB, 1)
-        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc("M", "J", "P", "G"))
+
         codec = int(cap.get(cv2.CAP_PROP_FOURCC)).to_bytes(4, byteorder=sys.byteorder).decode()
         print("\tWebcam codec: ", codec)
         format = cap.get(cv2.CAP_PROP_FORMAT)
         print("\tWebcam frame format: ", format)
-        cap.read()
+
         return cap
 
     def isOpened(self) -> bool:

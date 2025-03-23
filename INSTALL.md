@@ -7,6 +7,8 @@
 
 ```shell
 v4l2-ctl --list-devices
+v4l2-ctl -v width=1920,height=1080,pixelformat=MJPG
+v4l2-ctl --stream-mmap=3 --stream-to=/dev/null --stream-count=250
 ```
 
 ## Software

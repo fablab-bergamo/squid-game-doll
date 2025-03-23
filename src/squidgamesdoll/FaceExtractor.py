@@ -6,9 +6,13 @@ import constants
 class FaceExtractor:
     def __init__(self):
         # Mediapipe Face Detector
-        self.face_detector = mp.solutions.face_detection.FaceDetection(min_detection_confidence=0.5)
+        self.face_detector = mp.solutions.face_detection.FaceDetection(min_detection_confidence=0.4)
+        self._memory = {}
 
-    def extract_face(self, frame: cv2.UMat, bbox: tuple) -> cv2.UMat:
+    def reset_memory(self):
+        self._memory = {}
+
+    def extract_face(self, frame: cv2.UMat, bbox: tuple, id: int) -> cv2.UMat:
         """
         Extracts a face from a given person's bounding box.
         Args:
@@ -63,8 +67,10 @@ class FaceExtractor:
                 alpha = 1.8  # Contrast factor (adjustable)
                 beta = 9  # Brightness factor (adjustable)
                 face_crop = cv2.convertScaleAbs(face_crop, alpha=alpha, beta=beta)
-
+                self._memory[id] = face_crop
                 return face_crop
 
-        # print("No face detected")
+        if id in self._memory:
+            return self._memory[id]
+
         return None
