@@ -240,6 +240,9 @@ class SquidGame:
 
         self._init_done = True
 
+    def save_screen_to_disk(self, screen: pygame.Surface, filename: str) -> None:
+        pygame.image.save(screen, "screenshot_" + filename, "PNG")
+
     def loading_screen(self, screen: pygame.Surface) -> None:
         clock = pygame.time.Clock()
 
@@ -303,6 +306,7 @@ class SquidGame:
         if not self._init_done and t.is_alive():
             t.join()
 
+        self.save_screen_to_disk(screen, "loading_screen.png")
         self.intro_sound.fadeout(1)
 
     def handle_events(self, screen: pygame.Surface) -> bool:
@@ -392,6 +396,7 @@ class SquidGame:
                     clock.tick(frame_rate)
                     print(f"Reg FPS={round(clock.get_fps(),1)}")
 
+                self.save_screen_to_disk(screen, "init.png")
                 # User may have switched mode
                 if self.game_state != constants.CONFIG:
                     self.switch_to_game()
@@ -400,8 +405,10 @@ class SquidGame:
                 # Has current light delay elapsed?
                 if time.time() - self.last_switch_time > self.delay_s:
                     if self.game_state == constants.GREEN_LIGHT:
+                        self.save_screen_to_disk(screen, "green_light.png")
                         self.switch_to_redlight()
                     else:
+                        self.save_screen_to_disk(screen, "red_light.png")
                         self.switch_to_greenlight()
 
                 # New player positions
@@ -460,6 +467,9 @@ class SquidGame:
             # Limit the frame rate
             clock.tick(frame_rate)
             print(f"Play FPS={round(clock.get_fps(),1)}")
+
+            if random.randint(0, 100) == 0:
+                self.save_screen_to_disk(screen, "game.png")
 
     def start_game(self) -> None:
         """Start the Squid Game (Green Light Red Light)"""

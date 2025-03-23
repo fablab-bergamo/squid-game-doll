@@ -166,9 +166,11 @@ class GameCamera:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
         cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
-
-        codec = int(cap.get(cv2.CAP_PROP_FOURCC)).to_bytes(4, byteorder=sys.byteorder).decode()
-        print("\tWebcam codec: ", codec)
+        try:
+            codec = int(cap.get(cv2.CAP_PROP_FOURCC)).to_bytes(4, byteorder=sys.byteorder).decode()
+            print("\tWebcam codec: ", codec)
+        except:
+            pass
         format = cap.get(cv2.CAP_PROP_FORMAT)
         print("\tWebcam frame format: ", format)
 
