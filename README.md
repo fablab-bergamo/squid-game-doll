@@ -3,6 +3,16 @@
 An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking.
 Also, a moving doll with a laser pan&tilt unit is foreseen to signal the game phase and shoot moving players.
 
+## Gameplay
+
+| Game phase | Screen | Doll |
+| -- | -- | -- |
+| Loading screen | loading screenshot | random to attract crowd |
+| Registration | player reg screenshot | facing, no eyes |
+| Green light | player play screenshot | rotated, no eyes |
+| Red light | player play screenshot | rotated, red eyes |
+| End game | prize distribution screenshot | facing, no eyes |
+
 ## Open issues / Tasks
 
 * ~~(DOLL) Build a 3D model for a doll with red LED eyes and moving head~~ 
@@ -16,18 +26,25 @@ Also, a moving doll with a laser pan&tilt unit is foreseen to signal the game ph
  
 ## Hardware
 
-* Installation on Raspberry PI 5 with AI KIT, see dedicated file [INSTALL.md](https://github.com/fablab-bergamo/squid-game-doll/blob/main/INSTALL.md)
+* Installation on Raspberry PI 5 with AI KIT, see dedicated file [INSTALL.md](https://github.com/fablab-bergamo/squid-game-doll/blob/main/INSTALL.md). A PC can be used instead (best experience with CUDA GPU support)
 * ESP32C2 MINI Wemos board for servo control and doll control with Micropython (see esp32 folder)
 * Logitech webcam HD PRO Webcam C920 on Windows 11 / Raspberry PI 5
-* 3 x SG90 servomotors
-* Green laser 5mW (11 EUR) : https://aliexpress.com/item/1005005346537253.html . This model has high luminiosity with respect to red laser, but has poor focus. This may be better for eye safety.
-* Red laser 5mW (3 EUR) : https://aliexpress.com/item/1005008087745092.html . This model has good focus.
+* 1 x SG90 servomotor for head animation
+* 2 red LED for eyes animation
+* 3D printable parts available in <code>hardware/doll-model</code>
+
+For laser shooter (not yet working)
+* 2 x SG90 servomotors
+* Pan-and-tilt platform (11 EUR): https://it.aliexpress.com/item/1005005666356097.html?spm=a2g0o.order_list.order_list_main.41.47a73696V4aDQn&gatewayAdapt=glo2ita
+* Laser holder 3D printable part : see <code>hardware/proto/Laser Holder v6.stl</code>
+* Either green laser 5mW (11 EUR) : https://aliexpress.com/item/1005005346537253.html . This model has high luminiosity with respect to red laser, but has poor focus. This may be better for eye safety.
+* or Red laser 5mW (3 EUR) : https://aliexpress.com/item/1005008087745092.html . This model has good focus.
 
 ## Dev tools used in this project 
 
 * VS Code with Python extension
-* Thonny for ESP32 development
-* Python 3.11/3.12 with main libraries opencv, ultralytics, hailo, numpy, pygame.
+* Thonny for ESP32 development (download here : [https://thonny.org/](https://thonny.org/))
+* Python 3.11/3.12 with main libraries opencv, ultralytics, hailo, numpy, pygame. 
 
 ## Geometry of play space
 
