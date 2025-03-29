@@ -6,6 +6,7 @@ import time
 
 class Player:
     MOVEMENT_THRESHOLD_PX = 15
+    MAX_AGE_SECONDS = 60
 
     def __init__(self, id: int, coords: tuple):
         self._id = id
@@ -15,6 +16,19 @@ class Player:
         self._eliminated = False
         self._visible = False
         self._winner = False
+        self._last_seen = time.time()
+
+    def set_last_seen(self, last_seen: float) -> None:
+        """Sets the last seen time of the player"""
+        self._last_seen = last_seen
+
+    def get_last_seen(self) -> float:
+        """Returns the last seen time of the player"""
+        return self._last_seen
+
+    def has_expired(self) -> bool:
+        """Checks if the player has expired based on the last seen time"""
+        return time.time() - self._last_seen > Player.MAX_AGE_SECONDS
 
     def is_winner(self) -> bool:
         return self._winner
@@ -27,6 +41,8 @@ class Player:
 
     def set_visible(self, visible: bool) -> None:
         self._visible = visible
+        if visible:
+            self._last_seen = time.time()
 
     def is_visible(self) -> bool:
         return self._visible
@@ -118,4 +134,4 @@ class Player:
         return distance > Player.MOVEMENT_THRESHOLD_PX
 
     def __str__(self):
-        return f"Player {self._id} at {self._coords} (moved: {self.has_moved()})"
+        return f"Player {self._id} at {self._coords} (moved: {self.has_moved()}, TTL: {Player.MAX_AGE_SECONDS - (time.time() - self._last_seen)} s)"

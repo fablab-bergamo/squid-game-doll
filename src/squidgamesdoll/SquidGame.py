@@ -188,7 +188,8 @@ class SquidGame:
             p.set_visible(False)
 
         for new_p in visible_players:
-            # Check if the player is already in the list
+            # Check if the player is already in the list using track ID from ByteTrack model
+            # If not, create a new player object
             p = next((p for p in players if p.get_id() == new_p.get_id()), None)
 
             if p is not None:
@@ -436,7 +437,11 @@ class SquidGame:
                 if self.game_state == constants.RED_LIGHT:
                     if time.time() > self.last_switch_time:
                         for player in self.players:
-                            if player.has_moved() and not player.is_eliminated() and not player.is_winner():
+                            if (
+                                (player.has_moved() or player.has_expired())
+                                and not player.is_eliminated()
+                                and not player.is_winner()
+                            ):
                                 player.set_eliminated(True)
                                 self.red_sound.stop()
                                 self.green_sound.stop()
