@@ -176,7 +176,12 @@ class SquidGame:
                 self.switch_to_endgame(constants.GAMEOVER)
 
     def merge_players_lists(
-        self, webcam_frame: cv2.UMat, players: list[Player], visible_players: list[Player], allow_registration: bool
+        self,
+        webcam_frame: cv2.UMat,
+        players: list[Player],
+        visible_players: list[Player],
+        allow_registration: bool,
+        allow_faceless: bool,
     ) -> list[Player]:
 
         for p in players:
@@ -208,7 +213,9 @@ class SquidGame:
                     face = self.face_extractor.extract_face(webcam_frame, new_p.get_coords(), new_p.get_id())
                     if face is not None:
                         new_p.set_face(face)
-                    players.append(new_p)
+                    # Add new player only if he is facing the camera
+                    if allow_faceless or face is not None:
+                        players.append(new_p)
         return players
 
     def load_model(self):
@@ -375,7 +382,7 @@ class SquidGame:
                         break
 
                     new_players = self.tracker.process_frame(webcam_frame)
-                    self.players = self.merge_players_lists(webcam_frame, [], new_players, True)
+                    self.players = self.merge_players_lists(webcam_frame, [], new_players, True, False)
                     self.game_screen.update(
                         screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
                     )
@@ -415,7 +422,7 @@ class SquidGame:
 
                 # New player positions
                 self.players = self.merge_players_lists(
-                    webcam_frame, self.players, self.tracker.process_frame(webcam_frame), False
+                    webcam_frame, self.players, self.tracker.process_frame(webcam_frame), False, True
                 )
 
                 # Update last position while the green light is on
