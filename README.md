@@ -5,6 +5,8 @@ First working version was demonstrated during Arduino Days 2025 in FabLab Bergam
 
 ## Gameplay
 
+Players are expected to line-up 8-10m from the screen, stand in line during registration where their faces are saved, then start moving towards the finish line during green light. If they move during red light, they are eliminated and a fixed sum is added to the prize pool.
+
 | Game phase | Screen | Doll |
 | -- | -- | -- |
 | Loading screen | ![Loading screen](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/loading_screen.png?raw=true) | random to attract crowd |
