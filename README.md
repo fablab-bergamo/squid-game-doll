@@ -10,7 +10,7 @@ Players are expected to line-up 8-10m from the screen, stand in line during regi
 | Game phase | Screen | Doll |
 | -- | -- | -- |
 | Loading screen | ![Loading screen](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/loading_screen.png?raw=true) | random to attract crowd |
-| Registration | ![registration](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/init.png?raw=true) | ![facing, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_init.png?raw=true) |
+| Registration (with 15s countdown) | ![registration](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/init.png?raw=true) | ![facing, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_init.png?raw=true) |
 | Green light | ![registration](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/green_light.png?raw=true) | ![rotated, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_off.png?raw=true) |
 | Red light | ![registration](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/red_light.png?raw=true) | ![facing, red eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_on.png?raw=true) |
 | Elimination | player play screenshot | ![facing, red eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_on.png?raw=true) |
