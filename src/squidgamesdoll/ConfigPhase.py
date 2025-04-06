@@ -36,17 +36,39 @@ class GameConfigPhase:
 
         # Configurable settings: list of dicts (min, max, key, caption, type, default)
         self.settings_config = [
-            {"key": "exposure", "caption": "Exposure Level", "min": 0, "max": 100, "type": int, "default": 50},
-            {"key": "confidence", "caption": "Confidence Level", "min": 0, "max": 100, "type": int, "default": 80},
+            {"key": "exposure", "caption": "Webcam exposure Level", "min": 0, "max": 10, "type": int, "default": 8},
+            {
+                "key": "yolo_confidence",
+                "caption": "YOLO Confidence Level (%)",
+                "min": 0,
+                "max": 100,
+                "type": int,
+                "default": 40,
+            },
+            {
+                "key": "bytetrack_confidence",
+                "caption": "Bytetrack Confidence Level (%)",
+                "min": 0,
+                "max": 100,
+                "type": int,
+                "default": 40,
+            },
             {
                 "key": "tracking_memory",
-                "caption": "Tracking Memory",
+                "caption": "ByteTrack frame memory",
                 "min": 1,
-                "max": 1000,
+                "max": 60,
                 "type": int,
-                "default": 100,
+                "default": 30,
             },
-            {"key": "pixel_tolerance", "caption": "Pixel Tolerance", "min": 0, "max": 50, "type": int, "default": 10},
+            {
+                "key": "pixel_tolerance",
+                "caption": "Movement threshold (pixels)",
+                "min": 2,
+                "max": 50,
+                "type": int,
+                "default": 15,
+            },
             # Add additional configurable settings here.
         ]
         # Create a dictionary to hold current setting values.
@@ -316,12 +338,12 @@ class GameConfigPhase:
                 key = opt["key"]
                 caption = f"{opt['caption']}: {self.settings[key]}"
                 text_surf = self.font.render(caption, True, (255, 255, 255))
-                x_pos = self.screen_width - 250
+                x_pos = self.screen_width - 350
                 self.screen.blit(text_surf, (x_pos, y_offset))
 
                 # Define plus and minus button rectangles
-                minus_rect = pygame.Rect(x_pos + 200, y_offset, 20, 20)
-                plus_rect = pygame.Rect(x_pos + 230, y_offset, 20, 20)
+                minus_rect = pygame.Rect(x_pos + 300, y_offset, 20, 20)
+                plus_rect = pygame.Rect(x_pos + 330, y_offset, 20, 20)
                 pygame.draw.rect(self.screen, (180, 180, 180), minus_rect)
                 pygame.draw.rect(self.screen, (180, 180, 180), plus_rect)
                 # Render the '-' and '+' labels
