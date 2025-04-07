@@ -56,7 +56,7 @@ For laser shooter (not yet working)
 
 ## AI 
 
-* For more details about the neural network model used for player recognition & tracking, see this [https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/](article).
+* For more details about the neural network model used for player recognition & tracking, see this [article](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/).
 
 ## (VISION) Detecting the red laser dot
 
