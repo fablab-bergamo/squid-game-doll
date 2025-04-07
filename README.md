@@ -22,7 +22,7 @@ Players are expected to line-up 8-10m from the screen, stand in line during regi
 * (VISION) How to combine laser red dot recognition requirements (low exposure) with players recognition requirements (normal exposure)
 * (LASER SHOOTER) Maybe using a depth estimator model to calculate the angles rather than adjusting based on a video stream
 * ~~(GAMEPLAY) How to terminate the game (finish line logic missing)~~ 
-* (GAMEPLAY) Have a player registration step or not ??
+* ~~(GAMEPLAY) Have a player registration step or not ??~~
 * (GAMEPLAY) Sensibility threshold to be shot is based on rectangle center movements, so large moves are authorized far from the camera, very little close to the camera. 
 * (LASER SHOOTER) Speed of laser pointing - slow to converge, about 10-15 s
 * (Various) Software quality: github actions for python packaging, some basic automated tests
@@ -53,6 +53,10 @@ For laser shooter (not yet working)
 
 * Expected play area 10 x 10 m indoor
 * In order to hit a 50 cm wide target @ 10m the laser shall be precise 2.8° in horizontal axis. This should be doable with standard servos and 3D-printed pan&tilt platform for the laser (see hardware folder).
+
+## AI 
+
+* For more details about the neural network model used for player recognition & tracking, see this [https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/](article).
 
 ## (VISION) Detecting the red laser dot
 
