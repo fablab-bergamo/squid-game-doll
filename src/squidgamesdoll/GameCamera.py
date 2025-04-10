@@ -177,7 +177,11 @@ class GameCamera:
         return cap
 
     def isOpened(self) -> bool:
-        return self.cap.isOpened()
+        self.lock.acquire()
+        try:
+            return self.cap.isOpened()
+        finally:
+            self.lock.release()
 
     def read(self) -> tuple[bool, cv2.UMat]:
         self.lock.acquire()

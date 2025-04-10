@@ -3,12 +3,11 @@ import cv2
 import sys
 import time
 from GameCamera import GameCamera
+from constants import FINISH_LINE_PERC, PINK, START_LINE_PERC
 
 
 class GameConfigPhase:
     def __init__(self, camera: GameCamera, screen_width: int = 1900, screen_height: int = 1200):
-        # Initialize pygame and set up display
-        pygame.init()
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.screen = pygame.display.set_mode((screen_width, screen_height))
@@ -25,11 +24,14 @@ class GameConfigPhase:
         self.areas = {
             "vision": [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)],
             # Start area: top 10%
-            "start": [pygame.Rect(0, 0, self.webcam_rect.width, int(0.1 * self.webcam_rect.height))],
+            "start": [pygame.Rect(0, 0, self.webcam_rect.width, int(START_LINE_PERC * self.webcam_rect.height))],
             # Finish area: bottom 10%
             "finish": [
                 pygame.Rect(
-                    0, int(0.9 * self.webcam_rect.height), self.webcam_rect.width, int(0.1 * self.webcam_rect.height)
+                    0,
+                    int(FINISH_LINE_PERC * self.webcam_rect.height),
+                    self.webcam_rect.width,
+                    int((1 - FINISH_LINE_PERC) * self.webcam_rect.height),
                 )
             ],
         }
@@ -87,10 +89,12 @@ class GameConfigPhase:
 
         # Define lateral button areas (simple list of buttons)
         self.buttons = [
-            {"label": "Vision Area", "mode": "vision", "rect": pygame.Rect(10, 10, 120, 30)},
-            {"label": "Start Area", "mode": "start", "rect": pygame.Rect(10, 50, 120, 30)},
-            {"label": "Finish Area", "mode": "finish", "rect": pygame.Rect(10, 90, 120, 30)},
-            {"label": "Settings", "mode": "settings", "rect": pygame.Rect(10, 130, 120, 30)},
+            {"label": "Vision Area", "mode": "vision", "rect": pygame.Rect(10, 10, 170, 30)},
+            {"label": "Start Area", "mode": "start", "rect": pygame.Rect(10, 50, 170, 30)},
+            {"label": "Finish Area", "mode": "finish", "rect": pygame.Rect(10, 90, 170, 30)},
+            {"label": "Settings", "mode": "settings", "rect": pygame.Rect(10, 130, 170, 30)},
+            {"label": "Exit without saving", "mode": "dont_save", "rect": pygame.Rect(10, 170, 170, 30)},
+            {"label": "Exit saving changes", "mode": "save", "rect": pygame.Rect(10, 210, 170, 30)},
         ]
         # Define reset icon (for simplicity, a small rect button near the area label)
         self.reset_buttons = {
@@ -279,7 +283,7 @@ class GameConfigPhase:
 
     def draw_ui(self, webcam_surf):
 
-        self.screen.fill((0, 0, 0))  # Clear the screen with black
+        self.screen.fill(PINK)
 
         # Draw the webcam feed
         self.screen.blit(webcam_surf, self.webcam_rect.topleft)
@@ -362,7 +366,7 @@ class GameConfigPhase:
         if warnings:
             y_warning = self.screen_height - (20 * len(warnings)) - 10
             for warning in warnings:
-                warning_surf = self.font.render(warning, True, (255, 0, 0))
+                warning_surf = self.font.render(warning, True, (0, 0, 0))
                 self.screen.blit(warning_surf, (self.webcam_rect.x, y_warning))
                 y_warning += 20
 
@@ -390,23 +394,34 @@ class GameConfigPhase:
 
             # For demonstration, exit when the user presses ESC
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_ESCAPE]:
+            if keys[pygame.K_ESCAPE] or self.current_mode == "dont_save" or self.current_mode == "save":
                 running = False
 
-        pygame.quit()
-        # After quitting, configuration data is available:
-        print("Final area definitions:", self.areas)
-        print("Final settings:", self.settings)
-        # Return configuration for integration with the rest of your code.
-        return self.areas, self.settings
+        if self.current_mode == "save":
+            # After quitting, configuration data is available:
+            print("Final area definitions:", self.areas)
+            print("Final settings:", self.settings)
+            # Return configuration for integration with the rest of your code.
+            return self.areas, self.settings
+
+        return None, None
 
 
 # Example usage:
 if __name__ == "__main__":
-    import ctypes
+    import ctypes, os
 
     ctypes.windll.user32.SetProcessDPIAware()
+
+    # Disable hardware acceleration for webcam on Windows
+    os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+
+    # Initialize pygame and set up display
+    pygame.init()
+
     cam = GameCamera()
     config_phase = GameConfigPhase(camera=cam, screen_width=1500, screen_height=1200)
     areas, settings = config_phase.run()
     # Now areas and settings are available for further processing.
+    print("Configuration completed.", areas, settings)
+    pygame.quit()
