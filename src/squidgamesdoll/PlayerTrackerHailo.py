@@ -19,7 +19,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
             score_thresh (float): Minimum detection confidence.
         """
         super().__init__()
-        self.score_thresh = score_thresh
+        super().confidence = score_thresh
 
         # Set up queues for asynchronous inference
         self.input_queue = queue.Queue()
@@ -77,7 +77,8 @@ class PlayerTrackerHailo(BasePlayerTracker):
                 results = results[0]
 
             # Convert Hailo inference output into Supervision detections
-            detections_sv = self.__extract_detections(results, ratios, self.score_thresh)
+            super().confidence = gamesettings.settings.get("confidence", 40) / 100.0
+            detections_sv = self.__extract_detections(results, ratios, super().confidence)
             detections_sv = self.tracker.update_with_detections(detections_sv)
 
             # Convert detections into Player objects using the base class helper
