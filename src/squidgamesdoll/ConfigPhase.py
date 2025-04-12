@@ -72,6 +72,14 @@ class GameConfigPhase:
                 "type": int,
                 "default": 15,
             },
+            {
+                "key": "img_normalization",
+                "caption": "Histogram normalization",
+                "min": 0,
+                "max": 1,
+                "type": int,
+                "default": 0,
+            },
             # Add additional configurable settings here.
         ]
         # Create a dictionary to hold current setting values.
@@ -361,59 +369,14 @@ class GameConfigPhase:
             self.settings_buttons[key] = {"minus": minus_rect, "plus": plus_rect}
             y_offset += 30
 
-    def apply_vision_frame(
-        self, rectangles: list[pygame.Rect], reference_surface: pygame.Surface, webcam_frame: cv2.UMat
-    ) -> cv2.UMat:
-        # Get the bounding rectangle of the vision area
-        bounding_rect = self.bounding_rectangle(rectangles)
-        if bounding_rect:
-            # We need to zero frame areas outside the list of rectangles in vision_area
-            # Let's create a mask for the vision area
-            mask = cv2.cvtColor(webcam_frame, cv2.COLOR_BGR2GRAY)
-            mask[:] = 0  # Initialize mask to zero
-            for rect in rectangles:
-                # Convert rect coordinates to frame coordinates
-                x = int(rect.x / reference_surface.get_width() * webcam_frame.shape[1])
-                y = int(rect.y / reference_surface.get_height() * webcam_frame.shape[0])
-                w = int(rect.width / reference_surface.get_width() * webcam_frame.shape[1])
-                h = int(rect.height / reference_surface.get_height() * webcam_frame.shape[0])
-                # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
-                x = webcam_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
-                # Draw the rectangle on the mask
-                cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
-
-            # Apply the mask to the frame
-            webcam_frame = cv2.bitwise_and(webcam_frame, webcam_frame, mask=mask)
-
-            # Compute proportions relative to the webcam Sruf, and then apply to the raw CV2 frame
-            x_ratio = bounding_rect.x / reference_surface.get_width()
-            y_ratio = bounding_rect.y / reference_surface.get_height()
-            w_ratio = bounding_rect.width / reference_surface.get_width()
-            h_ratio = bounding_rect.height / reference_surface.get_height()
-            # Apply the bounding rectangle to the webcam surface
-            x = int(x_ratio * webcam_frame.shape[1])
-            y = int(y_ratio * webcam_frame.shape[0])
-            w = int(w_ratio * webcam_frame.shape[1])
-            h = int(h_ratio * webcam_frame.shape[0])
-
-            # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
-            x = webcam_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
-            webcam_frame = webcam_frame[y : y + h, x : x + w]  # Crop the frame to the bounding rectangle
-
-            return webcam_frame
-        # Feed the full frame otherwise
-        return None
-
     def draw_ui(self, webcam_surf: pygame.Surface, frame: cv2.UMat):
 
         self.screen.fill(PINK)
 
         if self.current_mode == "nn_preview":
             # Apply the vision frame to the webcam surface
-            cropped_frame = self.apply_vision_frame(self.game_settings.areas["vision"], webcam_surf, frame)
-            if cropped_frame is not None:
-                # Show the frame that will be fed to the neural network, which may apply further processing.
-                preview = self.neural_net.get_sample_frame(cropped_frame)
+            preview = self.neural_net.get_sample_frame(frame, self.game_settings)
+            if preview is not None:
                 # Convert the frame to a pygame surface and display it
                 nn_surf = self.convert_cv2_to_pygame(preview)
                 # Resize keeping the aspect ratio
