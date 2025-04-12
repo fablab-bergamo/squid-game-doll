@@ -7,6 +7,7 @@ from GameCamera import GameCamera
 from constants import FINISH_LINE_PERC, PINK, START_LINE_PERC
 from BasePlayerTracker import BasePlayerTracker
 from PlayerTrackerUL import PlayerTrackerUL
+from GameSettings import GameSettings
 
 
 class GameConfigPhase:
@@ -15,12 +16,12 @@ class GameConfigPhase:
         screen: pygame.Surface,
         camera: GameCamera,
         neural_net: BasePlayerTracker,
-        config_file: str = "config.yaml",
+        game_settings: GameSettings,
     ):
         self.screen_width = screen.get_width()
         self.screen_height = screen.get_height()
         self.screen = screen
-        self.config_file = config_file
+        self.game_settings = game_settings
 
         # Center the webcam feed on the screen
         w, h = GameCamera.get_native_resolution(camera.index)
@@ -33,10 +34,7 @@ class GameConfigPhase:
         # Neural network instance (expects a BasePlayerTracker instance)
         self.neural_net = neural_net
 
-        self.settings = {}
-        self.areas = {}
-
-        if not self.load_from_yaml():
+        if len(self.game_settings.areas) == 0:
             self.__setup_defaults()
 
         # Configurable settings: list of dicts (min, max, key, caption, type, default)
@@ -78,9 +76,9 @@ class GameConfigPhase:
         ]
         # Create a dictionary to hold current setting values.
         for opt in self.settings_config:
-            if self.settings.get(opt["key"]) is None:
+            if self.game_settings.settings.get(opt["key"]) is None:
                 print(f"Warning: {opt['key']} not found in config file. Using default value.")
-                self.settings = {opt["key"]: opt["default"] for opt in self.settings_config}
+                self.game_settings.settings = {opt["key"]: opt["default"] for opt in self.settings_config}
 
         self.settings_buttons = {}
 
@@ -119,7 +117,7 @@ class GameConfigPhase:
 
     def __setup_defaults(self):
         # Vision area: full screen.
-        self.areas = {
+        self.game_settings.areas = {
             "vision": [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)],
             # Start area: top 10%
             "start": [pygame.Rect(0, 0, self.webcam_rect.width, int(START_LINE_PERC * self.webcam_rect.height))],
@@ -167,7 +165,7 @@ class GameConfigPhase:
 
                 now = time.time()
                 if now - self.last_click_time < 0.3 and self.current_mode != "settings":
-                    rects = self.areas[self.current_mode].copy()
+                    rects = self.game_settings.areas[self.current_mode].copy()
                     rects.reverse()  # Check from the last rectangle to the first
                     for rect in rects:
                         # Adjust rectangle position to screen coordinates for collision check
@@ -175,7 +173,7 @@ class GameConfigPhase:
                         screen_rect.x += self.webcam_rect.x
                         screen_rect.y += self.webcam_rect.y
                         if screen_rect.collidepoint(pos):
-                            self.areas[self.current_mode].remove(rect)
+                            self.game_settings.areas[self.current_mode].remove(rect)
                             print(f"Removed rectangle {rect} from {self.current_mode}.")
                             return
                 self.last_click_time = now
@@ -210,9 +208,11 @@ class GameConfigPhase:
             if event.type == pygame.MOUSEBUTTONUP:
                 if self.drawing and self.current_mode != "settings":
                     if self.current_rect and self.current_rect.width > 0 and self.current_rect.height > 0:
-                        self.areas[self.current_mode].append(self.current_rect)
+                        self.game_settings.areas[self.current_mode].append(self.current_rect)
                         print(f"Added rectangle {self.current_rect} to {self.current_mode}.")
-                        self.areas[self.current_mode] = self.minimize_rectangles(self.areas[self.current_mode])
+                        self.game_settings.areas[self.current_mode] = self.minimize_rectangles(
+                            self.game_settings.areas[self.current_mode]
+                        )
 
                     self.drawing = False
                     self.current_rect = None
@@ -225,17 +225,17 @@ class GameConfigPhase:
                     if key in self.settings_buttons:
                         buttons = self.settings_buttons[key]
                         if buttons["minus"].collidepoint(pos):
-                            new_val = self.settings[key] - 1
+                            new_val = self.game_settings.settings[key] - 1
                             if new_val >= opt["min"]:
-                                self.settings[key] = new_val
-                                print(f"{key} decreased to {self.settings[key]}")
+                                self.game_settings.settings[key] = new_val
+                                print(f"{key} decreased to {self.game_settings.settings[key]}")
                             else:
                                 print(f"{key} is at minimum value.")
                         elif buttons["plus"].collidepoint(pos):
-                            new_val = self.settings[key] + 1
+                            new_val = self.game_settings.settings[key] + 1
                             if new_val <= opt["max"]:
-                                self.settings[key] = new_val
-                                print(f"{key} increased to {self.settings[key]}")
+                                self.game_settings.settings[key] = new_val
+                                print(f"{key} increased to {self.game_settings.settings[key]}")
                             else:
                                 print(f"{key} is at maximum value.")
 
@@ -244,11 +244,13 @@ class GameConfigPhase:
     def reset_area(self, area_name):
         """Reset the rectangles for a given area to their default value relative to the webcam feed."""
         if area_name == "vision":
-            self.areas["vision"] = [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)]
+            self.game_settings.areas["vision"] = [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)]
         elif area_name == "start":
-            self.areas["start"] = [pygame.Rect(0, 0, self.webcam_rect.width, int(0.1 * self.webcam_rect.height))]
+            self.game_settings.areas["start"] = [
+                pygame.Rect(0, 0, self.webcam_rect.width, int(0.1 * self.webcam_rect.height))
+            ]
         elif area_name == "finish":
-            self.areas["finish"] = [
+            self.game_settings.areas["finish"] = [
                 pygame.Rect(
                     0, int(0.9 * self.webcam_rect.height), self.webcam_rect.width, int(0.1 * self.webcam_rect.height)
                 )
@@ -265,8 +267,8 @@ class GameConfigPhase:
         # Validate start area intersection with vision area.
         valid_start = any(
             r_start.colliderect(r_vision)
-            for r_start in self.areas.get("start", [])
-            for r_vision in self.areas.get("vision", [])
+            for r_start in self.game_settings.areas.get("start", [])
+            for r_vision in self.game_settings.areas.get("vision", [])
         )
         if not valid_start:
             warnings.append("Start area does not intersect with vision area!")
@@ -274,8 +276,8 @@ class GameConfigPhase:
         # Validate finish area intersection with vision area.
         valid_finish = any(
             r_finish.colliderect(r_vision)
-            for r_finish in self.areas.get("finish", [])
-            for r_vision in self.areas.get("vision", [])
+            for r_finish in self.game_settings.areas.get("finish", [])
+            for r_vision in self.game_settings.areas.get("vision", [])
         )
         if not valid_finish:
             warnings.append("Finish area does not intersect with vision area!")
@@ -339,7 +341,7 @@ class GameConfigPhase:
         self.settings_buttons = {}  # Dictionary to store plus/minus button rects for each setting
         for opt in self.settings_config:
             key = opt["key"]
-            caption = f"{opt['caption']}: {self.settings[key]}"
+            caption = f"{opt['caption']}: {self.game_settings.settings[key]}"
             text_surf = self.font.render(caption, True, (255, 255, 255))
             x_pos = surface.get_width() - 350
             surface.blit(text_surf, (x_pos, y_offset))
@@ -360,47 +362,45 @@ class GameConfigPhase:
             y_offset += 30
 
     def apply_vision_frame(
-        self, rectangles: list[pygame.Rect], webcam_surface: pygame.Surface, frame: cv2.UMat
+        self, rectangles: list[pygame.Rect], reference_surface: pygame.Surface, webcam_frame: cv2.UMat
     ) -> cv2.UMat:
         # Get the bounding rectangle of the vision area
         bounding_rect = self.bounding_rectangle(rectangles)
         if bounding_rect:
             # We need to zero frame areas outside the list of rectangles in vision_area
             # Let's create a mask for the vision area
-            mask = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            mask = cv2.cvtColor(webcam_frame, cv2.COLOR_BGR2GRAY)
             mask[:] = 0  # Initialize mask to zero
             for rect in rectangles:
                 # Convert rect coordinates to frame coordinates
-                x = int(rect.x / webcam_surface.get_width() * frame.shape[1])
-                y = int(rect.y / webcam_surface.get_height() * frame.shape[0])
-                w = int(rect.width / webcam_surface.get_width() * frame.shape[1])
-                h = int(rect.height / webcam_surface.get_height() * frame.shape[0])
+                x = int(rect.x / reference_surface.get_width() * webcam_frame.shape[1])
+                y = int(rect.y / reference_surface.get_height() * webcam_frame.shape[0])
+                w = int(rect.width / reference_surface.get_width() * webcam_frame.shape[1])
+                h = int(rect.height / reference_surface.get_height() * webcam_frame.shape[0])
                 # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
-                x = frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
+                x = webcam_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
                 # Draw the rectangle on the mask
                 cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
 
             # Apply the mask to the frame
-            frame = cv2.bitwise_and(frame, frame, mask=mask)
+            webcam_frame = cv2.bitwise_and(webcam_frame, webcam_frame, mask=mask)
 
             # Compute proportions relative to the webcam Sruf, and then apply to the raw CV2 frame
-            x_ratio = bounding_rect.x / webcam_surface.get_width()
-            y_ratio = bounding_rect.y / webcam_surface.get_height()
-            w_ratio = bounding_rect.width / webcam_surface.get_width()
-            h_ratio = bounding_rect.height / webcam_surface.get_height()
+            x_ratio = bounding_rect.x / reference_surface.get_width()
+            y_ratio = bounding_rect.y / reference_surface.get_height()
+            w_ratio = bounding_rect.width / reference_surface.get_width()
+            h_ratio = bounding_rect.height / reference_surface.get_height()
             # Apply the bounding rectangle to the webcam surface
-            x = int(x_ratio * frame.shape[1])
-            y = int(y_ratio * frame.shape[0])
-            w = int(w_ratio * frame.shape[1])
-            h = int(h_ratio * frame.shape[0])
+            x = int(x_ratio * webcam_frame.shape[1])
+            y = int(y_ratio * webcam_frame.shape[0])
+            w = int(w_ratio * webcam_frame.shape[1])
+            h = int(h_ratio * webcam_frame.shape[0])
 
             # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
-            x = frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
-            frame = frame[y : y + h, x : x + w]  # Crop the frame to the bounding rectangle
+            x = webcam_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
+            webcam_frame = webcam_frame[y : y + h, x : x + w]  # Crop the frame to the bounding rectangle
 
-            cv2.imshow("Vision Area", frame)  # Show the cropped frame for debugging
-            cv2.waitKey(1)
-            return frame
+            return webcam_frame
         # Feed the full frame otherwise
         return None
 
@@ -410,7 +410,7 @@ class GameConfigPhase:
 
         if self.current_mode == "nn_preview":
             # Apply the vision frame to the webcam surface
-            cropped_frame = self.apply_vision_frame(self.settings["vision"], webcam_surf, frame)
+            cropped_frame = self.apply_vision_frame(self.game_settings.areas["vision"], webcam_surf, frame)
             if cropped_frame is not None:
                 # Show the frame that will be fed to the neural network, which may apply further processing.
                 preview = self.neural_net.get_sample_frame(cropped_frame)
@@ -447,7 +447,7 @@ class GameConfigPhase:
                 "start": (0, 0, 255, 100),  # blue
                 "finish": (255, 0, 0, 100),  # red
             }
-            for area_name, rect_list in self.areas.items():
+            for area_name, rect_list in sorted(self.game_settings.areas.items(), reverse=True):
                 # Create a transparent overlay surface
                 overlay = pygame.Surface((self.webcam_rect.width, self.webcam_rect.height), pygame.SRCALPHA)
                 color = area_colors.get(area_name, (200, 200, 200, 100))
@@ -458,7 +458,7 @@ class GameConfigPhase:
                 self.screen.blit(overlay, self.webcam_rect.topleft)
 
             # Represent the bouding rectangle of active mode with dashed lines
-            for area_name, rect_list in self.areas.items():
+            for area_name, rect_list in self.game_settings.areas.items():
                 if self.current_mode == area_name:
                     bounding_rect = self.bounding_rectangle(rect_list)
                     if bounding_rect:
@@ -490,7 +490,7 @@ class GameConfigPhase:
                 self.screen.blit(warning_surf, (self.webcam_rect.x, y_warning))
                 y_warning += 20
 
-    def run(self):
+    def run(self) -> GameSettings | None:
         """Main loop for the configuration phase."""
         running = True
         while running:
@@ -518,54 +518,11 @@ class GameConfigPhase:
                 running = False
 
         if self.current_mode == "save":
-            # After quitting, configuration data is available:
-            print("Final area definitions:", self.areas)
-            print("Final settings:", self.settings)
-            self.save_to_yaml()
-            # Return configuration for integration with the rest of your code.
-            return self.areas, self.settings
+            self.game_settings.reference_frame = [self.webcam_rect.width, self.webcam_rect.height]
+            self.game_settings.save("config.yaml")
+            return self.game_settings
 
-        return None, None
-
-    def rect_to_list(self, rect):
-        return [rect.x, rect.y, rect.w, rect.h]
-
-    def list_to_rect(self, lst):
-        return pygame.Rect(*lst)
-
-    def save_to_yaml(self) -> bool:
-        """Save the configuration to a YAML file."""
-        config_data = {
-            "areas": {key: [self.rect_to_list(r) for r in rects] for key, rects in self.areas.items()},
-            "settings": self.settings,
-        }
-        try:
-            with open(self.config_file, "w") as file:
-                yaml.dump(config_data, file, default_flow_style=False)
-            print(f"Configuration saved to {self.config_file}")
-            return True
-        except Exception as e:
-            print(f"Error saving configuration: {e}")
-            return False
-
-    def load_from_yaml(self) -> bool:
-        """Load the configuration from a YAML file."""
-        try:
-            with open(self.config_file, "r") as file:
-                config_data = yaml.safe_load(file)
-
-            self.areas = {
-                key: [self.list_to_rect(lst) for lst in rects] for key, rects in config_data.get("areas", {}).items()
-            }
-            self.settings = config_data.get("settings", {})
-            print(f"Configuration loaded from {self.config_file}")
-            return True
-        except FileNotFoundError:
-            print(f"Configuration file {self.config_file} not found.")
-            return False
-        except yaml.YAMLError as e:
-            print(f"Error loading YAML file: {e}")
-            return False
+        return None
 
 
 # Example usage:
@@ -582,8 +539,12 @@ if __name__ == "__main__":
     screen = pygame.display.set_mode((1500, 1200))
     cam = GameCamera()
     nn = PlayerTrackerUL()
-    config_phase = GameConfigPhase(camera=cam, screen=screen, neural_net=nn)
-    areas, settings = config_phase.run()
+    game_settings = GameSettings.load_settings("config.yaml")
+    if game_settings is None:
+        game_settings = GameSettings()
+
+    config_phase = GameConfigPhase(camera=cam, screen=screen, neural_net=nn, game_settings=game_settings)
+    game_settings = config_phase.run()
     # Now areas and settings are available for further processing.
-    print("Configuration completed.", areas, settings)
+    print("Configuration completed.", game_settings)
     pygame.quit()
