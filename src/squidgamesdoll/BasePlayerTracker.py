@@ -9,6 +9,17 @@ class BasePlayerTracker:
     def __init__(self):
         self.previous_result: list[Player] = []
         self.confidence = 0.5
+        self.apply_img_processing = False
+
+    def set_image_processing(self, apply_img_processing: bool = True) -> None:
+        """
+        Sets whether to apply post-processing to the image.
+
+        Args:
+            apply_post_processing (bool): Whether to apply post-processing.
+        """
+        self.apply_img_processing = apply_img_processing
+        print(f"Apply img-processing: {self.apply_img_processing}")
 
     def yolo_to_supervision(self, yolo_results, ratios: tuple[float, float]) -> sv.Detections:
         """
@@ -64,12 +75,13 @@ class BasePlayerTracker:
         # Apply Gaussian Blur to reduce noise
         # frame = cv2.GaussianBlur(frame, (5, 5), 0)
 
-        # Normalize brightness and contrast using histogram equalization
-        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)  # Convert to LAB color space
-        l, a, b = cv2.split(lab)
-        l = cv2.equalizeHist(l)  # Apply histogram equalization to the L channel
-        lab = cv2.merge((l, a, b))
-        frame = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)  # Convert back to BGR
+        if self.apply_img_processing:
+            # Normalize brightness and contrast using histogram equalization
+            lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)  # Convert to LAB color space
+            l, a, b = cv2.split(lab)
+            l = cv2.equalizeHist(l)  # Apply histogram equalization to the L channel
+            lab = cv2.merge((l, a, b))
+            frame = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)  # Convert back to BGR
 
         # Adjust brightness & contrast (fine-tuning)
         alpha = 1.2  # Contrast control (1.0-3.0)
@@ -80,4 +92,8 @@ class BasePlayerTracker:
 
     @abstractmethod
     def process_frame(self, frame: cv2.UMat) -> list[Player]:
+        pass
+
+    @abstractmethod
+    def get_sample_frame(self, frame: cv2.UMat) -> cv2.UMat:
         pass

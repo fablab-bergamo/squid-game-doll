@@ -2,39 +2,42 @@ import pygame
 import cv2
 import sys
 import time
+import yaml
 from GameCamera import GameCamera
 from constants import FINISH_LINE_PERC, PINK, START_LINE_PERC
+from BasePlayerTracker import BasePlayerTracker
+from PlayerTrackerUL import PlayerTrackerUL
 
 
 class GameConfigPhase:
-    def __init__(self, camera: GameCamera, screen_width: int = 1900, screen_height: int = 1200):
-        self.screen_width = screen_width
-        self.screen_height = screen_height
-        self.screen = pygame.display.set_mode((screen_width, screen_height))
+    def __init__(
+        self,
+        screen: pygame.Surface,
+        camera: GameCamera,
+        neural_net: BasePlayerTracker,
+        config_file: str = "config.yaml",
+    ):
+        self.screen_width = screen.get_width()
+        self.screen_height = screen.get_height()
+        self.screen = screen
+        self.config_file = config_file
+
         # Center the webcam feed on the screen
         w, h = GameCamera.get_native_resolution(camera.index)
-        self.webcam_rect = pygame.Rect((screen_width - w) // 2, (screen_height - h) // 2, w, h)
+        self.webcam_rect = pygame.Rect((self.screen_width - w) // 2, (self.screen_height - h) // 2, w, h)
         pygame.display.set_caption("Game Configuration Phase")
 
         # Camera instance (expects a GameCamera instance)
         self.camera = camera
 
-        # Define default areas using pygame.Rect:
-        # Vision area: full screen.
-        self.areas = {
-            "vision": [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)],
-            # Start area: top 10%
-            "start": [pygame.Rect(0, 0, self.webcam_rect.width, int(START_LINE_PERC * self.webcam_rect.height))],
-            # Finish area: bottom 10%
-            "finish": [
-                pygame.Rect(
-                    0,
-                    int(FINISH_LINE_PERC * self.webcam_rect.height),
-                    self.webcam_rect.width,
-                    int((1 - FINISH_LINE_PERC) * self.webcam_rect.height),
-                )
-            ],
-        }
+        # Neural network instance (expects a BasePlayerTracker instance)
+        self.neural_net = neural_net
+
+        self.settings = {}
+        self.areas = {}
+
+        if not self.load_from_yaml():
+            self.__setup_defaults()
 
         # Configurable settings: list of dicts (min, max, key, caption, type, default)
         self.settings_config = [
@@ -74,7 +77,12 @@ class GameConfigPhase:
             # Add additional configurable settings here.
         ]
         # Create a dictionary to hold current setting values.
-        self.settings = {opt["key"]: opt["default"] for opt in self.settings_config}
+        for opt in self.settings_config:
+            if self.settings.get(opt["key"]) is None:
+                print(f"Warning: {opt['key']} not found in config file. Using default value.")
+                self.settings = {opt["key"]: opt["default"] for opt in self.settings_config}
+
+        self.settings_buttons = {}
 
         # UI state
         self.current_mode = "vision"  # Can be "vision", "start", "finish", "settings"
@@ -89,18 +97,41 @@ class GameConfigPhase:
 
         # Define lateral button areas (simple list of buttons)
         self.buttons = [
-            {"label": "Vision Area", "mode": "vision", "rect": pygame.Rect(10, 10, 170, 30)},
-            {"label": "Start Area", "mode": "start", "rect": pygame.Rect(10, 50, 170, 30)},
-            {"label": "Finish Area", "mode": "finish", "rect": pygame.Rect(10, 90, 170, 30)},
-            {"label": "Settings", "mode": "settings", "rect": pygame.Rect(10, 130, 170, 30)},
-            {"label": "Exit without saving", "mode": "dont_save", "rect": pygame.Rect(10, 170, 170, 30)},
-            {"label": "Exit saving changes", "mode": "save", "rect": pygame.Rect(10, 210, 170, 30)},
+            {"label": "Vision Area", "mode": "vision"},
+            {"label": "Start Area", "mode": "start"},
+            {"label": "Finish Area", "mode": "finish"},
+            {"label": "Settings", "mode": "settings"},
+            {"label": "Neural net preview", "mode": "nn_preview"},
+            {"label": "Exit without saving", "mode": "dont_save"},
+            {"label": "Exit saving changes", "mode": "save"},
         ]
+
+        # Compute buttons positions
+        for idx, button in enumerate(self.buttons):
+            button["rect"] = pygame.Rect(10, 10 + idx * 40, 170, 30)
+
         # Define reset icon (for simplicity, a small rect button near the area label)
         self.reset_buttons = {
-            "vision": pygame.Rect(screen_width - 130, 10, 120, 30),
-            "start": pygame.Rect(screen_width - 130, 50, 120, 30),
-            "finish": pygame.Rect(screen_width - 130, 90, 120, 30),
+            "vision": pygame.Rect(self.screen_width - 130, 10, 120, 30),
+            "start": pygame.Rect(self.screen_width - 130, 50, 120, 30),
+            "finish": pygame.Rect(self.screen_width - 130, 90, 120, 30),
+        }
+
+    def __setup_defaults(self):
+        # Vision area: full screen.
+        self.areas = {
+            "vision": [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)],
+            # Start area: top 10%
+            "start": [pygame.Rect(0, 0, self.webcam_rect.width, int(START_LINE_PERC * self.webcam_rect.height))],
+            # Finish area: bottom 10%
+            "finish": [
+                pygame.Rect(
+                    0,
+                    int(FINISH_LINE_PERC * self.webcam_rect.height),
+                    self.webcam_rect.width,
+                    int((1 - FINISH_LINE_PERC) * self.webcam_rect.height),
+                )
+            ],
         }
 
     def convert_cv2_to_pygame(self, cv_image):
@@ -281,85 +312,174 @@ class GameConfigPhase:
         y_max = max(rect.bottom for rect in rect_list)
         return pygame.Rect(x_min, y_min, x_max - x_min, y_max - y_min)
 
-    def draw_ui(self, webcam_surf):
-
-        self.screen.fill(PINK)
-
-        # Draw the webcam feed
-        self.screen.blit(webcam_surf, self.webcam_rect.topleft)
-
-        # --- NEW: Draw all configured areas with filled, transparent colors ---
-        area_colors = {
-            "vision": (0, 255, 0, 100),  # green
-            "start": (0, 0, 255, 100),  # blue
-            "finish": (255, 0, 0, 100),  # red
-        }
-        for area_name, rect_list in self.areas.items():
-            # Create a transparent overlay surface
-            overlay = pygame.Surface((self.webcam_rect.width, self.webcam_rect.height), pygame.SRCALPHA)
-            color = area_colors.get(area_name, (200, 200, 200, 100))
-            for rect in rect_list:
-                pygame.draw.rect(overlay, color, rect)
-                color_outline = (color[0], color[1], color[2], 255)  # Opaque outline color
-                pygame.draw.rect(overlay, color_outline, rect, 1)  # Draw outline
-            self.screen.blit(overlay, self.webcam_rect.topleft)
-
-        # Represent the bouding rectangle of active mode with dashed lines
-        for area_name, rect_list in self.areas.items():
-            if self.current_mode == area_name:
-                bounding_rect = self.bounding_rectangle(rect_list)
-                if bounding_rect:
-                    pygame.draw.rect(overlay, (255, 255, 0), bounding_rect, 2)
-
-        # Blit the overlay on top of the webcam feed
-        self.screen.blit(overlay, self.webcam_rect.topleft)
-
-        # Draw the rectangle currently being drawn (if any) as an outline
-        if self.drawing and self.current_rect:
-            screen_rect = self.current_rect.copy()
-            screen_rect.topleft = (self.webcam_rect.x + self.current_rect.x, self.webcam_rect.y + self.current_rect.y)
-            pygame.draw.rect(self.screen, (255, 0, 0), screen_rect, 2)
-
+    def draw_buttons(self, surface: pygame.Surface):
         # Draw lateral buttons
         for button in self.buttons:
-            color = (200, 200, 200) if self.current_mode != button["mode"] else (100, 200, 100)
-            pygame.draw.rect(self.screen, color, button["rect"])
+            is_selected = self.current_mode == button["mode"]
+
+            color = (100, 200, 100) if is_selected else (200, 200, 200)
+            pygame.draw.rect(surface, color, button["rect"])
+
+            # Add border around selected button
+            if is_selected:
+                pygame.draw.rect(surface, (255, 255, 0), button["rect"], 2)
+
             text_surf = self.font.render(button["label"], True, (0, 0, 0))
-            self.screen.blit(text_surf, (button["rect"].x + 5, button["rect"].y + 5))
+            surface.blit(text_surf, (button["rect"].x + 5, button["rect"].y + 5))
 
         # Draw reset icons for area modes
         if self.current_mode in self.reset_buttons:
             reset_rect = self.reset_buttons[self.current_mode]
-            pygame.draw.rect(self.screen, (255, 100, 100), reset_rect)
+            pygame.draw.rect(surface, (255, 100, 100), reset_rect)
             text_surf = self.font.render("Reset", True, (0, 0, 0))
-            self.screen.blit(text_surf, (reset_rect.x + 10, reset_rect.y + 5))
+            surface.blit(text_surf, (reset_rect.x + 10, reset_rect.y + 5))
 
-        # --- NEW: Draw settings UI with + and - buttons if in settings mode ---
+    def draw_settings(self, surface: pygame.Surface):
+        y_offset = 10
+        self.settings_buttons = {}  # Dictionary to store plus/minus button rects for each setting
+        for opt in self.settings_config:
+            key = opt["key"]
+            caption = f"{opt['caption']}: {self.settings[key]}"
+            text_surf = self.font.render(caption, True, (255, 255, 255))
+            x_pos = surface.get_width() - 350
+            surface.blit(text_surf, (x_pos, y_offset))
+
+            # Define plus and minus button rectangles
+            minus_rect = pygame.Rect(x_pos + 300, y_offset, 20, 20)
+            plus_rect = pygame.Rect(x_pos + 330, y_offset, 20, 20)
+            pygame.draw.rect(surface, (180, 180, 180), minus_rect)
+            pygame.draw.rect(surface, (180, 180, 180), plus_rect)
+            # Render the '-' and '+' labels
+            minus_label = self.font.render("-", True, (0, 0, 0))
+            plus_label = self.font.render("+", True, (0, 0, 0))
+            surface.blit(minus_label, (minus_rect.x + 5, minus_rect.y))
+            surface.blit(plus_label, (plus_rect.x + 3, plus_rect.y))
+
+            # Store the button rects for event handling
+            self.settings_buttons[key] = {"minus": minus_rect, "plus": plus_rect}
+            y_offset += 30
+
+    def apply_vision_frame(
+        self, rectangles: list[pygame.Rect], webcam_surface: pygame.Surface, frame: cv2.UMat
+    ) -> cv2.UMat:
+        # Get the bounding rectangle of the vision area
+        bounding_rect = self.bounding_rectangle(rectangles)
+        if bounding_rect:
+            # We need to zero frame areas outside the list of rectangles in vision_area
+            # Let's create a mask for the vision area
+            mask = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            mask[:] = 0  # Initialize mask to zero
+            for rect in rectangles:
+                # Convert rect coordinates to frame coordinates
+                x = int(rect.x / webcam_surface.get_width() * frame.shape[1])
+                y = int(rect.y / webcam_surface.get_height() * frame.shape[0])
+                w = int(rect.width / webcam_surface.get_width() * frame.shape[1])
+                h = int(rect.height / webcam_surface.get_height() * frame.shape[0])
+                # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
+                x = frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
+                # Draw the rectangle on the mask
+                cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
+
+            # Apply the mask to the frame
+            frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+            # Compute proportions relative to the webcam Sruf, and then apply to the raw CV2 frame
+            x_ratio = bounding_rect.x / webcam_surface.get_width()
+            y_ratio = bounding_rect.y / webcam_surface.get_height()
+            w_ratio = bounding_rect.width / webcam_surface.get_width()
+            h_ratio = bounding_rect.height / webcam_surface.get_height()
+            # Apply the bounding rectangle to the webcam surface
+            x = int(x_ratio * frame.shape[1])
+            y = int(y_ratio * frame.shape[0])
+            w = int(w_ratio * frame.shape[1])
+            h = int(h_ratio * frame.shape[0])
+
+            # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
+            x = frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
+            frame = frame[y : y + h, x : x + w]  # Crop the frame to the bounding rectangle
+
+            cv2.imshow("Vision Area", frame)  # Show the cropped frame for debugging
+            cv2.waitKey(1)
+            return frame
+        # Feed the full frame otherwise
+        return None
+
+    def draw_ui(self, webcam_surf: pygame.Surface, frame: cv2.UMat):
+
+        self.screen.fill(PINK)
+
+        if self.current_mode == "nn_preview":
+            # Apply the vision frame to the webcam surface
+            cropped_frame = self.apply_vision_frame(self.settings["vision"], webcam_surf, frame)
+            if cropped_frame is not None:
+                # Show the frame that will be fed to the neural network, which may apply further processing.
+                preview = self.neural_net.get_sample_frame(cropped_frame)
+                # Convert the frame to a pygame surface and display it
+                nn_surf = self.convert_cv2_to_pygame(preview)
+                # Resize keeping the aspect ratio
+                aspect_ratio = nn_surf.get_width() / nn_surf.get_height()
+                if nn_surf.get_width() > nn_surf.get_height():
+                    new_width = int(self.screen_width * 0.8)
+                    new_height = int(new_width / aspect_ratio)
+                else:
+                    new_height = int(self.screen_height * 0.8)
+                    new_width = int(new_height * aspect_ratio)
+                nn_surf_resized = pygame.transform.scale(nn_surf, (new_width, new_height))
+                # Center the resized surface
+                x_offset = (self.screen_width - new_width) // 2
+                y_offset = (self.screen_height - new_height) // 2
+                self.screen.blit(nn_surf_resized, (x_offset, y_offset))
+                # Draw a rectangle around the neural net preview
+                pygame.draw.rect(self.screen, (255, 255, 0), (x_offset, y_offset, new_width, new_height), 2)
+                # Add a label
+                label_surf = self.font.render(
+                    f"Neural Network Preview ({nn_surf.get_width()} x {nn_surf.get_height()})", True, (255, 255, 255)
+                )
+                label_rect = label_surf.get_rect(center=(x_offset + new_width // 2, y_offset - 20))
+                self.screen.blit(label_surf, label_rect.topleft)
+        else:
+            # Draw the webcam feed in normal modes
+            self.screen.blit(webcam_surf, self.webcam_rect.topleft)
+
+            # --- NEW: Draw all configured areas with filled, transparent colors ---
+            area_colors = {
+                "vision": (0, 255, 0, 100),  # green
+                "start": (0, 0, 255, 100),  # blue
+                "finish": (255, 0, 0, 100),  # red
+            }
+            for area_name, rect_list in self.areas.items():
+                # Create a transparent overlay surface
+                overlay = pygame.Surface((self.webcam_rect.width, self.webcam_rect.height), pygame.SRCALPHA)
+                color = area_colors.get(area_name, (200, 200, 200, 100))
+                for rect in rect_list:
+                    pygame.draw.rect(overlay, color, rect)
+                    color_outline = (color[0], color[1], color[2], 255)  # Opaque outline color
+                    pygame.draw.rect(overlay, color_outline, rect, 1)  # Draw outline
+                self.screen.blit(overlay, self.webcam_rect.topleft)
+
+            # Represent the bouding rectangle of active mode with dashed lines
+            for area_name, rect_list in self.areas.items():
+                if self.current_mode == area_name:
+                    bounding_rect = self.bounding_rectangle(rect_list)
+                    if bounding_rect:
+                        pygame.draw.rect(overlay, (255, 255, 0), bounding_rect, 2)
+
+            # Blit the overlay on top of the webcam feed
+            self.screen.blit(overlay, self.webcam_rect.topleft)
+
+            # Draw the rectangle currently being drawn (if any) as an outline
+            if self.drawing and self.current_rect:
+                screen_rect = self.current_rect.copy()
+                screen_rect.topleft = (
+                    self.webcam_rect.x + self.current_rect.x,
+                    self.webcam_rect.y + self.current_rect.y,
+                )
+                pygame.draw.rect(self.screen, (255, 0, 0), screen_rect, 2)
+
+        self.draw_buttons(self.screen)
+
         if self.current_mode == "settings":
-            y_offset = 10
-            self.settings_buttons = {}  # Dictionary to store plus/minus button rects for each setting
-            for opt in self.settings_config:
-                key = opt["key"]
-                caption = f"{opt['caption']}: {self.settings[key]}"
-                text_surf = self.font.render(caption, True, (255, 255, 255))
-                x_pos = self.screen_width - 350
-                self.screen.blit(text_surf, (x_pos, y_offset))
-
-                # Define plus and minus button rectangles
-                minus_rect = pygame.Rect(x_pos + 300, y_offset, 20, 20)
-                plus_rect = pygame.Rect(x_pos + 330, y_offset, 20, 20)
-                pygame.draw.rect(self.screen, (180, 180, 180), minus_rect)
-                pygame.draw.rect(self.screen, (180, 180, 180), plus_rect)
-                # Render the '-' and '+' labels
-                minus_label = self.font.render("-", True, (0, 0, 0))
-                plus_label = self.font.render("+", True, (0, 0, 0))
-                self.screen.blit(minus_label, (minus_rect.x + 5, minus_rect.y))
-                self.screen.blit(plus_label, (plus_rect.x + 3, plus_rect.y))
-
-                # Store the button rects for event handling
-                self.settings_buttons[key] = {"minus": minus_rect, "plus": plus_rect}
-
-                y_offset += 30
+            self.draw_settings(self.screen)
 
         # Validate configuration and display warning messages if needed.
         warnings = self.validate_configuration()
@@ -386,7 +506,7 @@ class GameConfigPhase:
             webcam_surf = self.convert_cv2_to_pygame(frame)
 
             # Draw all UI components
-            self.draw_ui(webcam_surf)
+            self.draw_ui(webcam_surf, frame)
 
             # Update the display
             pygame.display.flip()
@@ -401,10 +521,51 @@ class GameConfigPhase:
             # After quitting, configuration data is available:
             print("Final area definitions:", self.areas)
             print("Final settings:", self.settings)
+            self.save_to_yaml()
             # Return configuration for integration with the rest of your code.
             return self.areas, self.settings
 
         return None, None
+
+    def rect_to_list(self, rect):
+        return [rect.x, rect.y, rect.w, rect.h]
+
+    def list_to_rect(self, lst):
+        return pygame.Rect(*lst)
+
+    def save_to_yaml(self) -> bool:
+        """Save the configuration to a YAML file."""
+        config_data = {
+            "areas": {key: [self.rect_to_list(r) for r in rects] for key, rects in self.areas.items()},
+            "settings": self.settings,
+        }
+        try:
+            with open(self.config_file, "w") as file:
+                yaml.dump(config_data, file, default_flow_style=False)
+            print(f"Configuration saved to {self.config_file}")
+            return True
+        except Exception as e:
+            print(f"Error saving configuration: {e}")
+            return False
+
+    def load_from_yaml(self) -> bool:
+        """Load the configuration from a YAML file."""
+        try:
+            with open(self.config_file, "r") as file:
+                config_data = yaml.safe_load(file)
+
+            self.areas = {
+                key: [self.list_to_rect(lst) for lst in rects] for key, rects in config_data.get("areas", {}).items()
+            }
+            self.settings = config_data.get("settings", {})
+            print(f"Configuration loaded from {self.config_file}")
+            return True
+        except FileNotFoundError:
+            print(f"Configuration file {self.config_file} not found.")
+            return False
+        except yaml.YAMLError as e:
+            print(f"Error loading YAML file: {e}")
+            return False
 
 
 # Example usage:
@@ -418,9 +579,10 @@ if __name__ == "__main__":
 
     # Initialize pygame and set up display
     pygame.init()
-
+    screen = pygame.display.set_mode((1500, 1200))
     cam = GameCamera()
-    config_phase = GameConfigPhase(camera=cam, screen_width=1500, screen_height=1200)
+    nn = PlayerTrackerUL()
+    config_phase = GameConfigPhase(camera=cam, screen=screen, neural_net=nn)
     areas, settings = config_phase.run()
     # Now areas and settings are available for further processing.
     print("Configuration completed.", areas, settings)

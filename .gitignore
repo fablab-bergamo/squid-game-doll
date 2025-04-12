@@ -181,3 +181,4 @@ yolov11m.hef
 *.pt
 *.hef
 screenshot_*.png
+config.yaml

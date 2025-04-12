@@ -22,6 +22,19 @@ class PlayerTrackerUL(BasePlayerTracker):
 
         print(f"YOLOv8 running on {self.yolo.device}")
 
+    def __preprocess(self, frame: cv2.UMat) -> tuple[cv2.UMat, tuple[float, float]]:
+        """
+        Preprocesses the input frame for YOLO inference.
+        """
+        h, w = frame.shape[:2]
+        target_size = (640, int(640 / (w / h)))
+        ratios = (w / target_size[0], h / target_size[1])
+        yolo_frame = self.preprocess_frame(frame, target_size)
+        return yolo_frame, ratios
+
+    def get_sample_frame(self, frame: cv2.UMat) -> cv2.UMat:
+        return self.__preprocess(frame)[0]
+
     def process_frame(self, frame: cv2.UMat) -> list[Player]:
         """
         Processes a video frame, detects players using YOLO, and returns a list of Player objects.
@@ -33,11 +46,7 @@ class PlayerTrackerUL(BasePlayerTracker):
             list[Player]: List of detected Player objects.
         """
         try:
-            # Preprocess the frame for improved YOLO detection
-            h, w = frame.shape[:2]
-            target_size = (640, int(640 / (w / h)))
-            ratios = (w / target_size[0], h / target_size[1])
-            yolo_frame = self.preprocess_frame(frame, target_size)
+            yolo_frame, ratios = self.__preprocess(frame)
             results = self.yolo.track(yolo_frame, persist=True, stream=True, classes=[0])
         except Exception as e:
             print("Error:", e)

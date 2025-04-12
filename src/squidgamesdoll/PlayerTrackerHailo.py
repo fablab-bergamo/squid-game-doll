@@ -33,6 +33,31 @@ class PlayerTrackerHailo(BasePlayerTracker):
         self.inference_thread = threading.Thread(target=self.hailo_inference.run, daemon=True)
         self.inference_thread.start()
 
+    def __preprocess(self, frame: cv2.UMat) -> tuple[cv2.UMat, tuple[float, float]]:
+        """
+        Preprocesses the input frame for Hailo inference.
+
+        Args:
+            frame (cv2.UMat): Input image (BGR format from OpenCV).
+
+        Returns:
+            cv2.UMat: Preprocessed frame.
+            tuple[float, float]: Ratios for resizing the frame (width, height).
+        """
+        # Get original frame dimensions
+        video_h, video_w = frame.shape[:2]
+
+        # Preprocess: Resize frame to model input size if necessary
+        if (video_h, video_w) != (self.model_h, self.model_w):
+            preprocessed_frame = self.preprocess_frame(frame, (self.model_w, self.model_h))
+        else:
+            preprocessed_frame = frame
+
+        return preprocessed_frame, (video_w, video_h)
+
+    def get_sample_frame(self, frame: cv2.UMat) -> cv2.UMat:
+        return self.__preprocess(frame)[0]
+
     def process_frame(self, frame: cv2.UMat) -> list[Player]:
         """
         Processes a video frame using Hailo asynchronous inference and returns a list of Player objects.
@@ -44,16 +69,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
             list[Player]: List of detected Player objects.
         """
         try:
-            # Get original frame dimensions
-            video_h, video_w = frame.shape[:2]
-
-            # Preprocess: Resize frame to model input size if necessary
-            if (video_h, video_w) != (self.model_h, self.model_w):
-                preprocessed_frame = self.preprocess_frame(frame, (self.model_w, self.model_h))
-            else:
-                preprocessed_frame = frame
-
-            ratios = (video_w, video_h)
+            preprocessed_frame, ratios = self.__preprocess(frame)
 
             # Put the preprocessed frame into the Hailo inference queue
             self.input_queue.put([preprocessed_frame])
@@ -71,7 +87,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
             # Convert detections into Player objects using the base class helper
             players = self.supervision_to_players(detections_sv)
 
-            self.previous_result = players
+            super().previous_result = players
             return players
 
         except Exception as e:
