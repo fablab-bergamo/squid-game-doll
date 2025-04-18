@@ -27,10 +27,12 @@ class PlayerTrackerUL(BasePlayerTracker):
         """
         Preprocesses the input frame for YOLO inference.
         """
-        yolo_frame = self.preprocess_frame(frame, gamesettings, (640, 640))
+        yolo_frame, offsets = self.preprocess_frame(frame, gamesettings, (640, 640))
+        print("Preprocessed frame shape:", yolo_frame.shape, "Original frame shape:", frame.shape)
         # Get original frame dimensions
         video_h, video_w = frame.shape[:2]
-        ratios = (video_w / yolo_frame.shape[1], video_h / yolo_frame.shape[0])
+        ratios = ((video_w - offsets[0]) / yolo_frame.shape[1], (video_h-offsets[1]) / yolo_frame.shape[0])
+        print("NN ratios (NN frame to source frame):", ratios)
         return yolo_frame, ratios
 
     def get_sample_frame(self, frame: cv2.UMat, gamesettings: GameSettings) -> cv2.UMat:
@@ -48,13 +50,14 @@ class PlayerTrackerUL(BasePlayerTracker):
         """
         try:
             yolo_frame, ratios = self.__preprocess(frame, gamesettings)
+            print("Source frame", frame.shape, "NN frame shape:", yolo_frame.shape, "Ratios:", ratios)
             results = self.yolo.track(yolo_frame, persist=True, stream=True, classes=[0])
         except Exception as e:
             print("Error:", e)
             return self.previous_result
 
         # Apply confidence threshold from settings
-        super().confidence = gamesettings.settings.get("confidence", 40) / 100.0
+        self.confidence = gamesettings.settings.get("confidence", 40) / 100.0
         detections = self.yolo_to_supervision(results, ratios)
         players = self.supervision_to_players(detections)
         for p in players:

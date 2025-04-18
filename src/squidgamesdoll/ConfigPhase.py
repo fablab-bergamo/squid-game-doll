@@ -8,6 +8,7 @@ from constants import FINISH_LINE_PERC, PINK, START_LINE_PERC
 from BasePlayerTracker import BasePlayerTracker
 from PlayerTrackerUL import PlayerTrackerUL
 from GameSettings import GameSettings
+from GameScreen import GameScreen
 
 
 class GameConfigPhase:
@@ -25,6 +26,10 @@ class GameConfigPhase:
 
         # Center the webcam feed on the screen
         w, h = GameCamera.get_native_resolution(camera.index)
+        while w > self.screen_width or h > self.screen_height:
+            w //= 2
+            h //= 2
+
         self.webcam_rect = pygame.Rect((self.screen_width - w) // 2, (self.screen_height - h) // 2, w, h)
         pygame.display.set_caption("Game Configuration Phase")
 
@@ -387,11 +392,29 @@ class GameConfigPhase:
                 else:
                     new_height = int(self.screen_height * 0.8)
                     new_width = int(new_height * aspect_ratio)
+                # Debug
+                new_height = preview.shape[0]
+                new_width = preview.shape[1]
+
                 nn_surf_resized = pygame.transform.scale(nn_surf, (new_width, new_height))
                 # Center the resized surface
                 x_offset = (self.screen_width - new_width) // 2
                 y_offset = (self.screen_height - new_height) // 2
+
+                # Run the model and highlight detections
+                for p in self.neural_net.process_frame(frame, self.game_settings):
+                    if p is not None:
+                        bbox = GameScreen.convert_coord_surf(p.get_rect(), frame, nn_surf_resized, True)
+                        # Mirror the coordinates to match pygame's coordinate system
+
+                        # Draw the bounding box around the detected player
+                        pygame.draw.rect(nn_surf_resized, (0, 255, 0), (bbox.x, bbox.y, bbox.w, bbox.h), 2)
+                        # Draw the player ID
+                        id_surf = self.font.render(str(p.get_id()), True, (255, 0, 0))
+                        nn_surf_resized.blit(id_surf, (bbox.x + 5, bbox.y + 5))
+
                 self.screen.blit(nn_surf_resized, (x_offset, y_offset))
+
                 # Draw a rectangle around the neural net preview
                 pygame.draw.rect(self.screen, (255, 255, 0), (x_offset, y_offset, new_width, new_height), 2)
                 # Add a label
@@ -499,7 +522,10 @@ if __name__ == "__main__":
 
     # Initialize pygame and set up display
     pygame.init()
-    screen = pygame.display.set_mode((1500, 1200))
+
+    size, monitor = GameScreen.get_desktop(-1)
+    print("Running on monitor:", monitor, "size:", size)
+    screen = pygame.display.set_mode(size)
     cam = GameCamera()
     nn = PlayerTrackerUL()
     game_settings = GameSettings.load_settings("config.yaml")

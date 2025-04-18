@@ -37,6 +37,16 @@ class GameConfig:
     def get_rects(self) -> list[pygame.Rect]:
         return self._excl_rects
 
+    def get_rects_scaled(self, video_size: tuple[int, int]) -> list[pygame.Rect]:
+        from math import isclose
+
+        ratio = video_size[0] / self._video_feed.get_width()
+        if isclose(ratio, video_size[1] / self._video_feed.get_height(), rel_tol=0.01):
+            return self.get_rects_scaled(ratio)
+        raise ValueError(
+            f"Aspect ratio mismatch between video feed ({video_size}) and video size ({self._video_feed.get_size()})"
+        )
+
     def get_rects_scaled(self, ratio: float) -> list[pygame.Rect]:
         result = []
         for r in self._excl_rects:

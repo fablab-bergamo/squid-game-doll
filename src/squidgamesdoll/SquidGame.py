@@ -508,15 +508,6 @@ class SquidGame:
         # Cleanup
         self.cam.release()
 
-    @staticmethod
-    def get_desktop(preferred_monitor=0) -> (tuple[int, int], int):
-        num = 0
-        for size in pygame.display.get_desktop_sizes():
-            if num == preferred_monitor:
-                return (size, preferred_monitor)
-            num += 1
-        return (pygame.display.get_desktop_sizes()[0], 0)
-
 
 def command_line_args() -> any:
     import argparse
@@ -578,7 +569,7 @@ if __name__ == "__main__":
     pygame.init()
 
     args = command_line_args()
-    size, monitor = SquidGame.get_desktop(args.monitor)
+    size, monitor = GameScreen.get_desktop(args.monitor)
     joystick = None
     if args.joystick != -1:
         joystick = pygame.joystick.Joystick(args.joystick)

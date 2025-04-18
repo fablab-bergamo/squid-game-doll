@@ -144,7 +144,7 @@ class GameScreen:
         game_conf.set_screen_config(video_feed=video_surface, video_feed_pos=(x_web, y_web))
 
         # Draw exclusion rectangles
-        for excl_rec in game_conf.get_rects():
+        for excl_rec in game_conf.get_rects_scaled((video_surface.get_width(), video_surface.get_height())):
             pygame.draw.rect(surface=video_surface, color=constants.BLACK, rect=excl_rec)
 
         fullscreen.blit(video_surface, (x_web, y_web))
@@ -516,3 +516,40 @@ class GameScreen:
                 text = self._font_lcd.render(str(player["id"]), True, color)
                 text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.7))
             screen.blit(text, text_rect.topleft)
+
+    @staticmethod
+    def get_desktop(preferred_monitor=0) -> tuple[tuple[int, int], int]:
+        num = 0
+        for size in pygame.display.get_desktop_sizes():
+            if num == preferred_monitor:
+                return (size, preferred_monitor)
+            num += 1
+        return (pygame.display.get_desktop_sizes()[0], 0)
+
+    @staticmethod
+    def convert_coord_surf(
+        rect: pygame.Rect, reference: pygame.Surface, dest: pygame.Surface, flip_x: bool = False
+    ) -> pygame.Rect:
+        x, y, w, h = rect
+        x = int((x - reference.x) * dest.get_width() / reference.get_width())
+        if flip_x:
+            x = reference.get_width() - x - w
+
+        y = int((y - reference.y) * dest.get_height() / reference.get_height())
+        w = int(w * dest.get_width() / reference.get_width())
+        h = int(h * dest.get_height() / reference.get_height())
+        return pygame.Rect(x, y, w, h)
+
+    @staticmethod
+    def convert_coord(
+        rect: pygame.Rect, reference: pygame.Rect, dest: pygame.Rect, flip_x: bool = False
+    ) -> pygame.Rect:
+        x, y, w, h = rect
+        x = int((x - reference.x) * dest.width / reference.width + dest.x)
+        if flip_x:
+            x = reference.width - x - w
+
+        y = int((y - reference.y) * dest.height / reference.height + dest.y)
+        w = int(w * dest.width / reference.width)
+        h = int(h * dest.height / reference.height)
+        return pygame.Rect(x, y, w, h)

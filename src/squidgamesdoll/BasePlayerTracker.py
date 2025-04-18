@@ -4,6 +4,7 @@ import supervision as sv
 import cv2
 from abc import ABC, abstractmethod
 from GameSettings import GameSettings
+from GameScreen import GameScreen
 import pygame
 
 
@@ -11,8 +12,11 @@ class BasePlayerTracker:
     def __init__(self):
         self.previous_result: list[Player] = []
         self.confidence = 0.5
+        self.vision_rect = pygame.Rect(0, 0, 0, 0)
+        self.nn_rect = pygame.Rect(0, 0, 0, 0)
+        self.frame_rect = pygame.Rect(0, 0, 0, 0)
 
-    def yolo_to_supervision(self, yolo_results, ratios: tuple[float, float]) -> sv.Detections:
+    def yolo_to_supervision(self, yolo_results) -> sv.Detections:
         """
         Converts YOLO results into a supervision Detections object with proper scaling.
         """
@@ -26,10 +30,25 @@ class BasePlayerTracker:
                 class_id = int(box.cls[0].cpu().numpy())
                 if conf > self.confidence and class_id == 0:
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                    x1, x2 = x1 * ratios[0], x2 * ratios[0]
-                    y1, y2 = y1 * ratios[1], y2 * ratios[1]
+                    rect = pygame.Rect(x1, y1, x2 - x1, y2 - y1)
+                    # Adjust the coordinates 0..1 to match the original NN frame size
+                    conv_rect = GameScreen.convert_coord(rect, pygame.Rect(0, 0, 1, 1), self.nn_rect)
+                    # Now convert from NN frame to the vision frame size
+                    conv_rect = GameScreen.convert_coord(rect, self.nn_rect, self.vision_rect)
+                    # Now convert from NN frame to the vision frame size
+                    conv_rect = GameScreen.convert_coord(rect, self.vision_rect, self.frame_rect)
+
                     track_id = int(box.id[0].cpu().numpy()) if box.id is not None else None
-                    detections.append([x1, y1, x2, y2, conf, track_id])
+                    detections.append(
+                        [
+                            conv_rect.x,
+                            conv_rect.y,
+                            conv_rect.x + conv_rect.w,
+                            conv_rect.y + conv_rect.h,
+                            conf,
+                            track_id,
+                        ]
+                    )
 
         if not detections:
             return sv.Detections.empty()
@@ -63,7 +82,7 @@ class BasePlayerTracker:
 
     def apply_vision_frame(
         self, rectangles: list[pygame.Rect], reference_surface: list[int, int], webcam_frame: cv2.UMat
-    ) -> cv2.UMat:
+    ) -> tuple[cv2.UMat, pygame.Rect]:
         # Get the bounding rectangle of the vision area
         bounding_rect = self.bounding_rectangle(rectangles)
         if bounding_rect:
@@ -100,9 +119,9 @@ class BasePlayerTracker:
             x = webcam_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
             webcam_frame = webcam_frame[y : y + h, x : x + w]  # Crop the frame to the bounding rectangle
 
-            return webcam_frame
+            return (webcam_frame, pygame.Rect(x, y, w, h))
         # Feed the full frame otherwise
-        return None
+        return (None, pygame.Rect(0, 0, 0, 0))
 
     def preprocess_frame(self, frame: cv2.UMat, gamesettings: GameSettings, model_size=tuple[int, int]) -> cv2.UMat:
         """
@@ -117,8 +136,11 @@ class BasePlayerTracker:
         """
 
         # Apply crop and masking rectangles
-        frame = self.apply_vision_frame(gamesettings.areas["vision"], gamesettings.reference_frame, frame)
-
+        frame, self.nn_rect = self.apply_vision_frame(
+            gamesettings.areas["vision"], gamesettings.reference_frame, frame
+        )
+        self.frame_rect = pygame.Rect(0, 0, frame.shape[1], frame.shape[0])
+        
         # Apply Gaussian Blur to reduce noise
         # frame = cv2.GaussianBlur(frame, (5, 5), 0)
 
@@ -149,7 +171,7 @@ class BasePlayerTracker:
             new_h = model_size[1]
             new_w = int(model_size[1] * aspect_ratio)
         frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
-
+        self.nn_rect = pygame.Rect(0, 0, new_w, new_h)
         return frame
 
     @abstractmethod
