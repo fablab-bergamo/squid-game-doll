@@ -4,6 +4,7 @@ from Player import Player
 import torch
 from BasePlayerTracker import BasePlayerTracker
 from GameSettings import GameSettings
+from pygame import Rect
 
 
 class PlayerTrackerUL(BasePlayerTracker):
@@ -16,29 +17,27 @@ class PlayerTrackerUL(BasePlayerTracker):
             movement_threshold (int): Pixels of movement to be considered "moving".
         """
         super().__init__()
-        self.yolo: YOLO = YOLO(model_path, verbose=False)
+        self.model_path = model_path
+        self.yolo: YOLO = YOLO(self.model_path, verbose=False)
         # Run the model on the Nvidia GPU
         if torch.cuda.is_available():
             self.yolo.to("cuda")
 
         print(f"YOLOv8 running on {self.yolo.device}")
 
-    def __preprocess(self, frame: cv2.UMat, gamesettings: GameSettings) -> tuple[cv2.UMat, tuple[float, float]]:
+    def reset(self) -> None:
         """
-        Preprocesses the input frame for YOLO inference.
+        Resets the player tracker to its initial state.
         """
-        yolo_frame, offsets = self.preprocess_frame(frame, gamesettings, (640, 640))
-        print("Preprocessed frame shape:", yolo_frame.shape, "Original frame shape:", frame.shape)
-        # Get original frame dimensions
-        video_h, video_w = frame.shape[:2]
-        ratios = ((video_w - offsets[0]) / yolo_frame.shape[1], (video_h-offsets[1]) / yolo_frame.shape[0])
-        print("NN ratios (NN frame to source frame):", ratios)
-        return yolo_frame, ratios
+        self.previous_result = []
+        self.yolo: YOLO = YOLO(self.model_path, verbose=False)
+        # Run the model on the Nvidia GPU
+        if torch.cuda.is_available():
+            self.yolo.to("cuda")
 
-    def get_sample_frame(self, frame: cv2.UMat, gamesettings: GameSettings) -> cv2.UMat:
-        return self.__preprocess(frame, gamesettings)[0]
+        print(f"YOLOv8 running on {self.yolo.device}")
 
-    def process_frame(self, frame: cv2.UMat, gamesettings: GameSettings) -> list[Player]:
+    def process_nn_frame(self, nn_frame: cv2.UMat, gamesettings: GameSettings) -> list[Player]:
         """
         Processes a video frame, detects players using YOLO, and returns a list of Player objects.
 
@@ -49,16 +48,16 @@ class PlayerTrackerUL(BasePlayerTracker):
             list[Player]: List of detected Player objects.
         """
         try:
-            yolo_frame, ratios = self.__preprocess(frame, gamesettings)
-            print("Source frame", frame.shape, "NN frame shape:", yolo_frame.shape, "Ratios:", ratios)
-            results = self.yolo.track(yolo_frame, persist=True, stream=True, classes=[0])
+            self.frame_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
+            self.nn_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
+            results = self.yolo.track(nn_frame, persist=True, stream=True, classes=[0])
         except Exception as e:
-            print("Error:", e)
+            print("process_nn_frame: Error:", e)
             return self.previous_result
 
         # Apply confidence threshold from settings
         self.confidence = gamesettings.settings.get("confidence", 40) / 100.0
-        detections = self.yolo_to_supervision(results, ratios)
+        detections = self.yolo_to_supervision(results)
         players = self.supervision_to_players(detections)
         for p in players:
             print(p)

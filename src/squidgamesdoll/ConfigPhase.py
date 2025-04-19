@@ -85,6 +85,14 @@ class GameConfigPhase:
                 "type": int,
                 "default": 0,
             },
+            {
+                "key": "img_brightness",
+                "caption": "Brightness adjustment",
+                "min": 0,
+                "max": 1,
+                "type": int,
+                "default": 0,
+            },
             # Add additional configurable settings here.
         ]
         # Create a dictionary to hold current setting values.
@@ -98,6 +106,7 @@ class GameConfigPhase:
         # UI state
         self.current_mode = "vision"  # Can be "vision", "start", "finish", "settings"
         self.font = pygame.font.SysFont("Arial", 16)
+        self.big_font = pygame.font.SysFont("Arial", 64)
         self.clock = pygame.time.Clock()
 
         # For drawing rectangles
@@ -168,6 +177,8 @@ class GameConfigPhase:
                         print(f"Switched to mode: {self.current_mode}")
                         self.drawing = False
                         self.current_rect = None
+                        if self.current_mode == "nn_preview":
+                            self.neural_net.reset()
                         return
 
                 if self.current_mode in self.reset_buttons:
@@ -374,27 +385,34 @@ class GameConfigPhase:
             self.settings_buttons[key] = {"minus": minus_rect, "plus": plus_rect}
             y_offset += 30
 
-    def draw_ui(self, webcam_surf: pygame.Surface, frame: cv2.UMat):
+    def draw_ui(self, webcam_surf: pygame.Surface, webcam_frame: cv2.UMat):
 
         self.screen.fill(PINK)
 
         if self.current_mode == "nn_preview":
             # Apply the vision frame to the webcam surface
-            preview = self.neural_net.get_sample_frame(frame, self.game_settings)
-            if preview is not None:
+            nn_frame, webcam_frame, rect = self.camera.read_nn(self.game_settings, 640)
+
+            print(
+                "read_nn: original dimensions",
+                (webcam_frame.shape[1], webcam_frame.shape[0]),
+                "Resized dimensions",
+                (nn_frame.shape[1], nn_frame.shape[0]),
+                "Rect",
+                rect,
+            )
+
+            if nn_frame is not None:
                 # Convert the frame to a pygame surface and display it
-                nn_surf = self.convert_cv2_to_pygame(preview)
+                nn_surf = self.convert_cv2_to_pygame(nn_frame)
                 # Resize keeping the aspect ratio
                 aspect_ratio = nn_surf.get_width() / nn_surf.get_height()
-                if nn_surf.get_width() > nn_surf.get_height():
-                    new_width = int(self.screen_width * 0.8)
-                    new_height = int(new_width / aspect_ratio)
+                if aspect_ratio > 1:
+                    new_width = int(self.screen_width * 0.6)
+                    new_height = int(nn_surf.get_height() * new_width / nn_surf.get_width())
                 else:
-                    new_height = int(self.screen_height * 0.8)
-                    new_width = int(new_height * aspect_ratio)
-                # Debug
-                new_height = preview.shape[0]
-                new_width = preview.shape[1]
+                    new_height = int(self.screen_height * 0.6)
+                    new_width = int(nn_surf.get_width() * new_height / nn_surf.get_height())
 
                 nn_surf_resized = pygame.transform.scale(nn_surf, (new_width, new_height))
                 # Center the resized surface
@@ -402,16 +420,23 @@ class GameConfigPhase:
                 y_offset = (self.screen_height - new_height) // 2
 
                 # Run the model and highlight detections
-                for p in self.neural_net.process_frame(frame, self.game_settings):
+                for p in self.neural_net.process_nn_frame(nn_frame, self.game_settings):
                     if p is not None:
-                        bbox = GameScreen.convert_coord_surf(p.get_rect(), frame, nn_surf_resized, True)
-                        # Mirror the coordinates to match pygame's coordinate system
+                        bbox = p.get_rect()
+                        # Now apply scaling factors from NN Frame to webcam frame AND from webcam frame to resized surface
+                        x = int(bbox[0] * new_width / rect.width * rect.width / nn_frame.shape[1])
+                        y = int(bbox[1] * new_height / rect.height * rect.height / nn_frame.shape[0])
+                        w = int(bbox[2] * new_width / rect.width * rect.width / nn_frame.shape[1])
+                        h = int(bbox[3] * new_height / rect.height * rect.height / nn_frame.shape[0])
+                        # Flip the x coordinate to match pygame orientation
+                        x = new_width - x - w
+                        print("Player ID:", p.get_id(), "bbox:", bbox, "scaled:", (x, y, w, h))
 
                         # Draw the bounding box around the detected player
-                        pygame.draw.rect(nn_surf_resized, (0, 255, 0), (bbox.x, bbox.y, bbox.w, bbox.h), 2)
+                        pygame.draw.rect(nn_surf_resized, (255, 255, 255), (x, y, w, h), 5)
                         # Draw the player ID
-                        id_surf = self.font.render(str(p.get_id()), True, (255, 0, 0))
-                        nn_surf_resized.blit(id_surf, (bbox.x + 5, bbox.y + 5))
+                        id_surf = self.big_font.render(str(p.get_id()), True, (255, 0, 0))
+                        nn_surf_resized.blit(id_surf, (x + 64, y + 64))
 
                 self.screen.blit(nn_surf_resized, (x_offset, y_offset))
 

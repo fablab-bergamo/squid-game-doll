@@ -7,6 +7,7 @@ from Player import Player
 from utils import HailoAsyncInference  # Make sure this is available in your project
 from BasePlayerTracker import BasePlayerTracker
 from GameSettings import GameSettings
+from pygame import Rect
 
 
 class PlayerTrackerHailo(BasePlayerTracker):
@@ -34,27 +35,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
         self.inference_thread = threading.Thread(target=self.hailo_inference.run, daemon=True)
         self.inference_thread.start()
 
-    def __preprocess(self, frame: cv2.UMat, gamesettings: GameSettings) -> tuple[cv2.UMat, tuple[float, float]]:
-        """
-        Preprocesses the input frame for Hailo inference.
-
-        Args:
-            frame (cv2.UMat): Input image (BGR format from OpenCV).
-
-        Returns:
-            cv2.UMat: Preprocessed frame.
-            tuple[float, float]: Ratios for resizing the frame (width, height).
-        """
-        # Preprocess: Resize frame to model input size if necessary
-        new_frame = self.preprocess_frame(frame, gamesettings, (self.model_w, self.model_h))
-        # Get original frame dimensions
-        video_h, video_w = frame.shape[:2]
-        return new_frame, (video_w, video_h)
-
-    def get_sample_frame(self, frame: cv2.UMat, gamesettings: GameSettings) -> cv2.UMat:
-        return self.__preprocess(frame, gamesettings)[0]
-
-    def process_frame(self, frame: cv2.UMat, gamesettings: GameSettings) -> list[Player]:
+    def process_nn_frame(self, nn_frame: cv2.UMat, gamesettings: GameSettings) -> list[Player]:
         """
         Processes a video frame using Hailo asynchronous inference and returns a list of Player objects.
 
@@ -65,10 +46,11 @@ class PlayerTrackerHailo(BasePlayerTracker):
             list[Player]: List of detected Player objects.
         """
         try:
-            preprocessed_frame, ratios = self.__preprocess(frame, gamesettings)
+            self.frame_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
+            self.nn_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
 
             # Put the preprocessed frame into the Hailo inference queue
-            self.input_queue.put([preprocessed_frame])
+            self.input_queue.put([nn_frame])
 
             # Retrieve the inference results (blocking call)
             _, results = self.output_queue.get()
@@ -78,7 +60,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
 
             # Convert Hailo inference output into Supervision detections
             self.confidence = gamesettings.settings.get("confidence", 40) / 100.0
-            detections_sv = self.__extract_detections(results, ratios, super().confidence)
+            detections_sv = self.__extract_detections(results, (self.nn_rect.w, self.nn_rect.h), self.confidence)
             detections_sv = self.tracker.update_with_detections(detections_sv)
 
             # Convert detections into Player objects using the base class helper
@@ -143,3 +125,13 @@ class PlayerTrackerHailo(BasePlayerTracker):
         """
         self.input_queue.put(None)
         self.inference_thread.join()
+
+    def reset(self) -> None:
+        """
+        Resets the player tracker state.
+        """
+        self.stop()
+        self.tracker.reset()
+        self.previous_result = []
+        self.inference_thread = threading.Thread(target=self.hailo_inference.run, daemon=True)
+        self.inference_thread.start()
