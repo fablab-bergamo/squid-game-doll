@@ -433,10 +433,10 @@ class GameConfigPhase:
                         print("Player ID:", p.get_id(), "bbox:", bbox, "scaled:", (x, y, w, h))
 
                         # Draw the bounding box around the detected player
-                        pygame.draw.rect(nn_surf_resized, (255, 255, 255), (x, y, w, h), 5)
+                        pygame.draw.rect(nn_surf_resized, (128, 255, 255), (x, y, w, h), 5)
                         # Draw the player ID
                         id_surf = self.big_font.render(str(p.get_id()), True, (255, 0, 0))
-                        nn_surf_resized.blit(id_surf, (x + 64, y + 64))
+                        nn_surf_resized.blit(id_surf, (x + 5, y + 5))
 
                 self.screen.blit(nn_surf_resized, (x_offset, y_offset))
 
