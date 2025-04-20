@@ -31,13 +31,10 @@ class BasePlayerTracker:
                 class_id = int(box.cls[0].cpu().numpy())
                 if conf > self.confidence and class_id == 0:
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                    print("Y2S : (x1, y1, x2, y2)", (x1, y1, x2, y2))
-
                     x1 = int(x1 * self.frame_rect.width / self.nn_rect.width + self.nn_rect.x)
                     y1 = int(y1 * self.frame_rect.height / self.nn_rect.height + self.nn_rect.y)
                     x2 = int(x2 * self.frame_rect.width / self.nn_rect.width + self.nn_rect.x)
                     y2 = int(y2 * self.frame_rect.height / self.nn_rect.height + self.nn_rect.y)
-                    print("Y2S -> (x1, y1, x2, y2)", (x1, y1, x2, y2), "nn_rect", self.nn_rect)
                     conv_rect = pygame.Rect(x1, y1, x2 - x1, y2 - y1)
                     track_id = int(box.id[0].cpu().numpy()) if box.id is not None else None
                     detections.append(
