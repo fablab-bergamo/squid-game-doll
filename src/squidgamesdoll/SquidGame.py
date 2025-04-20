@@ -3,7 +3,6 @@ import pygame
 import cv2
 import random
 import time
-import os
 from GameScreen import GameScreen
 from BasePlayerTracker import BasePlayerTracker
 from PlayerTrackerUL import PlayerTrackerUL
@@ -14,6 +13,7 @@ import constants
 from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker
 from GameConfig import GameConfig
+from GameSettings import GameSettings
 import platform
 
 
@@ -27,6 +27,7 @@ class SquidGame:
         joystick: pygame.joystick.JoystickType,
         cam: GameCamera,
         model: str,
+        settings: GameSettings,
     ) -> None:
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
@@ -54,7 +55,8 @@ class SquidGame:
         self._init_done = False
         self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
         self.cam: GameCamera = cam
-        self.config: GameConfig = GameConfig()
+        self.config: GameConfig = GameConfig()  # To remove
+        self.settings: GameSettings = settings
         self.model: str = model
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
@@ -251,7 +253,11 @@ class SquidGame:
         self._init_done = True
 
     def save_screen_to_disk(self, screen: pygame.Surface, filename: str) -> None:
-        pygame.image.save(screen, "screenshot_" + filename, "PNG")
+        try:
+            pygame.image.save(screen, "pictures/screenshot_" + filename, "PNG")
+            print(f"Screenshot saved as {filename}")
+        except pygame.error as e:
+            print(f"Error saving screenshot: {e}")
 
     def loading_screen(self, screen: pygame.Surface) -> None:
         clock = pygame.time.Clock()
@@ -498,7 +504,7 @@ class SquidGame:
         self.loading_screen(screen)
 
         # Compute aspect ratio and view port for webcam
-        ret, frame = self.cam.read()
+        ret, _ = self.cam.read()
         if not ret:
             print("Error: Cannot read from webcam")
             return
@@ -507,102 +513,3 @@ class SquidGame:
 
         # Cleanup
         self.cam.release()
-
-
-def command_line_args() -> any:
-    import argparse
-
-    parser = argparse.ArgumentParser("SquidGame.py")
-    parser.add_argument(
-        "-m", "--monitor", help="0-based index of the monitor", dest="monitor", type=int, default=-1, required=False
-    )
-    parser.add_argument(
-        "-w", "--webcam", help="0-based index of the webcam", dest="webcam", type=int, default=-1, required=False
-    )
-    parser.add_argument(
-        "-t",
-        "--tracker",
-        help="enable or disable the esp32 laser",
-        dest="tracker",
-        type=bool,
-        default=False,
-        required=False,
-    )
-    parser.add_argument(
-        "-i",
-        "--tracker-ip",
-        help="sets the esp32 tracker IP address",
-        dest="ip",
-        type=str,
-        default="192.168.45.50",
-        required=False,
-    )
-    parser.add_argument(
-        "-j",
-        "--joystick",
-        help="sets the joystick index",
-        dest="joystick",
-        type=int,
-        default=-1,
-        required=False,
-    )
-    parser.add_argument(
-        "-md",
-        "--model",
-        help="specify model for player recognition",
-        dest="model",
-        type=str,
-        default="",
-        required=False,
-    )
-    return parser.parse_args()
-
-
-if __name__ == "__main__":
-    if platform.system() != "Linux":
-        import ctypes
-
-        ctypes.windll.user32.SetProcessDPIAware()
-        # Disable hardware acceleration for webcam on Windows
-        os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
-
-    pygame.init()
-
-    args = command_line_args()
-    size, monitor = GameScreen.get_desktop(args.monitor)
-    joystick = None
-    if args.joystick != -1:
-        joystick = pygame.joystick.Joystick(args.joystick)
-        print(f"Using joystick: {joystick.get_name()}")
-    else:
-        print("Joysticks:")
-        for idx in range(0, pygame.joystick.get_count()):
-            print(f"\t{idx}:{pygame.joystick.Joystick(idx).get_name()}")
-        print("-")
-
-    cam = GameCamera(args.webcam)
-
-    if not cam.valid:
-        print("No compatible webcam found")
-        exit(1)
-
-    if args.model != "" and not os.path.exists(args.model):
-        print("Invalid model file")
-        exit(1)
-
-    game = SquidGame(
-        disable_tracker=not args.tracker,
-        desktop_size=size,
-        display_idx=monitor,
-        ip=args.ip,
-        joystick=joystick,
-        cam=cam,
-        model=args.model,
-    )
-
-    while True:
-        try:
-            game.start_game()
-        except Exception as e:
-            print("Exception", e)
-            raise e
