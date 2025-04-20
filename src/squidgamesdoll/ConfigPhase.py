@@ -2,13 +2,10 @@ import pygame
 import cv2
 import sys
 import time
-import yaml
 from GameCamera import GameCamera
-from constants import FINISH_LINE_PERC, PINK, START_LINE_PERC
+from constants import PINK
 from BasePlayerTracker import BasePlayerTracker
-from PlayerTrackerUL import PlayerTrackerUL
 from GameSettings import GameSettings
-from GameScreen import GameScreen
 
 
 class GameConfigPhase:
@@ -18,11 +15,13 @@ class GameConfigPhase:
         camera: GameCamera,
         neural_net: BasePlayerTracker,
         game_settings: GameSettings,
+        config_file: str = "config.yaml",
     ):
         self.screen_width = screen.get_width()
         self.screen_height = screen.get_height()
         self.screen = screen
         self.game_settings = game_settings
+        self.config_file = config_file
 
         # Center the webcam feed on the screen
         w, h = GameCamera.get_native_resolution(camera.index)
@@ -472,35 +471,7 @@ class GameConfigPhase:
 
         if self.current_mode == "save":
             self.game_settings.reference_frame = [self.webcam_rect.width, self.webcam_rect.height]
-            self.game_settings.save("config.yaml")
+            self.game_settings.save(self.config_file)
             return self.game_settings
 
         return None
-
-
-# Example usage:
-if __name__ == "__main__":
-    import ctypes, os
-
-    ctypes.windll.user32.SetProcessDPIAware()
-
-    # Disable hardware acceleration for webcam on Windows
-    os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
-
-    # Initialize pygame and set up display
-    pygame.init()
-
-    size, monitor = GameScreen.get_desktop(-1)
-    print("Running on monitor:", monitor, "size:", size)
-    screen = pygame.display.set_mode(size)
-    cam = GameCamera()
-    nn = PlayerTrackerUL()
-    game_settings = GameSettings.load_settings("config.yaml")
-    if game_settings is None:
-        game_settings = GameSettings()
-
-    config_phase = GameConfigPhase(camera=cam, screen=screen, neural_net=nn, game_settings=game_settings)
-    game_settings = config_phase.run()
-    # Now areas and settings are available for further processing.
-    print("Configuration completed.", game_settings)
-    pygame.quit()
