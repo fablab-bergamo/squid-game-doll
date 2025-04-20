@@ -78,7 +78,6 @@ class SquidGame:
         self.start_registration = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
-        self.game_screen.set_active_button(1, self.switch_to_config)
         self.face_extractor.reset_memory()
         if not self.no_tracker:
             self.shooter.set_eyes(False)
@@ -107,15 +106,6 @@ class SquidGame:
         self.green_sound.play()
         self.red_sound.stop()
         self.delay_s = random.random() * 4 + constants.MINIMUM_GREEN_LIGHT_S
-        return True
-
-    def switch_to_config(self) -> bool:
-        print("Switch to CONFIG")
-        self.game_state = constants.CONFIG
-        self.players.clear()
-        self.last_switch_time = time.time()
-        self.game_screen.reset_active_buttons()
-        self.game_screen.set_active_button(0, self.switch_to_init)
         return True
 
     def switch_to_game(self) -> bool:
@@ -358,19 +348,6 @@ class SquidGame:
 
             running = self.handle_events(screen)
 
-            # Initial config (exposure, exclusion zone, finish line)
-            if self.game_state == constants.CONFIG:
-                c_running = True
-                while c_running:
-                    ret, webcam_frame = self.cam.read()
-                    if not ret:
-                        break
-                    self.game_screen.update_config(screen, webcam_frame, self.shooter)
-                    c_running = self.handle_events(screen)
-                    pygame.display.flip()
-                    clock.tick(frame_rate)
-                self.switch_to_init()
-
             if self.game_state == constants.LOADING:
                 self.loading_screen(screen)
                 self.switch_to_init()
@@ -414,9 +391,7 @@ class SquidGame:
                     print(f"Reg FPS={round(clock.get_fps(),1)}")
 
                 self.save_screen_to_disk(screen, "init.png")
-                # User may have switched mode
-                if self.game_state != constants.CONFIG:
-                    self.switch_to_game()
+                self.switch_to_game()
 
             elif self.game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
                 # Has current light delay elapsed?
