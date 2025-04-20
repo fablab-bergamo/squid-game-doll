@@ -48,7 +48,6 @@ class SquidGame:
         self.no_tracker: bool = disable_tracker
         self.shooter: LaserShooter = None
         self.laser_tracker: LaserTracker = None
-        self.finish_line_y: float = constants.FINISH_LINE_PERC
         self.joystick: pygame.joystick.JoystickType = joystick
         self.start_registration = time.time()
         self._init_done = False
@@ -143,7 +142,7 @@ class SquidGame:
 
     def check_endgame_conditions(self, frame_height: int, screen: cv2.UMat) -> None:
         """
-        Checks each player to see if they have reached the finish line (bottom of bounding box at or above finish_line_y).
+        Checks each player to see if they have reached the finish area.
         Then, if every player is either a winner or eliminated, switches the game state to VICTORY.
         """
         for player in self.players:
@@ -154,7 +153,7 @@ class SquidGame:
                 # If player has reached the finish area,
                 # mark the player as a winner. At least two seconds after last transition.
                 if (
-                    GameSettings.intersect(player_rect, self.settings.areas["finish"])
+                    GameCamera.intersect(player_rect, self.settings.areas["finish"])
                     and time.time() - self.last_switch_time > 2
                 ):
                     player.set_winner()
@@ -342,8 +341,8 @@ class SquidGame:
         self.switch_to_init()
 
         while running:
-            ret, webcam_frame = self.cam.read()
-            if not ret:
+            nn_frame, webcam_frame, crop_info = self.cam.read_nn(self.settings, self.tracker.get_max_size())
+            if nn_frame is None:
                 break
 
             running = self.handle_events(screen)
@@ -356,7 +355,7 @@ class SquidGame:
             if self.game_state == constants.INIT:
                 self.players = []
                 self.game_screen.update(
-                    screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
+                    screen, webcam_frame, self.game_state, self.players, self.shooter, self.settings
                 )
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
@@ -366,10 +365,10 @@ class SquidGame:
                     if not ret:
                         break
 
-                    new_players = self.tracker.process_frame(webcam_frame)
-                    self.players = self.merge_players_lists(webcam_frame, [], new_players, True, False)
+                    new_players = self.tracker.process_nn_frame(nn_frame, self.settings)
+                    self.players = self.merge_players_lists(nn_frame, [], new_players, True, False)
                     self.game_screen.update(
-                        screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
+                        screen, nn_frame, self.game_state, self.players, self.shooter, self.settings
                     )
                     time_remaining = int(REGISTRATION_DELAY_S - time.time() + self.start_registration)
                     self.game_screen.draw_text(
@@ -405,7 +404,7 @@ class SquidGame:
 
                 # New player positions
                 self.players = self.merge_players_lists(
-                    webcam_frame, self.players, self.tracker.process_frame(webcam_frame), False, True
+                    nn_frame, self.players, self.tracker.process_nn_frame(nn_frame, self.settings), False, True
                 )
 
                 # Update last position while the green light is on
@@ -455,9 +454,7 @@ class SquidGame:
                     self.switch_to_loading()
                     continue
 
-            self.game_screen.update(
-                screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
-            )
+            self.game_screen.update(screen, nn_frame, self.game_state, self.players, self.shooter, self.settings)
 
             pygame.display.flip()
             # Limit the frame rate

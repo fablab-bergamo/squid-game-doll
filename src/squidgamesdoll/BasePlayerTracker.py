@@ -80,5 +80,9 @@ class BasePlayerTracker:
     def reset(self):
         pass
 
+    @abstractmethod
+    def get_max_size(self) -> int:
+        pass
+
     def get_fps(self) -> float:
         return round(self.fps, 1)

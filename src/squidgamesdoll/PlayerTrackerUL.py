@@ -67,3 +67,6 @@ class PlayerTrackerUL(BasePlayerTracker):
         time_taken = (end_time - start_time) / cv2.getTickFrequency()
         self.fps = 1 / time_taken if time_taken > 0 else 0
         return players
+
+    def get_max_size(self) -> int:
+        return 640

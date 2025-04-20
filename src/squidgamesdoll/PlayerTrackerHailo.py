@@ -141,3 +141,6 @@ class PlayerTrackerHailo(BasePlayerTracker):
         self.previous_result = []
         self.inference_thread = threading.Thread(target=self.hailo_inference.run, daemon=True)
         self.inference_thread.start()
+
+    def get_max_size(self) -> int:
+        return 640
