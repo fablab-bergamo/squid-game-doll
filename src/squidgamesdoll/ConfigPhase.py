@@ -43,58 +43,8 @@ class GameConfigPhase:
             self.__setup_defaults()
 
         # Configurable settings: list of dicts (min, max, key, caption, type, default)
-        self.settings_config = [
-            {"key": "exposure", "caption": "Webcam exposure Level", "min": 0, "max": 10, "type": int, "default": 8},
-            {
-                "key": "yolo_confidence",
-                "caption": "YOLO Confidence Level (%)",
-                "min": 0,
-                "max": 100,
-                "type": int,
-                "default": 40,
-            },
-            {
-                "key": "bytetrack_confidence",
-                "caption": "Bytetrack Confidence Level (%)",
-                "min": 0,
-                "max": 100,
-                "type": int,
-                "default": 40,
-            },
-            {
-                "key": "tracking_memory",
-                "caption": "ByteTrack frame memory",
-                "min": 1,
-                "max": 60,
-                "type": int,
-                "default": 30,
-            },
-            {
-                "key": "pixel_tolerance",
-                "caption": "Movement threshold (pixels)",
-                "min": 2,
-                "max": 50,
-                "type": int,
-                "default": 15,
-            },
-            {
-                "key": "img_normalization",
-                "caption": "Histogram normalization",
-                "min": 0,
-                "max": 1,
-                "type": int,
-                "default": 0,
-            },
-            {
-                "key": "img_brightness",
-                "caption": "Brightness adjustment",
-                "min": 0,
-                "max": 1,
-                "type": int,
-                "default": 0,
-            },
-            # Add additional configurable settings here.
-        ]
+        self.settings_config = GameSettings.default_params()
+
         # Create a dictionary to hold current setting values.
         for opt in self.settings_config:
             if self.game_settings.settings.get(opt["key"]) is None:
@@ -139,20 +89,7 @@ class GameConfigPhase:
 
     def __setup_defaults(self):
         # Vision area: full screen.
-        self.game_settings.areas = {
-            "vision": [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)],
-            # Start area: top 10%
-            "start": [pygame.Rect(0, 0, self.webcam_rect.width, int(START_LINE_PERC * self.webcam_rect.height))],
-            # Finish area: bottom 10%
-            "finish": [
-                pygame.Rect(
-                    0,
-                    int(FINISH_LINE_PERC * self.webcam_rect.height),
-                    self.webcam_rect.width,
-                    int((1 - FINISH_LINE_PERC) * self.webcam_rect.height),
-                )
-            ],
-        }
+        self.game_settings.areas = GameSettings.default_areas(self.webcam_rect.width, self.webcam_rect.height)
 
     def convert_cv2_to_pygame(self, cv_image):
         """Convert an OpenCV image to a pygame surface."""

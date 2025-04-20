@@ -307,3 +307,20 @@ class GameCamera:
         nn_frame = cv2.resize(nn_frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
         return (nn_frame, original_frame, Rect(x, y, w, h))
+
+    @staticmethod
+    def intersect(rect: Rect, rect_list: list[Rect]) -> bool:
+        """
+        Check if a rectangle intersects with any rectangle in a list.
+
+        Parameters:
+        rect (Rect): The rectangle to check for intersection.
+        rect_list (list[Rect]): The list of rectangles to check against.
+
+        Returns:
+        bool: True if there is an intersection, False otherwise.
+        """
+        for r in rect_list:
+            if rect.colliderect(r):
+                return True
+        return False

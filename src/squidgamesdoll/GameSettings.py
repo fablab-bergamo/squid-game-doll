@@ -63,3 +63,78 @@ class GameSettings:
         except Exception as e:
             print(f"Error saving configuration: {e}")
             return False
+
+    @staticmethod
+    def default_params() -> dict:
+        settings_config = [
+            {"key": "exposure", "caption": "Webcam exposure Level", "min": 0, "max": 10, "type": int, "default": 8},
+            {
+                "key": "yolo_confidence",
+                "caption": "YOLO Confidence Level (%)",
+                "min": 0,
+                "max": 100,
+                "type": int,
+                "default": 40,
+            },
+            {
+                "key": "bytetrack_confidence",
+                "caption": "Bytetrack Confidence Level (%)",
+                "min": 0,
+                "max": 100,
+                "type": int,
+                "default": 40,
+            },
+            {
+                "key": "tracking_memory",
+                "caption": "ByteTrack frame memory",
+                "min": 1,
+                "max": 60,
+                "type": int,
+                "default": 30,
+            },
+            {
+                "key": "pixel_tolerance",
+                "caption": "Movement threshold (pixels)",
+                "min": 2,
+                "max": 50,
+                "type": int,
+                "default": 15,
+            },
+            {
+                "key": "img_normalization",
+                "caption": "Histogram normalization",
+                "min": 0,
+                "max": 1,
+                "type": int,
+                "default": 0,
+            },
+            {
+                "key": "img_brightness",
+                "caption": "Brightness adjustment",
+                "min": 0,
+                "max": 1,
+                "type": int,
+                "default": 0,
+            },
+            # Add additional configurable settings here.
+        ]
+        return settings_config
+
+    @staticmethod
+    def default_areas(cam_width: int, cam_height: int) -> dict:
+        from constants import START_LINE_PERC, FINISH_LINE_PERC
+
+        return {
+            "vision": [pygame.Rect(0, 0, cam_width, cam_height)],
+            # Start area: top 10%
+            "start": [pygame.Rect(0, 0, cam_width, int(START_LINE_PERC * cam_height))],
+            # Finish area: bottom 10%
+            "finish": [
+                pygame.Rect(
+                    0,
+                    int(FINISH_LINE_PERC * cam_height),
+                    cam_width,
+                    int((1 - FINISH_LINE_PERC) * cam_height),
+                )
+            ],
+        }
