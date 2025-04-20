@@ -12,7 +12,6 @@ from GameCamera import GameCamera
 import constants
 from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker
-from GameConfig import GameConfig
 from GameSettings import GameSettings
 import platform
 
@@ -55,7 +54,6 @@ class SquidGame:
         self._init_done = False
         self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
         self.cam: GameCamera = cam
-        self.config: GameConfig = GameConfig()  # To remove
         self.settings: GameSettings = settings
         self.model: str = model
         if not self.no_tracker:
@@ -118,7 +116,6 @@ class SquidGame:
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
-        self.game_screen.set_click_callback(self.config.config_callback)
         return True
 
     def switch_to_game(self) -> bool:
@@ -162,10 +159,14 @@ class SquidGame:
         for player in self.players:
             # Only consider players not already eliminated or marked as winner.
             if not player.is_eliminated() and not player.is_winner():
-                x1, y1, x2, y2 = player.get_coords()
-                # If the bottom of the player's rectangle is above or equal to the finish line,
+                player_rect = pygame.Rect(player.get_rect())
+
+                # If player has reached the finish area,
                 # mark the player as a winner. At least two seconds after last transition.
-                if y2 >= self.finish_line_y * frame_height and time.time() - self.last_switch_time > 2:
+                if (
+                    GameSettings.intersect(player_rect, self.settings.areas["finish"])
+                    and time.time() - self.last_switch_time > 2
+                ):
                     player.set_winner()
 
         # Update game state
@@ -364,7 +365,7 @@ class SquidGame:
                     ret, webcam_frame = self.cam.read()
                     if not ret:
                         break
-                    self.game_screen.update_config(screen, webcam_frame, self.shooter, game_conf=self.config)
+                    self.game_screen.update_config(screen, webcam_frame, self.shooter)
                     c_running = self.handle_events(screen)
                     pygame.display.flip()
                     clock.tick(frame_rate)

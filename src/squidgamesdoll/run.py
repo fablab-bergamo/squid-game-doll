@@ -11,7 +11,7 @@ from SquidGame import SquidGame
 def command_line_args() -> any:
     import argparse
 
-    parser = argparse.ArgumentParser("SquidGame.py")
+    parser = argparse.ArgumentParser("Squid Game - 1,2,3 Stella")
     parser.add_argument(
         "-m", "--monitor", help="0-based index of the monitor", dest="monitor", type=int, default=-1, required=False
     )

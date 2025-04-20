@@ -8,7 +8,6 @@ from Player import Player
 import constants
 from LaserShooter import LaserShooter
 from collections.abc import Callable
-from GameConfig import GameConfig
 
 BUTTON_COLOR: tuple[int, int, int] = (255, 0, 0)  # Red like Squid Game theme
 BUTTON_HOVER_COLOR: tuple[int, int, int] = (200, 0, 0)
@@ -130,9 +129,7 @@ class GameScreen:
             return True
         return False
 
-    def update_config(
-        self, fullscreen: pygame.Surface, webcam_frame: cv2.UMat, shooter: LaserShooter, game_conf: GameConfig
-    ) -> None:
+    def update_config(self, fullscreen: pygame.Surface, webcam_frame: cv2.UMat, shooter: LaserShooter) -> None:
 
         fullscreen.fill(constants.DARK_GREEN)
 
@@ -140,12 +137,6 @@ class GameScreen:
 
         # Convert OpenCV BGR to RGB for PyGame
         video_surface: pygame.Surface = opencv_to_pygame(webcam_frame, (w, h))
-
-        game_conf.set_screen_config(video_feed=video_surface, video_feed_pos=(x_web, y_web))
-
-        # Draw exclusion rectangles
-        for excl_rec in game_conf.get_rects_scaled((video_surface.get_width(), video_surface.get_height())):
-            pygame.draw.rect(surface=video_surface, color=constants.BLACK, rect=excl_rec)
 
         fullscreen.blit(video_surface, (x_web, y_web))
 
