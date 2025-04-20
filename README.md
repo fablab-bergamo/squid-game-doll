@@ -173,16 +173,51 @@ pip install -r ./src/requirements.txt
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
 ```
 
-* Run game
+* Command-line settings
 
-```python
-python ./src/squidgamedoll/SquidGame.py
+```shell
+usage: run.py [-h] [-m MONITOR] [-w WEBCAM] [-k] [-i IP] [-j JOYSTICK] [-n MODEL] [-c CONFIG] [-s]
+
+options:
+  -h, --help            show this help message and exit
+  -m MONITOR, --monitor MONITOR
+                        0-based index of the monitor
+  -w WEBCAM, --webcam WEBCAM
+                        0-based index of the webcam
+  -k, --killer          enable or disable the esp32 laser shooter
+  -i IP, --tracker-ip IP
+                        sets the esp32 tracker IP address
+  -j JOYSTICK, --joystick JOYSTICK
+                        sets the joystick index
+  -n MODEL, --neural_net MODEL
+                        specify neural network model file for player recognition
+  -c CONFIG, --config CONFIG
+                        specify config file (defaults to config.yaml)
+  -s, --setup           go to setup mode
 ```
 
-* Command-line arguments examples : force monitor 0, webcam 0, enable esp32 tracker on IP=192.168.45.50
+* Example: configure the vision area for webcam, finish and starting areas (will generate a config.yaml file)
 
 ```python
-python ./src/squidgamedoll/SquidGame.py -m 0 -w 0 -t -i 192.168.45.50
+python ./src/squidgamedoll/run.py --setup
+```
+
+* Example: run game with default configuration file
+
+```python
+python ./src/squidgamedoll/run.py
+```
+
+* Example: run game on forced monitor 0, webcam 0, enable esp32 laser kills, esp32 on IP=192.168.45.50
+
+```python
+python ./src/squidgamedoll/run.py -m 0 -w 0 -k -i 192.168.45.50
+```
+
+* Example: setup the areas using webcam at index 0
+
+```python
+python ./src/squidgamedoll/run.py --setup -w 0
 ```
 
 ## How to profile Python and check what is slow
