@@ -14,6 +14,7 @@ from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker
 from GameSettings import GameSettings
 import platform
+from loguru import logger
 
 
 class SquidGame:
@@ -59,12 +60,12 @@ class SquidGame:
             self.shooter = LaserShooter(ip)
             self.laser_tracker = LaserTracker(self.shooter)
 
-        print(
+        logger.info(
             f"SquidGame(res={desktop_size} on #{display_idx}, tracker disabled={disable_tracker} (ip={ip}), joystick={self.joystick is not None})"
         )
 
     def switch_to_init(self) -> bool:
-        print("Switch to INIT")
+        logger.info("Switch to INIT")
         self.game_state = constants.INIT
         self.cam.reinit()
         self.players.clear()
@@ -84,7 +85,7 @@ class SquidGame:
         return True
 
     def switch_to_redlight(self) -> bool:
-        print("Switch to REDLIGHT")
+        logger.info("Switch to REDLIGHT")
         if not self.no_tracker:
             self.shooter.set_eyes(True)
             self.shooter.rotate_head(False)
@@ -96,7 +97,7 @@ class SquidGame:
         return True
 
     def switch_to_greenlight(self) -> bool:
-        print("Switch to GREENLIGHT")
+        logger.info("Switch to GREENLIGHT")
         if not self.no_tracker:
             self.shooter.set_eyes(False)
             self.shooter.rotate_head(True)
@@ -108,14 +109,14 @@ class SquidGame:
         return True
 
     def switch_to_game(self) -> bool:
-        print("Switch to GAME")
+        logger.info("Switch to GAME")
         pygame.time.delay(1000)
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
         return self.switch_to_greenlight()
 
     def switch_to_loading(self) -> bool:
-        print("Switch to LOADING")
+        logger.info("Switch to LOADING")
         self.game_state = constants.LOADING
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
@@ -123,7 +124,7 @@ class SquidGame:
         return True
 
     def switch_to_endgame(self, endgame_str: str) -> bool:
-        print("Switch to ENDGAME")
+        logger.info("Switch to ENDGAME")
         self.game_state = endgame_str
         if endgame_str == constants.VICTORY:
             self.victory_sound.play()
@@ -136,7 +137,7 @@ class SquidGame:
         return True
 
     def close_loading_screen(self) -> bool:
-        print("close_loading_screen")
+        logger.debug("close_loading_screen")
         self.game_state = constants.INIT
         return False
 
@@ -218,32 +219,32 @@ class SquidGame:
         if platform.system() == "Linux":
             from PlayerTrackerHailo import PlayerTrackerHailo
 
-            print(f"Loading HAILO model ({self.model})...")
+            logger.info(f"Loading HAILO model ({self.model})...")
             # self.tracker = PlayerTrackerHailo("yolov11m.hef")
             if self.model != "":
                 self.tracker = PlayerTrackerHailo(self.model)
             else:
                 self.tracker = PlayerTrackerHailo()
         else:
-            print(f"Loading Ultralytics model ({self.model})...")
+            logger.info(f"Loading Ultralytics model ({self.model})...")
             if self.model != "":
                 self.tracker = PlayerTrackerUL(self.model)
             else:
                 self.tracker = PlayerTrackerUL()
 
-        print("Loading face extractor")
+        logger.debug("Loading face extractor")
         self.face_extractor = FaceExtractor()
 
-        print("load_model complete")
+        logger.info("load_model complete")
 
         self._init_done = True
 
     def save_screen_to_disk(self, screen: pygame.Surface, filename: str) -> None:
         try:
             pygame.image.save(screen, "pictures/screenshot_" + filename, "PNG")
-            print(f"Screenshot saved as {filename}")
+            logger.info(f"Screenshot saved as {filename}")
         except pygame.error as e:
-            print(f"Error saving screenshot: {e}")
+            logger.exception("Error saving screenshot")
 
     def loading_screen(self, screen: pygame.Surface) -> None:
         clock = pygame.time.Clock()
@@ -303,7 +304,7 @@ class SquidGame:
             _, _ = self.cam.read()
             pygame.display.flip()
             clock.tick()
-            print(f"Camera FPS={round(clock.get_fps(),1)}")
+            logger.debug(f"Camera FPS={round(clock.get_fps(),1)}")
 
         if not self._init_done and t.is_alive():
             t.join()
@@ -381,7 +382,7 @@ class SquidGame:
                         self.start_registration = time.time()
 
                     clock.tick(frame_rate)
-                    print(f"Reg FPS={round(clock.get_fps(),1)}")
+                    logger.debug(f"Reg FPS={round(clock.get_fps(),1)}")
 
                 self.save_screen_to_disk(screen, "init.png")
                 self.switch_to_game()
@@ -452,7 +453,7 @@ class SquidGame:
             pygame.display.flip()
             # Limit the frame rate
             clock.tick(frame_rate)
-            print(f"Play FPS={round(clock.get_fps(),1)}")
+            logger.debug(f"Play FPS={round(clock.get_fps(),1)}")
 
             if random.randint(0, 100) == 0:
                 self.save_screen_to_disk(screen, "game.png")
@@ -472,7 +473,7 @@ class SquidGame:
         # Compute aspect ratio and view port for webcam
         ret, _ = self.cam.read()
         if not ret:
-            print("Error: Cannot read from webcam")
+            logger.error("Error: Cannot read from webcam")
             return
 
         self.game_main_loop(screen)

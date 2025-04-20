@@ -8,6 +8,7 @@ from LaserShooter import LaserShooter
 from collections.abc import Callable
 from GameSettings import GameSettings
 from GameCamera import GameCamera
+from loguru import logger
 
 BUTTON_COLOR: tuple[int, int, int] = (255, 0, 0)  # Red like Squid Game theme
 BUTTON_HOVER_COLOR: tuple[int, int, int] = (200, 0, 0)
@@ -94,7 +95,7 @@ class GameScreen:
             return True
         for idx, fun in self._active_buttons.items():
             if joystick.get_button(idx):
-                print(f"Joystick button {idx}: calling {fun.__name__}")
+                logger.debug(f"Joystick button {idx}: calling {fun.__name__}")
                 return fun()
         return True
 
@@ -104,7 +105,7 @@ class GameScreen:
             v1 = pygame.math.Vector2(surface.get_width() - 45, y_pos)
             v2 = pygame.math.Vector2(pygame.mouse.get_pos())
             if v1.distance_to(v2) < 40:
-                print(f"Click on button {idx}: calling {fun.__name__}")
+                logger.debug(f"Click on button {idx}: calling {fun.__name__}")
                 return fun()
         if self._click_callback is not None:
             return self._click_callback(event)
@@ -350,7 +351,7 @@ class GameScreen:
             x = start_x + (cpt * constants.PLAYER_SIZE + 20)
             y = start_y
             if x > self._desktop_size[0]:
-                print("Too many players")
+                logger.warning("Too many players")
                 break
             positions.append((x, y))
         return positions
@@ -444,7 +445,7 @@ class GameScreen:
 
         self._ratio = w2 / w3
         if self._first_run:
-            print(
+            logger.debug(
                 f"Webcam {w2, h2} -> on screen {w1, h1} : {w3, h3} in position {x, y} (webcam-to-screen ratio {self._ratio})"
             )
             self._first_run = False

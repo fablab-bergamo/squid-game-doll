@@ -1,5 +1,6 @@
 import pygame
 import yaml
+from loguru import logger
 
 
 class GameSettings:
@@ -31,13 +32,13 @@ class GameSettings:
             }
             settings.params = config_data.get("params", {})
             settings.reference_frame = config_data.get("reference_frame", [0, 0])
-            print(f"Configuration loaded from {path}")
+            logger.info(f"Configuration loaded from {path}")
             return settings
         except FileNotFoundError:
-            print(f"Configuration file {path} not found.")
-            return
+            logger.warning(f"Configuration file {path} not found.")
+            return None
         except yaml.YAMLError as e:
-            print(f"Error loading YAML file: {e}")
+            logger.error(f"Error loading YAML file: {e}")
             return None
 
     @staticmethod
@@ -58,10 +59,10 @@ class GameSettings:
         try:
             with open(path, "w") as file:
                 yaml.dump(config_data, file, default_flow_style=False)
-            print(f"Configuration saved to {path}")
+            logger.info(f"Configuration saved to {path}")
             return True
         except Exception as e:
-            print(f"Error saving configuration: {e}")
+            logger.exception("Error saving configuration")
             return False
 
     @staticmethod

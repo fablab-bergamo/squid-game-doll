@@ -5,6 +5,7 @@ import torch
 from BasePlayerTracker import BasePlayerTracker
 from GameSettings import GameSettings
 from pygame import Rect
+from loguru import logger
 
 
 class PlayerTrackerUL(BasePlayerTracker):
@@ -23,7 +24,7 @@ class PlayerTrackerUL(BasePlayerTracker):
         if torch.cuda.is_available():
             self.yolo.to("cuda")
 
-        print(f"YOLOv8 running on {self.yolo.device}")
+        logger.info(f"YOLOv8 running on {self.yolo.device}")
 
     def reset(self) -> None:
         """
@@ -35,7 +36,7 @@ class PlayerTrackerUL(BasePlayerTracker):
         if torch.cuda.is_available():
             self.yolo.to("cuda")
 
-        print(f"YOLOv8 running on {self.yolo.device}")
+        logger.info(f"YOLOv8 running on {self.yolo.device}")
 
     def process_nn_frame(self, nn_frame: cv2.UMat, gamesettings: GameSettings) -> list[Player]:
         """
@@ -53,7 +54,7 @@ class PlayerTrackerUL(BasePlayerTracker):
             self.nn_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
             results = self.yolo.track(nn_frame, persist=True, stream=True, classes=[0])
         except Exception as e:
-            print("process_nn_frame: Error:", e)
+            logger.exception("process_nn_frame: error:")
             return self.previous_result
 
         # Apply confidence threshold from settings
@@ -61,7 +62,7 @@ class PlayerTrackerUL(BasePlayerTracker):
         detections = self.yolo_to_supervision(results)
         players = self.supervision_to_players(detections)
         for p in players:
-            print(p)
+            logger.debug(p)
         self.previous_result = players
         end_time = cv2.getTickCount()
         time_taken = (end_time - start_time) / cv2.getTickFrequency()

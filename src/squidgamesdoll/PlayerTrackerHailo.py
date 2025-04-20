@@ -8,6 +8,7 @@ from utils import HailoAsyncInference  # Make sure this is available in your pro
 from BasePlayerTracker import BasePlayerTracker
 from GameSettings import GameSettings
 from pygame import Rect
+from loguru import logger
 
 
 class PlayerTrackerHailo(BasePlayerTracker):
@@ -76,7 +77,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
             return players
 
         except Exception as e:
-            print("Error in process_frame:", e)
+            logger.exception("Error in process_frame")
             return self.previous_result
 
     def __extract_detections(

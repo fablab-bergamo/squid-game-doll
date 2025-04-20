@@ -6,6 +6,7 @@ from GameCamera import GameCamera
 from constants import PINK
 from BasePlayerTracker import BasePlayerTracker
 from GameSettings import GameSettings
+from loguru import logger
 
 
 class GameConfigPhase:
@@ -47,7 +48,7 @@ class GameConfigPhase:
         # Create a dictionary to hold current setting values.
         for opt in self.settings_config:
             if self.game_settings.params.get(opt["key"]) is None:
-                print(f"Warning: {opt['key']} not found in config file. Using default value.")
+                logger.warning(f"Warning: {opt['key']} not found in config file. Using default value.")
                 self.game_settings.params = {opt["key"]: opt["default"] for opt in self.settings_config}
 
         self.settings_buttons = {}
@@ -110,7 +111,7 @@ class GameConfigPhase:
                 for button in self.buttons:
                     if button["rect"].collidepoint(pos):
                         self.current_mode = button["mode"]
-                        print(f"Switched to mode: {self.current_mode}")
+                        logger.debug(f"Switched to mode: {self.current_mode}")
                         self.drawing = False
                         self.current_rect = None
                         if self.current_mode == "nn_preview":
@@ -120,7 +121,7 @@ class GameConfigPhase:
                 if self.current_mode in self.reset_buttons:
                     if self.reset_buttons[self.current_mode].collidepoint(pos):
                         self.reset_area(self.current_mode)
-                        print(f"Reset {self.current_mode} area to default.")
+                        logger.info(f"Reset {self.current_mode} area to default.")
                         return
 
                 now = time.time()
@@ -134,7 +135,7 @@ class GameConfigPhase:
                         screen_rect.y += self.webcam_rect.y
                         if screen_rect.collidepoint(pos):
                             self.game_settings.areas[self.current_mode].remove(rect)
-                            print(f"Removed rectangle {rect} from {self.current_mode}.")
+                            logger.debug(f"Removed rectangle {rect} from {self.current_mode}.")
                             return
                 self.last_click_time = now
 
@@ -169,7 +170,7 @@ class GameConfigPhase:
                 if self.drawing and self.current_mode != "settings":
                     if self.current_rect and self.current_rect.width > 0 and self.current_rect.height > 0:
                         self.game_settings.areas[self.current_mode].append(self.current_rect)
-                        print(f"Added rectangle {self.current_rect} to {self.current_mode}.")
+                        logger.debug(f"Added rectangle {self.current_rect} to {self.current_mode}.")
                         self.game_settings.areas[self.current_mode] = self.minimize_rectangles(
                             self.game_settings.areas[self.current_mode]
                         )
@@ -188,16 +189,16 @@ class GameConfigPhase:
                             new_val = self.game_settings.params[key] - 1
                             if new_val >= opt["min"]:
                                 self.game_settings.params[key] = new_val
-                                print(f"{key} decreased to {self.game_settings.params[key]}")
+                                logger.debug(f"{key} decreased to {self.game_settings.params[key]}")
                             else:
-                                print(f"{key} is at minimum value.")
+                                logger.debug(f"{key} is at minimum value.")
                         elif buttons["plus"].collidepoint(pos):
                             new_val = self.game_settings.params[key] + 1
                             if new_val <= opt["max"]:
                                 self.game_settings.params[key] = new_val
-                                print(f"{key} increased to {self.game_settings.params[key]}")
+                                logger.debug(f"{key} increased to {self.game_settings.params[key]}")
                             else:
-                                print(f"{key} is at maximum value.")
+                                logger.debug(f"{key} is at maximum value.")
 
             # TODO: Add joystick events handling here if needed.
 
@@ -329,7 +330,7 @@ class GameConfigPhase:
             # Apply the vision frame to the webcam surface
             nn_frame, webcam_frame, rect = self.camera.read_nn(self.game_settings, 640)
 
-            print(
+            logger.debug(
                 "read_nn: original dimensions",
                 (webcam_frame.shape[1], webcam_frame.shape[0]),
                 "Resized dimensions",
@@ -369,7 +370,7 @@ class GameConfigPhase:
                         h = int(bbox[3] * new_height / rect.height * rect.height / nn_frame.shape[0])
                         # Flip the x coordinate to match pygame orientation
                         x = new_width - x - w
-                        print("Player ID:", p.get_id(), "bbox:", bbox, "scaled:", (x, y, w, h))
+                        logger.debug(f"Player ID: {p.get_id()} bbox: {bbox} scaled:{(x, y, w, h)}")
 
                         # Draw the bounding box around the detected player
                         pygame.draw.rect(nn_surf_resized, (128, 255, 255), (x, y, w, h), 5)
@@ -451,7 +452,7 @@ class GameConfigPhase:
             # Read from the camera
             ret, frame = self.camera.read()
             if not ret:
-                print("Failed to read from camera.")
+                logger.error("Failed to read from camera.")
                 continue
 
             # Convert cv2 frame to a pygame surface.

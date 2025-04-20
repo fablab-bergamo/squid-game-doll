@@ -7,15 +7,16 @@ import threading
 import sys
 from GameSettings import GameSettings
 from pygame import Rect
+from loguru import logger
 
 
 class GameCamera:
     @staticmethod
     def getCameraIndex(preferred_idx: int = -1) -> int:
         index = -1
-        print(f"Listing webcams with capabilities:{GameCamera.get_cv2_cap()}:")
+        logger.debug(f"Listing webcams with capabilities:{GameCamera.get_cv2_cap()}:")
         for camera_info in enumerate_cameras(GameCamera.get_cv2_cap()):
-            print(f"\t {camera_info.index}: {camera_info.name}")
+            logger.debug(f"\t {camera_info.index}: {camera_info.name}")
             if (
                 camera_info.name == "HD Pro Webcam C920"
                 or camera_info.name == "Logi C270 HD WebCam"
@@ -37,12 +38,12 @@ class GameCamera:
             # Try to find
             index = GameCamera.getCameraIndex(index)
             if index != -1:
-                print("Trying with webcam idx", index)
+                logger.debug("Trying with webcam idx", index)
 
         self.cap = self.__setup_webcam(index)
 
         if not self.cap.isOpened():
-            print(f"Failure opening webcam idx {index}")
+            logger.error(f"Failure opening webcam idx {index}")
             self.valid = False
         else:
             self.valid = True
@@ -74,7 +75,7 @@ class GameCamera:
         """
         ret, frame = self.read()
         if not ret:
-            print("Error: Unable to capture frame.")
+            logger.eroor("Error: Unable to capture frame.")
             return
 
         # Convert from RGB to HSV
@@ -95,7 +96,7 @@ class GameCamera:
         while avg_value > AIV1:
             new_exposure = max(current_exposure - 1, -16)  # Adjust exposure step (limit to -10 for safety)
             self.set_exposure(new_exposure)
-            print(f"Exposure adjusted: {current_exposure} -> {new_exposure} (AVG={avg_value})")
+            logger.debug(f"Exposure adjusted: {current_exposure} -> {new_exposure} (AVG={avg_value})")
             ret, frame = self.read()
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             value_channel = hsv[:, :, 2]
@@ -104,7 +105,7 @@ class GameCamera:
             if new_exposure <= -16:
                 break
 
-        print(f"Exposure adjusted: 1/{ int(2**(-1*current_exposure))}")
+        logger.info(f"Exposure adjusted: 1/{ int(2**(-1*current_exposure))}")
         self.exposure = current_exposure
 
     @staticmethod
@@ -118,9 +119,9 @@ class GameCamera:
                 elif "Webcam C170" in camera_info.name:
                     return (1024, 768)
                 else:
-                    print("Returning default resolution for webcam", camera_info.name)
+                    logger.warning(f"Returning default resolution for webcam: {camera_info.name}")
                     return (1024, 768)
-        print("Invalid index for camera resolution", idx)
+        logger.error(f"Invalid index for camera resolution: {idx}")
         return None
 
     def set_exposure(self, exposure: int):
@@ -164,17 +165,17 @@ class GameCamera:
         if resolution is None:
             raise ValueError("Invalid camera index", index)
         else:
-            print("Using webcam resolution", resolution)
+            logger.debug(f"Using webcam resolution {resolution}")
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
         cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)  # turn the autofocus off
         try:
             codec = int(cap.get(cv2.CAP_PROP_FOURCC)).to_bytes(4, byteorder=sys.byteorder).decode()
-            print("\tWebcam codec: ", codec)
+            logger.debug(f"\tWebcam codec: {codec}")
         except:
             pass
         format = cap.get(cv2.CAP_PROP_FORMAT)
-        print("\tWebcam frame format: ", format)
+        logger.debug(f"\tWebcam frame format: {format}")
 
         return cap
 
@@ -195,7 +196,7 @@ class GameCamera:
     def reinit(self) -> bool:
         self.lock.acquire()
         try:
-            print("Reinit webcam", self.index)
+            logger.info(f"Reinit webcam {self.index}")
             if self.cap.isOpened():
                 self.cap.release()
 
@@ -236,7 +237,7 @@ class GameCamera:
         ret, nn_frame = self.read()
         original_frame = nn_frame.copy()
         if not ret:
-            print("Error: Unable to capture frame.")
+            logger.error("Error: Unable to capture frame.")
             return (None, None, Rect(0, 0, 0, 0))
 
         # Get the bounding rectangle of the vision area
@@ -352,7 +353,7 @@ class GameCamera:
         w = int(rect.width * nn_to_webcam_ratio_w * webcam_to_screen_ratio)
         h = int(rect.height * nn_to_webcam_ratio_h * webcam_to_screen_ratio)
 
-        print(
+        logger.debug(
             f"Converting NN rect {rect} to screen coordinates: {x}, {y}, {w}, {h} (crop_info: {crop_info}, nn_frame (HxW): {nn_frame.shape[:2]}, webcam_to_screen_ratio: {webcam_to_screen_ratio})"
         )
 

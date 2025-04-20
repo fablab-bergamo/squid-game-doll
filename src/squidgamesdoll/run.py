@@ -2,16 +2,16 @@ import platform
 import os
 import argparse
 import pygame
+import sys
 from GameCamera import GameCamera
 from GameScreen import GameScreen
 from GameSettings import GameSettings
 from SquidGame import SquidGame
 from ConfigPhase import GameConfigPhase
+from loguru import logger
 
 
 def command_line_args() -> any:
-    import argparse
-
     parser = argparse.ArgumentParser("run.py")
     parser.add_argument(
         "-m", "--monitor", help="0-based index of the monitor", dest="monitor", type=int, default=-1, required=False
@@ -79,6 +79,7 @@ def command_line_args() -> any:
 
 
 def run():
+    logger.add("squidgame.log", rotation="1 MB", retention="7 days", level="DEBUG")
     if platform.system() != "Linux":
         import ctypes
 
@@ -91,24 +92,24 @@ def run():
 
     pygame.init()
     size, monitor = GameScreen.get_desktop(args.monitor)
-    print("Running on monitor", monitor, "size", size)
+    logger.info("Running on monitor", monitor, "size", size)
     joystick: pygame.joystick.Joystick = None
     if args.joystick != -1:
         joystick = pygame.joystick.Joystick(args.joystick)
-        print(f"Using joystick: {joystick.get_name()}")
+        logger.info(f"Using joystick: {joystick.get_name()}")
     else:
-        print("Available Joysticks:")
+        logger.debug("Available Joysticks:")
         for idx in range(0, pygame.joystick.get_count()):
-            print(f"\t{idx}:{pygame.joystick.Joystick(idx).get_name()}")
+            logger.debug(f"\t{idx}:{pygame.joystick.Joystick(idx).get_name()}")
 
     cam = GameCamera(args.webcam)
 
     if not cam.valid:
-        print("No compatible webcam found")
+        logger.error("No compatible webcam found")
         exit(1)
 
     if args.model != "" and not os.path.exists(args.model):
-        print("Invalid model file")
+        logger.error("Invalid model file")
         exit(1)
 
     settings = GameSettings.load_settings(args.config)
@@ -118,14 +119,14 @@ def run():
         settings.params = GameSettings.default_params()
         settings.areas = GameSettings.default_areas(frame_size[0], frame_size[1])
         settings.save(args.config)
-        print("Default settings created")
+        logger.info("Default settings created")
 
     if args.setup:
         screen = pygame.display.set_mode(size)
         if platform.system() == "Linux":
             from PlayerTrackerHailo import PlayerTrackerHailo
 
-            print(f"Loading HAILO model ({args.model})...")
+            logger.info(f"Loading HAILO model ({args.model})...")
             if args.model != "":
                 nn = PlayerTrackerHailo(args.model)
             else:
@@ -133,7 +134,7 @@ def run():
         else:
             from PlayerTrackerUL import PlayerTrackerUL
 
-            print(f"Loading Ultralytics model ({args.model})...")
+            logger.info(f"Loading Ultralytics model ({args.model})...")
             if args.model != "":
                 nn = PlayerTrackerUL(args.model)
             else:
@@ -142,9 +143,10 @@ def run():
         config_phase = GameConfigPhase(
             camera=cam, screen=screen, neural_net=nn, game_settings=settings, config_file=args.config
         )
-        game_settings = config_phase.run()
-        # Now areas and settings are available for further processing.
-        print("Configuration completed! Re-run the game to apply the new settings.")
+
+        config_phase.run()
+
+        logger.info("Configuration completed! Re-run the game to apply the new settings.")
         pygame.quit()
         sys.exit()
 
@@ -164,7 +166,7 @@ def run():
             try:
                 game.start_game()
             except Exception as e:
-                print("Exception", e)
+                logger.exception("run")
                 pygame.quit()
                 raise e
 
