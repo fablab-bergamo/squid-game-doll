@@ -5,7 +5,7 @@ import yaml
 class GameSettings:
     def __init__(self):
         self.areas = {}
-        self.settings = {}
+        self.params = {}
         self.reference_frame = [0, 0]
 
     def get_reference_frame(self) -> pygame.Rect:
@@ -29,7 +29,7 @@ class GameSettings:
                 key: [GameSettings.list_to_rect(lst) for lst in rects]
                 for key, rects in config_data.get("areas", {}).items()
             }
-            settings.settings = config_data.get("settings", {})
+            settings.params = config_data.get("params", {})
             settings.reference_frame = config_data.get("reference_frame", [0, 0])
             print(f"Configuration loaded from {path}")
             return settings
@@ -52,7 +52,7 @@ class GameSettings:
         """Save the configuration to a YAML file."""
         config_data = {
             "areas": {key: [self.rect_to_list(r) for r in rects] for key, rects in self.areas.items()},
-            "settings": self.settings,
+            "params": self.params,
             "reference_frame": self.reference_frame,
         }
         try:

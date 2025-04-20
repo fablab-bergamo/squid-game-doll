@@ -57,7 +57,7 @@ class PlayerTrackerUL(BasePlayerTracker):
             return self.previous_result
 
         # Apply confidence threshold from settings
-        self.confidence = gamesettings.settings.get("confidence", 40) / 100.0
+        self.confidence = gamesettings.params.get("confidence", 40) / 100.0
         detections = self.yolo_to_supervision(results)
         players = self.supervision_to_players(detections)
         for p in players:

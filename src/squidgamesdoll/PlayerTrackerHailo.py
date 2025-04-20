@@ -60,7 +60,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
                 results = results[0]
 
             # Convert Hailo inference output into Supervision detections
-            self.confidence = gamesettings.settings.get("confidence", 40) / 100.0
+            self.confidence = gamesettings.params.get("confidence", 40) / 100.0
             detections_sv = self.__extract_detections(results, (self.nn_rect.w, self.nn_rect.h), self.confidence)
             detections_sv = self.tracker.update_with_detections(detections_sv)
 

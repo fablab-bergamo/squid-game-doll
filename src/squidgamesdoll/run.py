@@ -58,7 +58,7 @@ def command_line_args() -> any:
     parser.add_argument(
         "-c",
         "--config",
-        help="specify cpnfig file",
+        help="specify config file",
         dest="config",
         type=str,
         default="config.yaml",
@@ -103,7 +103,7 @@ def run():
     if settings is None:
         settings = GameSettings()
         frame_size = cam.get_frame_size()
-        settings.settings = GameSettings.default_params()
+        settings.params = GameSettings.default_params()
         settings.areas = GameSettings.default_areas(frame_size[0], frame_size[1])
         settings.save(args.config)
         print("Default settings created")

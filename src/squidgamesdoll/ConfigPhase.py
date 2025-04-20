@@ -47,9 +47,9 @@ class GameConfigPhase:
 
         # Create a dictionary to hold current setting values.
         for opt in self.settings_config:
-            if self.game_settings.settings.get(opt["key"]) is None:
+            if self.game_settings.params.get(opt["key"]) is None:
                 print(f"Warning: {opt['key']} not found in config file. Using default value.")
-                self.game_settings.settings = {opt["key"]: opt["default"] for opt in self.settings_config}
+                self.game_settings.params = {opt["key"]: opt["default"] for opt in self.settings_config}
 
         self.settings_buttons = {}
 
@@ -186,17 +186,17 @@ class GameConfigPhase:
                     if key in self.settings_buttons:
                         buttons = self.settings_buttons[key]
                         if buttons["minus"].collidepoint(pos):
-                            new_val = self.game_settings.settings[key] - 1
+                            new_val = self.game_settings.params[key] - 1
                             if new_val >= opt["min"]:
-                                self.game_settings.settings[key] = new_val
-                                print(f"{key} decreased to {self.game_settings.settings[key]}")
+                                self.game_settings.params[key] = new_val
+                                print(f"{key} decreased to {self.game_settings.params[key]}")
                             else:
                                 print(f"{key} is at minimum value.")
                         elif buttons["plus"].collidepoint(pos):
-                            new_val = self.game_settings.settings[key] + 1
+                            new_val = self.game_settings.params[key] + 1
                             if new_val <= opt["max"]:
-                                self.game_settings.settings[key] = new_val
-                                print(f"{key} increased to {self.game_settings.settings[key]}")
+                                self.game_settings.params[key] = new_val
+                                print(f"{key} increased to {self.game_settings.params[key]}")
                             else:
                                 print(f"{key} is at maximum value.")
 
@@ -302,7 +302,7 @@ class GameConfigPhase:
         self.settings_buttons = {}  # Dictionary to store plus/minus button rects for each setting
         for opt in self.settings_config:
             key = opt["key"]
-            caption = f"{opt['caption']}: {self.game_settings.settings[key]}"
+            caption = f"{opt['caption']}: {self.game_settings.params[key]}"
             text_surf = self.font.render(caption, True, (255, 255, 255))
             x_pos = surface.get_width() - 350
             surface.blit(text_surf, (x_pos, y_offset))
