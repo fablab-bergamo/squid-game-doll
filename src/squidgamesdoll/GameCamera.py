@@ -201,9 +201,10 @@ class GameCamera:
 
             self.cap = None
             self.cap = self.__setup_webcam(self.index)
-            return self.isOpened()
         finally:
             self.lock.release()
+
+        return self.isOpened()
 
     @staticmethod
     def bounding_rectangle(rect_list: list[Rect]) -> Rect:
