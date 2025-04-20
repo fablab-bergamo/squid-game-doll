@@ -2,11 +2,9 @@ import pygame
 import cv2
 import sys
 import time
-import yaml
 from GameCamera import GameCamera
-from constants import FINISH_LINE_PERC, PINK, START_LINE_PERC
+from constants import PINK
 from BasePlayerTracker import BasePlayerTracker
-from PlayerTrackerUL import PlayerTrackerUL
 from GameSettings import GameSettings
 
 
@@ -17,14 +15,20 @@ class GameConfigPhase:
         camera: GameCamera,
         neural_net: BasePlayerTracker,
         game_settings: GameSettings,
+        config_file: str = "config.yaml",
     ):
         self.screen_width = screen.get_width()
         self.screen_height = screen.get_height()
         self.screen = screen
         self.game_settings = game_settings
+        self.config_file = config_file
 
         # Center the webcam feed on the screen
         w, h = GameCamera.get_native_resolution(camera.index)
+        while w > self.screen_width or h > self.screen_height:
+            w //= 2
+            h //= 2
+
         self.webcam_rect = pygame.Rect((self.screen_width - w) // 2, (self.screen_height - h) // 2, w, h)
         pygame.display.set_caption("Game Configuration Phase")
 
@@ -38,61 +42,20 @@ class GameConfigPhase:
             self.__setup_defaults()
 
         # Configurable settings: list of dicts (min, max, key, caption, type, default)
-        self.settings_config = [
-            {"key": "exposure", "caption": "Webcam exposure Level", "min": 0, "max": 10, "type": int, "default": 8},
-            {
-                "key": "yolo_confidence",
-                "caption": "YOLO Confidence Level (%)",
-                "min": 0,
-                "max": 100,
-                "type": int,
-                "default": 40,
-            },
-            {
-                "key": "bytetrack_confidence",
-                "caption": "Bytetrack Confidence Level (%)",
-                "min": 0,
-                "max": 100,
-                "type": int,
-                "default": 40,
-            },
-            {
-                "key": "tracking_memory",
-                "caption": "ByteTrack frame memory",
-                "min": 1,
-                "max": 60,
-                "type": int,
-                "default": 30,
-            },
-            {
-                "key": "pixel_tolerance",
-                "caption": "Movement threshold (pixels)",
-                "min": 2,
-                "max": 50,
-                "type": int,
-                "default": 15,
-            },
-            {
-                "key": "img_normalization",
-                "caption": "Histogram normalization",
-                "min": 0,
-                "max": 1,
-                "type": int,
-                "default": 0,
-            },
-            # Add additional configurable settings here.
-        ]
+        self.settings_config = GameSettings.default_params()
+
         # Create a dictionary to hold current setting values.
         for opt in self.settings_config:
-            if self.game_settings.settings.get(opt["key"]) is None:
+            if self.game_settings.params.get(opt["key"]) is None:
                 print(f"Warning: {opt['key']} not found in config file. Using default value.")
-                self.game_settings.settings = {opt["key"]: opt["default"] for opt in self.settings_config}
+                self.game_settings.params = {opt["key"]: opt["default"] for opt in self.settings_config}
 
         self.settings_buttons = {}
 
         # UI state
         self.current_mode = "vision"  # Can be "vision", "start", "finish", "settings"
         self.font = pygame.font.SysFont("Arial", 16)
+        self.big_font = pygame.font.SysFont("Arial", 64)
         self.clock = pygame.time.Clock()
 
         # For drawing rectangles
@@ -125,20 +88,7 @@ class GameConfigPhase:
 
     def __setup_defaults(self):
         # Vision area: full screen.
-        self.game_settings.areas = {
-            "vision": [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)],
-            # Start area: top 10%
-            "start": [pygame.Rect(0, 0, self.webcam_rect.width, int(START_LINE_PERC * self.webcam_rect.height))],
-            # Finish area: bottom 10%
-            "finish": [
-                pygame.Rect(
-                    0,
-                    int(FINISH_LINE_PERC * self.webcam_rect.height),
-                    self.webcam_rect.width,
-                    int((1 - FINISH_LINE_PERC) * self.webcam_rect.height),
-                )
-            ],
-        }
+        self.game_settings.areas = GameSettings.default_areas(self.webcam_rect.width, self.webcam_rect.height)
 
     def convert_cv2_to_pygame(self, cv_image):
         """Convert an OpenCV image to a pygame surface."""
@@ -163,6 +113,8 @@ class GameConfigPhase:
                         print(f"Switched to mode: {self.current_mode}")
                         self.drawing = False
                         self.current_rect = None
+                        if self.current_mode == "nn_preview":
+                            self.neural_net.reset()
                         return
 
                 if self.current_mode in self.reset_buttons:
@@ -233,17 +185,17 @@ class GameConfigPhase:
                     if key in self.settings_buttons:
                         buttons = self.settings_buttons[key]
                         if buttons["minus"].collidepoint(pos):
-                            new_val = self.game_settings.settings[key] - 1
+                            new_val = self.game_settings.params[key] - 1
                             if new_val >= opt["min"]:
-                                self.game_settings.settings[key] = new_val
-                                print(f"{key} decreased to {self.game_settings.settings[key]}")
+                                self.game_settings.params[key] = new_val
+                                print(f"{key} decreased to {self.game_settings.params[key]}")
                             else:
                                 print(f"{key} is at minimum value.")
                         elif buttons["plus"].collidepoint(pos):
-                            new_val = self.game_settings.settings[key] + 1
+                            new_val = self.game_settings.params[key] + 1
                             if new_val <= opt["max"]:
-                                self.game_settings.settings[key] = new_val
-                                print(f"{key} increased to {self.game_settings.settings[key]}")
+                                self.game_settings.params[key] = new_val
+                                print(f"{key} increased to {self.game_settings.params[key]}")
                             else:
                                 print(f"{key} is at maximum value.")
 
@@ -349,7 +301,7 @@ class GameConfigPhase:
         self.settings_buttons = {}  # Dictionary to store plus/minus button rects for each setting
         for opt in self.settings_config:
             key = opt["key"]
-            caption = f"{opt['caption']}: {self.game_settings.settings[key]}"
+            caption = f"{opt['caption']}: {self.game_settings.params[key]}"
             text_surf = self.font.render(caption, True, (255, 255, 255))
             x_pos = surface.get_width() - 350
             surface.blit(text_surf, (x_pos, y_offset))
@@ -369,34 +321,71 @@ class GameConfigPhase:
             self.settings_buttons[key] = {"minus": minus_rect, "plus": plus_rect}
             y_offset += 30
 
-    def draw_ui(self, webcam_surf: pygame.Surface, frame: cv2.UMat):
+    def draw_ui(self, webcam_surf: pygame.Surface, webcam_frame: cv2.UMat):
 
         self.screen.fill(PINK)
 
         if self.current_mode == "nn_preview":
             # Apply the vision frame to the webcam surface
-            preview = self.neural_net.get_sample_frame(frame, self.game_settings)
-            if preview is not None:
+            nn_frame, webcam_frame, rect = self.camera.read_nn(self.game_settings, 640)
+
+            print(
+                "read_nn: original dimensions",
+                (webcam_frame.shape[1], webcam_frame.shape[0]),
+                "Resized dimensions",
+                (nn_frame.shape[1], nn_frame.shape[0]),
+                "Rect",
+                rect,
+            )
+
+            if nn_frame is not None:
                 # Convert the frame to a pygame surface and display it
-                nn_surf = self.convert_cv2_to_pygame(preview)
+                nn_surf = self.convert_cv2_to_pygame(nn_frame)
                 # Resize keeping the aspect ratio
                 aspect_ratio = nn_surf.get_width() / nn_surf.get_height()
-                if nn_surf.get_width() > nn_surf.get_height():
-                    new_width = int(self.screen_width * 0.8)
-                    new_height = int(new_width / aspect_ratio)
-                else:
-                    new_height = int(self.screen_height * 0.8)
-                    new_width = int(new_height * aspect_ratio)
+                new_width = 100
+                new_height = 100
+                while new_width < self.screen_width * 0.7 and new_height < self.screen_height * 0.7:
+                    if aspect_ratio > 1:
+                        new_width += 100
+                        new_height = int(nn_surf.get_height() * new_width / nn_surf.get_width())
+                    else:
+                        new_height += 100
+                        new_width = int(nn_surf.get_width() * new_height / nn_surf.get_height())
+
                 nn_surf_resized = pygame.transform.scale(nn_surf, (new_width, new_height))
                 # Center the resized surface
                 x_offset = (self.screen_width - new_width) // 2
                 y_offset = (self.screen_height - new_height) // 2
+
+                # Run the model and highlight detections
+                for p in self.neural_net.process_nn_frame(nn_frame, self.game_settings):
+                    if p is not None:
+                        bbox = p.get_rect()
+                        # Now apply scaling factors from NN Frame to webcam frame AND from webcam frame to resized surface
+                        x = int(bbox[0] * new_width / rect.width * rect.width / nn_frame.shape[1])
+                        y = int(bbox[1] * new_height / rect.height * rect.height / nn_frame.shape[0])
+                        w = int(bbox[2] * new_width / rect.width * rect.width / nn_frame.shape[1])
+                        h = int(bbox[3] * new_height / rect.height * rect.height / nn_frame.shape[0])
+                        # Flip the x coordinate to match pygame orientation
+                        x = new_width - x - w
+                        print("Player ID:", p.get_id(), "bbox:", bbox, "scaled:", (x, y, w, h))
+
+                        # Draw the bounding box around the detected player
+                        pygame.draw.rect(nn_surf_resized, (128, 255, 255), (x, y, w, h), 5)
+                        # Draw the player ID
+                        id_surf = self.big_font.render(str(p.get_id()), True, (255, 0, 0))
+                        nn_surf_resized.blit(id_surf, (x + 5, y + 5))
+
                 self.screen.blit(nn_surf_resized, (x_offset, y_offset))
+
                 # Draw a rectangle around the neural net preview
                 pygame.draw.rect(self.screen, (255, 255, 0), (x_offset, y_offset, new_width, new_height), 2)
                 # Add a label
                 label_surf = self.font.render(
-                    f"Neural Network Preview ({nn_surf.get_width()} x {nn_surf.get_height()})", True, (255, 255, 255)
+                    f"Neural Network Preview ({nn_surf.get_width()} x {nn_surf.get_height()}, FPS: {self.neural_net.get_fps()})",
+                    True,
+                    (255, 255, 255),
                 )
                 label_rect = label_surf.get_rect(center=(x_offset + new_width // 2, y_offset - 20))
                 self.screen.blit(label_surf, label_rect.topleft)
@@ -482,32 +471,7 @@ class GameConfigPhase:
 
         if self.current_mode == "save":
             self.game_settings.reference_frame = [self.webcam_rect.width, self.webcam_rect.height]
-            self.game_settings.save("config.yaml")
+            self.game_settings.save(self.config_file)
             return self.game_settings
 
         return None
-
-
-# Example usage:
-if __name__ == "__main__":
-    import ctypes, os
-
-    ctypes.windll.user32.SetProcessDPIAware()
-
-    # Disable hardware acceleration for webcam on Windows
-    os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
-
-    # Initialize pygame and set up display
-    pygame.init()
-    screen = pygame.display.set_mode((1500, 1200))
-    cam = GameCamera()
-    nn = PlayerTrackerUL()
-    game_settings = GameSettings.load_settings("config.yaml")
-    if game_settings is None:
-        game_settings = GameSettings()
-
-    config_phase = GameConfigPhase(camera=cam, screen=screen, neural_net=nn, game_settings=game_settings)
-    game_settings = config_phase.run()
-    # Now areas and settings are available for further processing.
-    print("Configuration completed.", game_settings)
-    pygame.quit()

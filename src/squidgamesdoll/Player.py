@@ -134,4 +134,4 @@ class Player:
         return distance > Player.MOVEMENT_THRESHOLD_PX
 
     def __str__(self):
-        return f"Player {self._id} at {self._coords} (moved: {self.has_moved()}, TTL: {Player.MAX_AGE_SECONDS - (time.time() - self._last_seen)} s)"
+        return f"Player {self._id} at {self._coords} (moved: {self.has_moved()}, TTL: {round(Player.MAX_AGE_SECONDS - (time.time() - self._last_seen), 1)} s)"

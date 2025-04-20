@@ -3,7 +3,6 @@ import pygame
 import cv2
 import random
 import time
-import os
 from GameScreen import GameScreen
 from BasePlayerTracker import BasePlayerTracker
 from PlayerTrackerUL import PlayerTrackerUL
@@ -13,7 +12,7 @@ from GameCamera import GameCamera
 import constants
 from LaserShooter import LaserShooter
 from LaserTracker import LaserTracker
-from GameConfig import GameConfig
+from GameSettings import GameSettings
 import platform
 
 
@@ -27,6 +26,7 @@ class SquidGame:
         joystick: pygame.joystick.JoystickType,
         cam: GameCamera,
         model: str,
+        settings: GameSettings,
     ) -> None:
         self.previous_time: float = time.time()
         self.previous_positions: list = []  # List of bounding boxes (tuples)
@@ -48,13 +48,12 @@ class SquidGame:
         self.no_tracker: bool = disable_tracker
         self.shooter: LaserShooter = None
         self.laser_tracker: LaserTracker = None
-        self.finish_line_y: float = constants.FINISH_LINE_PERC
         self.joystick: pygame.joystick.JoystickType = joystick
         self.start_registration = time.time()
         self._init_done = False
         self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
         self.cam: GameCamera = cam
-        self.config: GameConfig = GameConfig()
+        self.settings: GameSettings = settings
         self.model: str = model
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
@@ -78,7 +77,6 @@ class SquidGame:
         self.start_registration = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
-        self.game_screen.set_active_button(1, self.switch_to_config)
         self.face_extractor.reset_memory()
         if not self.no_tracker:
             self.shooter.set_eyes(False)
@@ -107,16 +105,6 @@ class SquidGame:
         self.green_sound.play()
         self.red_sound.stop()
         self.delay_s = random.random() * 4 + constants.MINIMUM_GREEN_LIGHT_S
-        return True
-
-    def switch_to_config(self) -> bool:
-        print("Switch to CONFIG")
-        self.game_state = constants.CONFIG
-        self.players.clear()
-        self.last_switch_time = time.time()
-        self.game_screen.reset_active_buttons()
-        self.game_screen.set_active_button(0, self.switch_to_init)
-        self.game_screen.set_click_callback(self.config.config_callback)
         return True
 
     def switch_to_game(self) -> bool:
@@ -152,18 +140,24 @@ class SquidGame:
         self.game_state = constants.INIT
         return False
 
-    def check_endgame_conditions(self, frame_height: int, screen: cv2.UMat) -> None:
+    def check_endgame_conditions(self, crop_info: pygame.Rect, nn_frame: cv2.UMat, screen: cv2.UMat) -> None:
         """
-        Checks each player to see if they have reached the finish line (bottom of bounding box at or above finish_line_y).
+        Checks each player to see if they have reached the finish area.
         Then, if every player is either a winner or eliminated, switches the game state to VICTORY.
         """
         for player in self.players:
             # Only consider players not already eliminated or marked as winner.
             if not player.is_eliminated() and not player.is_winner():
-                x1, y1, x2, y2 = player.get_coords()
-                # If the bottom of the player's rectangle is above or equal to the finish line,
+                player_rect = pygame.Rect(player.get_rect())
+                # Convert player rectangle from nn frame to webcam frame coordinates (where areas rectangles are expressed)
+                player_rect = GameCamera.convert_nn_to_screen_coord(player_rect, nn_frame, crop_info, 1.0)
+
+                # If player has reached the finish area,
                 # mark the player as a winner. At least two seconds after last transition.
-                if y2 >= self.finish_line_y * frame_height and time.time() - self.last_switch_time > 2:
+                if (
+                    GameCamera.intersect(player_rect, self.settings.areas["finish"])
+                    and time.time() - self.last_switch_time > 2
+                ):
                     player.set_winner()
 
         # Update game state
@@ -239,19 +233,17 @@ class SquidGame:
 
         print("Loading face extractor")
         self.face_extractor = FaceExtractor()
-        print("Opening webcam...")
 
-        ret, _ = self.cam.read()
-        while not ret:
-            print("Failure to acquire webcam stream")
-            ret, _ = self.cam.read()
-            time.sleep(0.1)
         print("load_model complete")
 
         self._init_done = True
 
     def save_screen_to_disk(self, screen: pygame.Surface, filename: str) -> None:
-        pygame.image.save(screen, "screenshot_" + filename, "PNG")
+        try:
+            pygame.image.save(screen, "pictures/screenshot_" + filename, "PNG")
+            print(f"Screenshot saved as {filename}")
+        except pygame.error as e:
+            print(f"Error saving screenshot: {e}")
 
     def loading_screen(self, screen: pygame.Surface) -> None:
         clock = pygame.time.Clock()
@@ -345,24 +337,11 @@ class SquidGame:
         self.switch_to_init()
 
         while running:
-            ret, webcam_frame = self.cam.read()
-            if not ret:
+            nn_frame, webcam_frame, crop_info = self.cam.read_nn(self.settings, self.tracker.get_max_size())
+            if nn_frame is None:
                 break
 
             running = self.handle_events(screen)
-
-            # Initial config (exposure, exclusion zone, finish line)
-            if self.game_state == constants.CONFIG:
-                c_running = True
-                while c_running:
-                    ret, webcam_frame = self.cam.read()
-                    if not ret:
-                        break
-                    self.game_screen.update_config(screen, webcam_frame, self.shooter, game_conf=self.config)
-                    c_running = self.handle_events(screen)
-                    pygame.display.flip()
-                    clock.tick(frame_rate)
-                self.switch_to_init()
 
             if self.game_state == constants.LOADING:
                 self.loading_screen(screen)
@@ -371,21 +350,19 @@ class SquidGame:
             # Game Logic
             if self.game_state == constants.INIT:
                 self.players = []
-                self.game_screen.update(
-                    screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
-                )
+                self.game_screen.update(screen, nn_frame, self.game_state, self.players, self.shooter, self.settings)
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
                 self.start_registration = time.time()
                 while time.time() - self.start_registration < REGISTRATION_DELAY_S:
-                    ret, webcam_frame = self.cam.read()
-                    if not ret:
+                    nn_frame, webcam_frame, rect_info = self.cam.read_nn(self.settings, self.tracker.get_max_size())
+                    if nn_frame is None:
                         break
 
-                    new_players = self.tracker.process_frame(webcam_frame)
-                    self.players = self.merge_players_lists(webcam_frame, [], new_players, True, False)
+                    new_players = self.tracker.process_nn_frame(nn_frame, self.settings)
+                    self.players = self.merge_players_lists(nn_frame, [], new_players, True, False)
                     self.game_screen.update(
-                        screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
+                        screen, nn_frame, self.game_state, self.players, self.shooter, self.settings
                     )
                     time_remaining = int(REGISTRATION_DELAY_S - time.time() + self.start_registration)
                     self.game_screen.draw_text(
@@ -407,9 +384,7 @@ class SquidGame:
                     print(f"Reg FPS={round(clock.get_fps(),1)}")
 
                 self.save_screen_to_disk(screen, "init.png")
-                # User may have switched mode
-                if self.game_state != constants.CONFIG:
-                    self.switch_to_game()
+                self.switch_to_game()
 
             elif self.game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
                 # Has current light delay elapsed?
@@ -423,7 +398,7 @@ class SquidGame:
 
                 # New player positions
                 self.players = self.merge_players_lists(
-                    webcam_frame, self.players, self.tracker.process_frame(webcam_frame), False, True
+                    nn_frame, self.players, self.tracker.process_nn_frame(nn_frame, self.settings), False, True
                 )
 
                 # Update last position while the green light is on
@@ -464,8 +439,7 @@ class SquidGame:
                         player.set_last_position(player.get_coords())
 
                 # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
-                h, _, _ = webcam_frame.shape
-                self.check_endgame_conditions(h, screen)
+                self.check_endgame_conditions(crop_info, nn_frame, screen)
 
             elif self.game_state in [constants.GAMEOVER, constants.VICTORY]:
                 # Restart after 10 seconds
@@ -473,9 +447,7 @@ class SquidGame:
                     self.switch_to_loading()
                     continue
 
-            self.game_screen.update(
-                screen, webcam_frame, self.game_state, self.players, self.shooter, self.finish_line_y
-            )
+            self.game_screen.update(screen, nn_frame, self.game_state, self.players, self.shooter, self.settings)
 
             pygame.display.flip()
             # Limit the frame rate
@@ -498,7 +470,7 @@ class SquidGame:
         self.loading_screen(screen)
 
         # Compute aspect ratio and view port for webcam
-        ret, frame = self.cam.read()
+        ret, _ = self.cam.read()
         if not ret:
             print("Error: Cannot read from webcam")
             return
@@ -507,111 +479,3 @@ class SquidGame:
 
         # Cleanup
         self.cam.release()
-
-    @staticmethod
-    def get_desktop(preferred_monitor=0) -> (tuple[int, int], int):
-        num = 0
-        for size in pygame.display.get_desktop_sizes():
-            if num == preferred_monitor:
-                return (size, preferred_monitor)
-            num += 1
-        return (pygame.display.get_desktop_sizes()[0], 0)
-
-
-def command_line_args() -> any:
-    import argparse
-
-    parser = argparse.ArgumentParser("SquidGame.py")
-    parser.add_argument(
-        "-m", "--monitor", help="0-based index of the monitor", dest="monitor", type=int, default=-1, required=False
-    )
-    parser.add_argument(
-        "-w", "--webcam", help="0-based index of the webcam", dest="webcam", type=int, default=-1, required=False
-    )
-    parser.add_argument(
-        "-t",
-        "--tracker",
-        help="enable or disable the esp32 laser",
-        dest="tracker",
-        type=bool,
-        default=False,
-        required=False,
-    )
-    parser.add_argument(
-        "-i",
-        "--tracker-ip",
-        help="sets the esp32 tracker IP address",
-        dest="ip",
-        type=str,
-        default="192.168.45.50",
-        required=False,
-    )
-    parser.add_argument(
-        "-j",
-        "--joystick",
-        help="sets the joystick index",
-        dest="joystick",
-        type=int,
-        default=-1,
-        required=False,
-    )
-    parser.add_argument(
-        "-md",
-        "--model",
-        help="specify model for player recognition",
-        dest="model",
-        type=str,
-        default="",
-        required=False,
-    )
-    return parser.parse_args()
-
-
-if __name__ == "__main__":
-    if platform.system() != "Linux":
-        import ctypes
-
-        ctypes.windll.user32.SetProcessDPIAware()
-        # Disable hardware acceleration for webcam on Windows
-        os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
-
-    pygame.init()
-
-    args = command_line_args()
-    size, monitor = SquidGame.get_desktop(args.monitor)
-    joystick = None
-    if args.joystick != -1:
-        joystick = pygame.joystick.Joystick(args.joystick)
-        print(f"Using joystick: {joystick.get_name()}")
-    else:
-        print("Joysticks:")
-        for idx in range(0, pygame.joystick.get_count()):
-            print(f"\t{idx}:{pygame.joystick.Joystick(idx).get_name()}")
-        print("-")
-
-    cam = GameCamera(args.webcam)
-
-    if not cam.valid:
-        print("No compatible webcam found")
-        exit(1)
-
-    if args.model != "" and not os.path.exists(args.model):
-        print("Invalid model file")
-        exit(1)
-
-    game = SquidGame(
-        disable_tracker=not args.tracker,
-        desktop_size=size,
-        display_idx=monitor,
-        ip=args.ip,
-        joystick=joystick,
-        cam=cam,
-        model=args.model,
-    )
-
-    while True:
-        try:
-            game.start_game()
-        except Exception as e:
-            print("Exception", e)
-            raise e

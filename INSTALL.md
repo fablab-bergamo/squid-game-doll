@@ -43,10 +43,10 @@ Product Name: HAILO-8L AI ACC M.2 B+M KEY MODULE EXT TMP
 ./install.sh
 ```
 
-* Run SquidGame.py and check webcam index:
+* Run run.py and check webcam index:
 
 ```shell
-python ./src/squidgamesdolls/SquidGame.py
+python ./src/squidgamesdolls/run.py
 ```
 
 Sample output
@@ -91,8 +91,8 @@ Listing webcams:
 	 219: rpivid
 ```
 
-* Run SquidGame.py with forced webcam index (example: 200)
+* Start the game with forced webcam index (example: 200)
 
 ```shell
-python ./src/squidgamesdolls/SquidGame.py -w 200
+python ./src/squidgamesdolls/run.py -w 200
 ```

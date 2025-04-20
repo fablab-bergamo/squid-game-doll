@@ -1,6 +1,4 @@
 import pygame
-import random
-import os
 from PIL import Image
 import cv2
 from img_processing import opencv_to_pygame
@@ -8,7 +6,8 @@ from Player import Player
 import constants
 from LaserShooter import LaserShooter
 from collections.abc import Callable
-from GameConfig import GameConfig
+from GameSettings import GameSettings
+from GameCamera import GameCamera
 
 BUTTON_COLOR: tuple[int, int, int] = (255, 0, 0)  # Red like Squid Game theme
 BUTTON_HOVER_COLOR: tuple[int, int, int] = (200, 0, 0)
@@ -130,9 +129,7 @@ class GameScreen:
             return True
         return False
 
-    def update_config(
-        self, fullscreen: pygame.Surface, webcam_frame: cv2.UMat, shooter: LaserShooter, game_conf: GameConfig
-    ) -> None:
+    def update_config(self, fullscreen: pygame.Surface, webcam_frame: cv2.UMat, shooter: LaserShooter) -> None:
 
         fullscreen.fill(constants.DARK_GREEN)
 
@@ -140,12 +137,6 @@ class GameScreen:
 
         # Convert OpenCV BGR to RGB for PyGame
         video_surface: pygame.Surface = opencv_to_pygame(webcam_frame, (w, h))
-
-        game_conf.set_screen_config(video_feed=video_surface, video_feed_pos=(x_web, y_web))
-
-        # Draw exclusion rectangles
-        for excl_rec in game_conf.get_rects():
-            pygame.draw.rect(surface=video_surface, color=constants.BLACK, rect=excl_rec)
 
         fullscreen.blit(video_surface, (x_web, y_web))
 
@@ -163,22 +154,22 @@ class GameScreen:
     def update(
         self,
         fullscreen: pygame.Surface,
-        webcam_frame: cv2.UMat,
+        nn_frame: cv2.UMat,
         game_state: str,
         players: list[Player],
         shooter: LaserShooter,
-        finish_line_perc: float,
+        settings: GameSettings,
     ) -> None:
 
         fullscreen.fill(constants.SALMON)
 
-        (w, h), (x_web, y_web) = self.compute_webcam_feed(webcam_frame)
+        (w, h), (x_web, y_web) = self.compute_webcam_feed(nn_frame)
 
         # Convert OpenCV BGR to RGB for PyGame
-        video_surface: pygame.Surface = opencv_to_pygame(webcam_frame, (w, h))
+        video_surface: pygame.Surface = opencv_to_pygame(nn_frame, (w, h))
 
         if game_state in [constants.INIT, constants.GREEN_LIGHT, constants.RED_LIGHT]:
-            self.draw_finish_line(video_surface, finish_line_perc)
+            self.draw_finish_area(video_surface, settings)
 
         self.draw_bounding_boxes(video_surface, players, game_state != constants.INIT)
 
@@ -195,9 +186,6 @@ class GameScreen:
         )
 
         fullscreen.blit(players_surface, (0, self.get_desktop_height() - constants.PLAYER_SIZE))
-
-        # self.draw_reset_button(fullscreen)
-        # self.draw_config_button(fullscreen)
 
         if game_state not in [constants.INIT]:
             won = sum([100_000_000 for p in players if p.is_eliminated()])
@@ -303,17 +291,18 @@ class GameScreen:
         text = self._font_small.render(f"Fase: {game_state}", True, FONT_COLOR)
         surface.blit(text, (surface.get_width() // 2 + 20, 20))
 
-    def draw_finish_line(self, webcam_surface: pygame.Surface, finish_percent: float = 0.9):
-        width = 16
-        step = webcam_surface.get_width() // 20
-        for start_x in range(0, webcam_surface.get_width(), step):
-            pygame.draw.line(
-                webcam_surface,
-                constants.PINK + (45,),
-                (start_x, int(webcam_surface.get_height() * finish_percent + width // 2)),
-                (start_x + step // 2, int(webcam_surface.get_height() * finish_percent + width // 2)),
-                width=width,
+    def draw_finish_area(self, webcam_surface: pygame.Surface, settings: GameSettings):
+        # Draw the rectangles of finish area
+        for rect in settings.areas["finish"]:
+            # Scale the rectangle to the webcam surface size
+            scaled_rect = pygame.Rect(
+                rect.x * webcam_surface.get_width() / settings.get_reference_frame().width,
+                rect.y * webcam_surface.get_height() / settings.get_reference_frame().height,
+                rect.width * webcam_surface.get_width() / settings.get_reference_frame().width,
+                rect.height * webcam_surface.get_height() / settings.get_reference_frame().height,
             )
+            # Draw the rectangles
+            pygame.draw.rect(webcam_surface, constants.YELLOW, scaled_rect, 2, border_radius=10)
 
     def draw_text(
         self,
@@ -516,3 +505,12 @@ class GameScreen:
                 text = self._font_lcd.render(str(player["id"]), True, color)
                 text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.7))
             screen.blit(text, text_rect.topleft)
+
+    @staticmethod
+    def get_desktop(preferred_monitor=0) -> tuple[tuple[int, int], int]:
+        num = 0
+        for size in pygame.display.get_desktop_sizes():
+            if num == preferred_monitor:
+                return (size, preferred_monitor)
+            num += 1
+        return (pygame.display.get_desktop_sizes()[0], 0)
