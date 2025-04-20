@@ -233,13 +233,7 @@ class SquidGame:
 
         print("Loading face extractor")
         self.face_extractor = FaceExtractor()
-        print("Opening webcam...")
 
-        ret, _ = self.cam.read()
-        while not ret:
-            print("Failure to acquire webcam stream")
-            ret, _ = self.cam.read()
-            time.sleep(0.1)
         print("load_model complete")
 
         self._init_done = True
@@ -356,15 +350,13 @@ class SquidGame:
             # Game Logic
             if self.game_state == constants.INIT:
                 self.players = []
-                self.game_screen.update(
-                    screen, webcam_frame, self.game_state, self.players, self.shooter, self.settings
-                )
+                self.game_screen.update(screen, nn_frame, self.game_state, self.players, self.shooter, self.settings)
                 pygame.display.flip()
                 REGISTRATION_DELAY_S: int = 15
                 self.start_registration = time.time()
                 while time.time() - self.start_registration < REGISTRATION_DELAY_S:
-                    ret, webcam_frame = self.cam.read()
-                    if not ret:
+                    nn_frame, webcam_frame, rect_info = self.cam.read_nn(self.settings, self.tracker.get_max_size())
+                    if nn_frame is None:
                         break
 
                     new_players = self.tracker.process_nn_frame(nn_frame, self.settings)

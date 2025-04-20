@@ -154,7 +154,7 @@ class GameScreen:
     def update(
         self,
         fullscreen: pygame.Surface,
-        webcam_frame: cv2.UMat,
+        nn_frame: cv2.UMat,
         game_state: str,
         players: list[Player],
         shooter: LaserShooter,
@@ -163,10 +163,10 @@ class GameScreen:
 
         fullscreen.fill(constants.SALMON)
 
-        (w, h), (x_web, y_web) = self.compute_webcam_feed(webcam_frame)
+        (w, h), (x_web, y_web) = self.compute_webcam_feed(nn_frame)
 
         # Convert OpenCV BGR to RGB for PyGame
-        video_surface: pygame.Surface = opencv_to_pygame(webcam_frame, (w, h))
+        video_surface: pygame.Surface = opencv_to_pygame(nn_frame, (w, h))
 
         if game_state in [constants.INIT, constants.GREEN_LIGHT, constants.RED_LIGHT]:
             self.draw_finish_area(video_surface, settings)

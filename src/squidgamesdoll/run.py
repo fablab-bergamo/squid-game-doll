@@ -85,6 +85,7 @@ def run():
         ctypes.windll.user32.SetProcessDPIAware()
         # Disable hardware acceleration for webcam on Windows
         os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+        os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
 
     args = command_line_args()
 
@@ -145,6 +146,7 @@ def run():
         # Now areas and settings are available for further processing.
         print("Configuration completed! Re-run the game to apply the new settings.")
         pygame.quit()
+        sys.exit()
 
     else:
         game = SquidGame(
