@@ -325,3 +325,35 @@ class GameCamera:
             if rect.colliderect(r):
                 return True
         return False
+
+    @staticmethod
+    def convert_nn_to_screen_coord(
+        rect: Rect, nn_frame: cv2.UMat, crop_info: Rect, webcam_to_screen_ratio: float = 1.0
+    ) -> Rect:
+        """
+        Convert a rectangle from the neural network frame coordinates to the screen surface coordinates.
+
+        Parameters:
+        rect (Rect): The rectangle in the neural network frame coordinates.
+        nn_frame (cv2.UMat): The neural network frame.
+        crop_info (Rect): The bounding rectangle in original webcam frame coordinates.
+        webcam_to_screen_ratio (float): The ratio between the webcam and screen dimensions.
+
+        Returns:
+        Rect: The rectangle in the screen surface coordinates.
+        """
+
+        nn_to_webcam_ratio_w = crop_info.w / nn_frame.shape[1]
+        # Should be equal, but let's keep it for clarity
+        nn_to_webcam_ratio_h = crop_info.h / nn_frame.shape[0]
+
+        x = int((rect.x * nn_to_webcam_ratio_w + crop_info.x) * webcam_to_screen_ratio)
+        y = int((rect.y * nn_to_webcam_ratio_h + crop_info.y) * webcam_to_screen_ratio)
+        w = int(rect.width * nn_to_webcam_ratio_w * webcam_to_screen_ratio)
+        h = int(rect.height * nn_to_webcam_ratio_h * webcam_to_screen_ratio)
+
+        print(
+            f"Converting NN rect {rect} to screen coordinates: {x}, {y}, {w}, {h} (crop_info: {crop_info}, nn_frame (HxW): {nn_frame.shape[:2]}, webcam_to_screen_ratio: {webcam_to_screen_ratio})"
+        )
+
+        return Rect(x, y, w, h)

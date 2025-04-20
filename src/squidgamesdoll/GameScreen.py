@@ -7,6 +7,7 @@ import constants
 from LaserShooter import LaserShooter
 from collections.abc import Callable
 from GameSettings import GameSettings
+from GameCamera import GameCamera
 
 BUTTON_COLOR: tuple[int, int, int] = (255, 0, 0)  # Red like Squid Game theme
 BUTTON_HOVER_COLOR: tuple[int, int, int] = (200, 0, 0)
@@ -513,31 +514,3 @@ class GameScreen:
                 return (size, preferred_monitor)
             num += 1
         return (pygame.display.get_desktop_sizes()[0], 0)
-
-    @staticmethod
-    def convert_coord_surf(
-        rect: pygame.Rect, reference: pygame.Surface, dest: pygame.Surface, flip_x: bool = False
-    ) -> pygame.Rect:
-        x, y, w, h = rect
-        x = int((x - reference.x) * dest.get_width() / reference.get_width())
-        if flip_x:
-            x = reference.get_width() - x - w
-
-        y = int((y - reference.y) * dest.get_height() / reference.get_height())
-        w = int(w * dest.get_width() / reference.get_width())
-        h = int(h * dest.get_height() / reference.get_height())
-        return pygame.Rect(x, y, w, h)
-
-    @staticmethod
-    def convert_coord(
-        rect: pygame.Rect, reference: pygame.Rect, dest: pygame.Rect, flip_x: bool = False
-    ) -> pygame.Rect:
-        x, y, w, h = rect
-        x = int((x - reference.x) * dest.width / reference.width + dest.x)
-        if flip_x:
-            x = reference.width - x - w
-
-        y = int((y - reference.y) * dest.height / reference.height + dest.y)
-        w = int(w * dest.width / reference.width)
-        h = int(h * dest.height / reference.height)
-        return pygame.Rect(x, y, w, h)
