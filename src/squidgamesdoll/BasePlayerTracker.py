@@ -15,6 +15,7 @@ class BasePlayerTracker:
         self.vision_rect = pygame.Rect(0, 0, 0, 0)
         self.nn_rect = pygame.Rect(0, 0, 0, 0)
         self.frame_rect = pygame.Rect(0, 0, 0, 0)
+        self.fps = 0.0
 
     def yolo_to_supervision(self, yolo_results) -> sv.Detections:
         """
@@ -78,3 +79,6 @@ class BasePlayerTracker:
     @abstractmethod
     def reset(self):
         pass
+
+    def get_fps(self) -> float:
+        return round(self.fps, 1)

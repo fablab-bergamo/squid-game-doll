@@ -47,6 +47,7 @@ class PlayerTrackerUL(BasePlayerTracker):
         Returns:
             list[Player]: List of detected Player objects.
         """
+        start_time = cv2.getTickCount()
         try:
             self.frame_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
             self.nn_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
@@ -62,4 +63,7 @@ class PlayerTrackerUL(BasePlayerTracker):
         for p in players:
             print(p)
         self.previous_result = players
+        end_time = cv2.getTickCount()
+        time_taken = (end_time - start_time) / cv2.getTickFrequency()
+        self.fps = 1 / time_taken if time_taken > 0 else 0
         return players

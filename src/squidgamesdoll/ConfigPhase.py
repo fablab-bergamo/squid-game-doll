@@ -407,12 +407,15 @@ class GameConfigPhase:
                 nn_surf = self.convert_cv2_to_pygame(nn_frame)
                 # Resize keeping the aspect ratio
                 aspect_ratio = nn_surf.get_width() / nn_surf.get_height()
-                if aspect_ratio > 1:
-                    new_width = int(self.screen_width * 0.6)
-                    new_height = int(nn_surf.get_height() * new_width / nn_surf.get_width())
-                else:
-                    new_height = int(self.screen_height * 0.6)
-                    new_width = int(nn_surf.get_width() * new_height / nn_surf.get_height())
+                new_width = 100
+                new_height = 100
+                while new_width < self.screen_width * 0.7 and new_height < self.screen_height * 0.7:
+                    if aspect_ratio > 1:
+                        new_width += 100
+                        new_height = int(nn_surf.get_height() * new_width / nn_surf.get_width())
+                    else:
+                        new_height += 100
+                        new_width = int(nn_surf.get_width() * new_height / nn_surf.get_height())
 
                 nn_surf_resized = pygame.transform.scale(nn_surf, (new_width, new_height))
                 # Center the resized surface
@@ -444,7 +447,9 @@ class GameConfigPhase:
                 pygame.draw.rect(self.screen, (255, 255, 0), (x_offset, y_offset, new_width, new_height), 2)
                 # Add a label
                 label_surf = self.font.render(
-                    f"Neural Network Preview ({nn_surf.get_width()} x {nn_surf.get_height()})", True, (255, 255, 255)
+                    f"Neural Network Preview ({nn_surf.get_width()} x {nn_surf.get_height()}, FPS: {self.neural_net.get_fps()})",
+                    True,
+                    (255, 255, 255),
                 )
                 label_rect = label_surf.get_rect(center=(x_offset + new_width // 2, y_offset - 20))
                 self.screen.blit(label_surf, label_rect.topleft)

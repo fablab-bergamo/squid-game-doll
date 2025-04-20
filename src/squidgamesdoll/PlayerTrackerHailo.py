@@ -49,6 +49,7 @@ class PlayerTrackerHailo(BasePlayerTracker):
             self.frame_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
             self.nn_rect = Rect(0, 0, nn_frame.shape[1], nn_frame.shape[0])
 
+            start_time = cv2.getTickCount()
             # Put the preprocessed frame into the Hailo inference queue
             self.input_queue.put([nn_frame])
 
@@ -67,6 +68,11 @@ class PlayerTrackerHailo(BasePlayerTracker):
             players = self.supervision_to_players(detections_sv)
 
             self.previous_result = players
+
+            end_time = cv2.getTickCount()
+            time_taken = (end_time - start_time) / cv2.getTickFrequency()
+            self.fps = 1 / time_taken if time_taken > 0 else 0
+
             return players
 
         except Exception as e:
