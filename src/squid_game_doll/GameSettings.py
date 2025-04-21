@@ -24,7 +24,7 @@ class GameSettings:
 
         try:
             with open(path, "r") as file:
-                config_data = yaml.safe_load(file)
+                config_data = yaml.load(file, Loader=yaml.FullLoader)
 
             settings.areas = {
                 key: [GameSettings.list_to_rect(lst) for lst in rects]
@@ -58,7 +58,12 @@ class GameSettings:
         }
         try:
             with open(path, "w") as file:
-                yaml.dump(config_data, file, default_flow_style=False)
+                yaml.dump(
+                    config_data,
+                    file,
+                    default_flow_style=False,
+                    Dumper=yaml.Dumper,
+                )
             logger.info(f"Configuration saved to {path}")
             return True
         except Exception as e:

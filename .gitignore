@@ -183,3 +183,4 @@ yolov11m.hef
 screenshot_*.png
 config.yaml
 poetry.lock
+config-test.yaml
