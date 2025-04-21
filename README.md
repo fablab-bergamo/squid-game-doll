@@ -174,16 +174,17 @@ Using pygame as rendering engine see game.py
 
 ### How to install/run on PC (see INSTALL.MD for Raspberry)
 
-* Create a venv, and install requirements from list in src directory
+* Install poetry and let him do the installation of packages into a venv.
 
-```python
-pip install -r ./src/requirements.txt
+```bash
+pip install poetry
+poetry install
 ```
 
-* Install CUDA support for NVIDIA GPU
+* Install CUDA support for NVIDIA GPU (facultative)
 
-```python
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
+```bash
+poetry run pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
 ```
 
 * Command-line settings
@@ -211,36 +212,36 @@ options:
 
 * Example: configure the vision area for webcam, finish and starting areas (will generate a config.yaml file)
 
-```python
-python ./src/squidgamedoll/run.py --setup
+```bash
+poetry run python -m src.squid_game_doll.run --setup
 ```
 
 * Example: run game with default configuration file
 
-```python
-python ./src/squidgamedoll/run.py
+```bash
+poetry run python -m src.squid_game_doll.run
 ```
 
 * Example: run game on forced monitor 0, webcam 0, enable esp32 laser kills, esp32 on IP=192.168.45.50
 
-```python
-python ./src/squidgamedoll/run.py -m 0 -w 0 -k -i 192.168.45.50
+```bash
+poetry run python -m src.squid_game_doll.run -m 0 -w 0 -k -i 192.168.45.50
 ```
 
 * Example: setup the areas using webcam at index 0
 
-```python
-python ./src/squidgamedoll/run.py --setup -w 0
+```bash
+poetry run python -m src.squid_game_doll.run --setup -w 0
 ```
 
 ## How to profile Python and check what is slow
 
 * Use cProfile + snakeviz
 
-```shell
-pip install snakeviz
-python -m cProfile -o game.prof  .\src\squidgamesdoll\game.py
-snakeviz .\game.prof
+```bash
+poetry install --with dev
+poetry run python -m cProfile -o game.prof -m src.squid_game_doll.run
+poetry run snakeviz .\game.prof
 ```
 
 ## Webcam info

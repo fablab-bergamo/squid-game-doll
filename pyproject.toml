@@ -1,7 +1,7 @@
 [project]
 name = "squid-game-doll"
 version = "0.1.0"
-description = "A project for tracking and controlling a Squid Game doll with laser and camera integration."
+description = "A game using AI for player tracking inspired by Squid Game TV series, featuring an animated doll with laser."
 authors = [ { name = "Pascal Brunot", email="pascal.brunot@fablabbergamo.it"}]
 license = "MIT"
 requires-python = ">=3.9"
@@ -46,6 +46,7 @@ keywords = [
 pytest = "^8.3.5"
 black = "^25.1.0"
 flake8 = "^7.2.0"
+snakeviz = "^2.2.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

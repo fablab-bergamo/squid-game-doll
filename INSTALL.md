@@ -39,14 +39,14 @@ Product Name: HAILO-8L AI ACC M.2 B+M KEY MODULE EXT TMP
 
 * Run install script to create venv and install Python requirements and HEF model
 
-```shell
-./install.sh
+```bash
+./setup.sh
 ```
 
 * Run run.py and check webcam index:
 
-```shell
-python -m src.squid_game_doll.run
+```bash
+poetry run python -m src.squid_game_doll.run
 ```
 
 Sample output
@@ -94,5 +94,5 @@ Listing webcams:
 * Start the game with forced webcam index (example: 200)
 
 ```shell
-python -m src.squid_game_doll.run -w 200
+poetry run python -m src.squid_game_doll.run -w 200
 ```
