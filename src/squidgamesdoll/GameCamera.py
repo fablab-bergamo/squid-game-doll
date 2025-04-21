@@ -245,6 +245,12 @@ class GameCamera:
         reference_surface = settings.get_reference_frame()
         bounding_rect = GameCamera.bounding_rectangle(rectangles)
 
+        # Make sure the bounding rectangle is within the reference frame
+        if bounding_rect.x + bounding_rect.width > reference_surface.w:
+            bounding_rect.width = reference_surface.w - bounding_rect.x
+        if bounding_rect.y + bounding_rect.height > reference_surface.h:
+            bounding_rect.height = reference_surface.h - bounding_rect.y
+
         # We need to zero frame areas outside the list of rectangles in vision_area
         # Let's create a mask for the vision area
         mask = cv2.cvtColor(nn_frame, cv2.COLOR_BGR2GRAY)

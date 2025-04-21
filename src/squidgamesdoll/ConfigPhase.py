@@ -10,6 +10,8 @@ from loguru import logger
 
 
 class GameConfigPhase:
+    VIDEO_SCREEN_SIZE_PERCENT = 0.8
+
     def __init__(
         self,
         screen: pygame.Surface,
@@ -24,13 +26,30 @@ class GameConfigPhase:
         self.game_settings = game_settings
         self.config_file = config_file
 
-        # Center the webcam feed on the screen
+        # Center and resize the webcam feed on the screen
         w, h = GameCamera.get_native_resolution(camera.index)
-        while w > self.screen_width or h > self.screen_height:
-            w //= 2
-            h //= 2
+        aspect_ratio = w / h
+        new_width = 100
+        new_height = 100
+        while (
+            new_width < self.screen_width * GameConfigPhase.VIDEO_SCREEN_SIZE_PERCENT
+            and new_height < self.screen_height * GameConfigPhase.VIDEO_SCREEN_SIZE_PERCENT
+        ):
+            if aspect_ratio > 1:
+                new_width += 100
+                new_height = int(h * new_width / w)
+            else:
+                new_height += 100
+                new_width = int(w * new_height / h)
 
-        self.webcam_rect = pygame.Rect((self.screen_width - w) // 2, (self.screen_height - h) // 2, w, h)
+        self.webcam_rect = pygame.Rect(
+            (self.screen_width - new_width) // 2, (self.screen_height - new_height) // 2, new_width, new_height
+        )
+        self.webcam_to_screen_ratio = new_height / h
+        self.game_settings.reference_frame = [
+            int(self.webcam_rect.width / self.webcam_to_screen_ratio),
+            int(self.webcam_rect.height / self.webcam_to_screen_ratio),
+        ]
         pygame.display.set_caption("Game Configuration Phase")
 
         # Camera instance (expects a GameCamera instance)
@@ -130,10 +149,9 @@ class GameConfigPhase:
                     rects.reverse()  # Check from the last rectangle to the first
                     for rect in rects:
                         # Adjust rectangle position to screen coordinates for collision check
-                        screen_rect = rect.copy()
-                        screen_rect.x += self.webcam_rect.x
-                        screen_rect.y += self.webcam_rect.y
-                        if screen_rect.collidepoint(pos):
+                        saved_rec = GameConfigPhase.scale_rect(rect, self.webcam_to_screen_ratio)
+                        saved_rec.topleft = (self.webcam_rect.x + saved_rec.x, self.webcam_rect.y + saved_rec.y)
+                        if saved_rec.collidepoint(pos):
                             self.game_settings.areas[self.current_mode].remove(rect)
                             logger.debug(f"Removed rectangle {rect} from {self.current_mode}.")
                             return
@@ -164,13 +182,16 @@ class GameConfigPhase:
                     width = max(0, min(width, self.webcam_rect.width - x))
                     height = max(0, min(height, self.webcam_rect.height - y))
 
-                    self.current_rect = pygame.Rect(x, y, width, height)
+                    self.current_rect = GameConfigPhase.scale_rect(
+                        pygame.Rect(x, y, width, height), 1 / self.webcam_to_screen_ratio
+                    )
 
             if event.type == pygame.MOUSEBUTTONUP:
                 if self.drawing and self.current_mode != "settings":
                     if self.current_rect and self.current_rect.width > 0 and self.current_rect.height > 0:
-                        self.game_settings.areas[self.current_mode].append(self.current_rect)
-                        logger.debug(f"Added rectangle {self.current_rect} to {self.current_mode}.")
+                        original_rect = self.current_rect.copy()
+                        self.game_settings.areas[self.current_mode].append(original_rect)
+                        logger.debug(f"Added rectangle {original_rect} to {self.current_mode}.")
                         self.game_settings.areas[self.current_mode] = self.minimize_rectangles(
                             self.game_settings.areas[self.current_mode]
                         )
@@ -205,15 +226,29 @@ class GameConfigPhase:
     def reset_area(self, area_name):
         """Reset the rectangles for a given area to their default value relative to the webcam feed."""
         if area_name == "vision":
-            self.game_settings.areas["vision"] = [pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height)]
+            self.game_settings.areas["vision"] = [
+                GameConfigPhase.scale_rect(
+                    pygame.Rect(0, 0, self.webcam_rect.width, self.webcam_rect.height), 1 / self.webcam_to_screen_ratio
+                )
+            ]
         elif area_name == "start":
             self.game_settings.areas["start"] = [
-                pygame.Rect(0, 0, self.webcam_rect.width, int(0.1 * self.webcam_rect.height))
+                GameConfigPhase.scale_rect(
+                    pygame.Rect(0, 0, self.webcam_rect.width, int(0.1 * self.webcam_rect.height)),
+                    1 / self.webcam_to_screen_ratio,
+                )
             ]
         elif area_name == "finish":
+            limit = int(0.9 * self.webcam_rect.height)
             self.game_settings.areas["finish"] = [
-                pygame.Rect(
-                    0, int(0.9 * self.webcam_rect.height), self.webcam_rect.width, int(0.1 * self.webcam_rect.height)
+                GameConfigPhase.scale_rect(
+                    pygame.Rect(
+                        0,
+                        limit,
+                        self.webcam_rect.width,
+                        self.webcam_rect.height - limit,
+                    ),
+                    1 / self.webcam_to_screen_ratio,
                 )
             ]
 
@@ -328,16 +363,7 @@ class GameConfigPhase:
 
         if self.current_mode == "nn_preview":
             # Apply the vision frame to the webcam surface
-            nn_frame, webcam_frame, rect = self.camera.read_nn(self.game_settings, 640)
-
-            logger.debug(
-                "read_nn: original dimensions",
-                (webcam_frame.shape[1], webcam_frame.shape[0]),
-                "Resized dimensions",
-                (nn_frame.shape[1], nn_frame.shape[0]),
-                "Rect",
-                rect,
-            )
+            nn_frame, webcam_frame, rect = self.camera.read_nn(self.game_settings, self.neural_net.get_max_size())
 
             if nn_frame is not None:
                 # Convert the frame to a pygame surface and display it
@@ -346,7 +372,10 @@ class GameConfigPhase:
                 aspect_ratio = nn_surf.get_width() / nn_surf.get_height()
                 new_width = 100
                 new_height = 100
-                while new_width < self.screen_width * 0.7 and new_height < self.screen_height * 0.7:
+                while (
+                    new_width < self.screen_width * GameConfigPhase.VIDEO_SCREEN_SIZE_PERCENT
+                    and new_height < self.screen_height * GameConfigPhase.VIDEO_SCREEN_SIZE_PERCENT
+                ):
                     if aspect_ratio > 1:
                         new_width += 100
                         new_height = int(nn_surf.get_height() * new_width / nn_surf.get_width())
@@ -354,6 +383,9 @@ class GameConfigPhase:
                         new_height += 100
                         new_width = int(nn_surf.get_width() * new_height / nn_surf.get_height())
 
+                logger.debug(
+                    f"read_nn: original dimensions {webcam_frame.shape[1]} x {webcam_frame.shape[0]}, Resized dimensions {(nn_frame.shape[1], nn_frame.shape[0])}, rect: {rect}, size on screen {new_width} x {new_height}"
+                )
                 nn_surf_resized = pygame.transform.scale(nn_surf, (new_width, new_height))
                 # Center the resized surface
                 x_offset = (self.screen_width - new_width) // 2
@@ -391,6 +423,9 @@ class GameConfigPhase:
                 label_rect = label_surf.get_rect(center=(x_offset + new_width // 2, y_offset - 20))
                 self.screen.blit(label_surf, label_rect.topleft)
         else:
+            # Resize the webcam surface to fit the screen
+            webcam_surf = pygame.transform.scale(webcam_surf, (self.webcam_rect.w, self.webcam_rect.h))
+
             # Draw the webcam feed in normal modes
             self.screen.blit(webcam_surf, self.webcam_rect.topleft)
 
@@ -404,7 +439,7 @@ class GameConfigPhase:
                 # Create a transparent overlay surface
                 overlay = pygame.Surface((self.webcam_rect.width, self.webcam_rect.height), pygame.SRCALPHA)
                 color = area_colors.get(area_name, (200, 200, 200, 100))
-                for rect in rect_list:
+                for rect in GameConfigPhase.scale(rect_list, self.webcam_to_screen_ratio):
                     pygame.draw.rect(overlay, color, rect)
                     color_outline = (color[0], color[1], color[2], 255)  # Opaque outline color
                     pygame.draw.rect(overlay, color_outline, rect, 1)  # Draw outline
@@ -413,7 +448,9 @@ class GameConfigPhase:
             # Represent the bouding rectangle of active mode with dashed lines
             for area_name, rect_list in self.game_settings.areas.items():
                 if self.current_mode == area_name:
-                    bounding_rect = self.bounding_rectangle(rect_list)
+                    bounding_rect = self.bounding_rectangle(
+                        GameConfigPhase.scale(rect_list, self.webcam_to_screen_ratio)
+                    )
                     if bounding_rect:
                         pygame.draw.rect(overlay, (255, 255, 0), bounding_rect, 2)
 
@@ -422,10 +459,10 @@ class GameConfigPhase:
 
             # Draw the rectangle currently being drawn (if any) as an outline
             if self.drawing and self.current_rect:
-                screen_rect = self.current_rect.copy()
+                screen_rect = GameConfigPhase.scale_rect(self.current_rect, self.webcam_to_screen_ratio)
                 screen_rect.topleft = (
-                    self.webcam_rect.x + self.current_rect.x,
-                    self.webcam_rect.y + self.current_rect.y,
+                    self.webcam_rect.x + screen_rect.x,
+                    self.webcam_rect.y + screen_rect.y,
                 )
                 pygame.draw.rect(self.screen, (255, 0, 0), screen_rect, 2)
 
@@ -471,8 +508,30 @@ class GameConfigPhase:
                 running = False
 
         if self.current_mode == "save":
-            self.game_settings.reference_frame = [self.webcam_rect.width, self.webcam_rect.height]
+            self.game_settings.reference_frame = [
+                int(self.webcam_rect.width / self.webcam_to_screen_ratio),
+                int(self.webcam_rect.height / self.webcam_to_screen_ratio),
+            ]
             self.game_settings.save(self.config_file)
             return self.game_settings
 
         return None
+
+    @staticmethod
+    def scale(rect_list: list[pygame.Rect], scale_factor: float) -> list:
+        """
+        Scale a list of pygame.Rect objects by a given scale factor.
+        """
+        return [
+            pygame.Rect(
+                round(rect.x * scale_factor, 0),
+                round(rect.y * scale_factor, 0),
+                round(rect.width * scale_factor, 0),
+                round(rect.height * scale_factor, 0),
+            )
+            for rect in rect_list
+        ]
+
+    @staticmethod
+    def scale_rect(rect: pygame.Rect, scale_factor: float) -> list:
+        return GameConfigPhase.scale([rect], scale_factor)[0]
