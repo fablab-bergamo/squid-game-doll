@@ -1,6 +1,6 @@
-from numpy.linalg import norm
 import numpy as np
 import socket
+from numpy.linalg import norm
 from time import time, sleep
 from simple_pid import PID
 import ast

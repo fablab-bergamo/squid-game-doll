@@ -26,6 +26,7 @@ dependencies = [
     "torch",
     "ultralytics==8.3.59",
     "supervision",
+    "lap>=0.5.12",
     "loguru==0.7.2"
 ]
 include = ["LICENSE", "src/squid_game_doll", "INSTALL.md", "run.sh", "install.bat", "requirements.txt", "src/squid_game_doll/README.md", "src/squid_game_doll/media"]

@@ -3,16 +3,29 @@ import pygame
 import cv2
 import random
 import time
-from GameScreen import GameScreen
-from BasePlayerTracker import BasePlayerTracker
-from PlayerTrackerUL import PlayerTrackerUL
-from Player import Player
-from FaceExtractor import FaceExtractor
-from GameCamera import GameCamera
-import constants
-from LaserShooter import LaserShooter
-from LaserTracker import LaserTracker
-from GameSettings import GameSettings
+from .GameScreen import GameScreen
+from .BasePlayerTracker import BasePlayerTracker
+from .PlayerTrackerUL import PlayerTrackerUL
+from .Player import Player
+from .FaceExtractor import FaceExtractor
+from .GameCamera import GameCamera
+from .LaserShooter import LaserShooter
+from .LaserTracker import LaserTracker
+from .GameSettings import GameSettings
+from .constants import (
+    ROOT,
+    DARK_GREEN,
+    MINIMUM_RED_LIGHT_S,
+    MINIMUM_GREEN_LIGHT_S,
+    GRACE_PERIOD_RED_LIGHT_S,
+    INIT,
+    RED_LIGHT,
+    GREEN_LIGHT,
+    LOADING,
+    GAMEOVER,
+    VICTORY,
+    WHITE,
+)
 import platform
 from loguru import logger
 
@@ -35,14 +48,14 @@ class SquidGame:
         self.FAKE: bool = False
         self.face_extractor: FaceExtractor = None  # Initialize later
         self.players: list[Player] = []
-        self.green_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/green_light.mp3")
+        self.green_sound: pygame.mixer.Sound = pygame.mixer.Sound(ROOT + "/media/green_light.mp3")
         # 무궁화 꽃이 피었습니다
-        self.red_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/red_light.mp3")
-        self.eliminate_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/eliminated.mp3")
-        self.init_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/init.mp3")
-        self.victory_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/success.mp3")
-        self.gunshot_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/gunshot.mp3")
-        self.game_state: str = constants.INIT
+        self.red_sound: pygame.mixer.Sound = pygame.mixer.Sound(ROOT + "/media/red_light.mp3")
+        self.eliminate_sound: pygame.mixer.Sound = pygame.mixer.Sound(ROOT + "/media/eliminated.mp3")
+        self.init_sound: pygame.mixer.Sound = pygame.mixer.Sound(ROOT + "/media/init.mp3")
+        self.victory_sound: pygame.mixer.Sound = pygame.mixer.Sound(ROOT + "/media/success.mp3")
+        self.gunshot_sound: pygame.mixer.Sound = pygame.mixer.Sound(ROOT + "/media/gunshot.mp3")
+        self.game_state: str = INIT
         self.last_switch_time: float = time.time()
         self.delay_s: float = 1.0
         self.game_screen = GameScreen(desktop_size, display_idx)
@@ -52,7 +65,7 @@ class SquidGame:
         self.joystick: pygame.joystick.JoystickType = joystick
         self.start_registration = time.time()
         self._init_done = False
-        self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(constants.ROOT + "/media/flute.mp3")
+        self.intro_sound: pygame.mixer.Sound = pygame.mixer.Sound(ROOT + "/media/flute.mp3")
         self.cam: GameCamera = cam
         self.settings: GameSettings = settings
         self.model: str = model
@@ -66,7 +79,7 @@ class SquidGame:
 
     def switch_to_init(self) -> bool:
         logger.info("Switch to INIT")
-        self.game_state = constants.INIT
+        self.game_state = INIT
         self.cam.reinit()
         self.players.clear()
         self.last_switch_time = time.time()
@@ -89,11 +102,11 @@ class SquidGame:
         if not self.no_tracker:
             self.shooter.set_eyes(True)
             self.shooter.rotate_head(False)
-        self.last_switch_time = time.time() + constants.GRACE_PERIOD_RED_LIGHT_S
-        self.game_state = constants.RED_LIGHT
+        self.last_switch_time = time.time() + GRACE_PERIOD_RED_LIGHT_S
+        self.game_state = RED_LIGHT
         self.green_sound.stop()
         self.red_sound.play()
-        self.delay_s = random.random() * 6 + constants.MINIMUM_RED_LIGHT_S
+        self.delay_s = random.random() * 6 + MINIMUM_RED_LIGHT_S
         return True
 
     def switch_to_greenlight(self) -> bool:
@@ -102,10 +115,10 @@ class SquidGame:
             self.shooter.set_eyes(False)
             self.shooter.rotate_head(True)
         self.last_switch_time = time.time()
-        self.game_state = constants.GREEN_LIGHT
+        self.game_state = GREEN_LIGHT
         self.green_sound.play()
         self.red_sound.stop()
-        self.delay_s = random.random() * 4 + constants.MINIMUM_GREEN_LIGHT_S
+        self.delay_s = random.random() * 4 + MINIMUM_GREEN_LIGHT_S
         return True
 
     def switch_to_game(self) -> bool:
@@ -117,7 +130,7 @@ class SquidGame:
 
     def switch_to_loading(self) -> bool:
         logger.info("Switch to LOADING")
-        self.game_state = constants.LOADING
+        self.game_state = LOADING
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
         self.game_screen.set_active_button(0, self.switch_to_init)
@@ -126,7 +139,7 @@ class SquidGame:
     def switch_to_endgame(self, endgame_str: str) -> bool:
         logger.info("Switch to ENDGAME")
         self.game_state = endgame_str
-        if endgame_str == constants.VICTORY:
+        if endgame_str == VICTORY:
             self.victory_sound.play()
         self.last_switch_time = time.time()
         self.game_screen.reset_active_buttons()
@@ -138,7 +151,7 @@ class SquidGame:
 
     def close_loading_screen(self) -> bool:
         logger.debug("close_loading_screen")
-        self.game_state = constants.INIT
+        self.game_state = INIT
         return False
 
     def check_endgame_conditions(self, crop_info: pygame.Rect, nn_frame: cv2.UMat, screen: cv2.UMat) -> None:
@@ -165,10 +178,10 @@ class SquidGame:
         if self.players and all(player.is_eliminated() or player.is_winner() for player in self.players):
             if any(player.is_winner() for player in self.players):
                 self.save_screen_to_disk(screen, "victory.png")
-                self.switch_to_endgame(constants.VICTORY)
+                self.switch_to_endgame(VICTORY)
             else:
                 self.save_screen_to_disk(screen, "gameover.png")
-                self.switch_to_endgame(constants.GAMEOVER)
+                self.switch_to_endgame(GAMEOVER)
 
     def merge_players_lists(
         self,
@@ -250,13 +263,13 @@ class SquidGame:
         clock = pygame.time.Clock()
 
         # Add loading screen picture during intro sound
-        loading_screen_img = pygame.image.load(constants.ROOT + "/media/loading_screen.webp")
+        loading_screen_img = pygame.image.load(ROOT + "/media/loading_screen.webp")
         loading_screen_img = pygame.transform.scale(
             loading_screen_img, (self.game_screen.get_desktop_width(), self.game_screen.get_desktop_height() - 200)
         )
 
         # Load logo image
-        logo_img = pygame.image.load(constants.ROOT + "/media/logo.png")
+        logo_img = pygame.image.load(ROOT + "/media/logo.png")
         logo_img = pygame.transform.scale(logo_img, (400, 200))  # Adjust size as needed
         logo_img.set_colorkey((0, 0, 0))
 
@@ -280,7 +293,7 @@ class SquidGame:
         while running:
             running = self.handle_events(screen)
 
-            screen.fill(constants.DARK_GREEN)
+            screen.fill(DARK_GREEN)
             screen.blit(loading_screen_img, (0, 0))
 
             # Handle logo fade-in and fade-out
@@ -344,12 +357,12 @@ class SquidGame:
 
             running = self.handle_events(screen)
 
-            if self.game_state == constants.LOADING:
+            if self.game_state == LOADING:
                 self.loading_screen(screen)
                 self.switch_to_init()
 
             # Game Logic
-            if self.game_state == constants.INIT:
+            if self.game_state == INIT:
                 self.players = []
                 self.game_screen.update(screen, nn_frame, self.game_state, self.players, self.shooter, self.settings)
                 pygame.display.flip()
@@ -370,7 +383,7 @@ class SquidGame:
                         screen,
                         f"{time_remaining}",
                         (screen.get_width() // 2 - 150, screen.get_height() // 2 - 150),
-                        constants.WHITE,
+                        WHITE,
                         300,
                     )
                     pygame.display.flip()
@@ -387,10 +400,10 @@ class SquidGame:
                 self.save_screen_to_disk(screen, "init.png")
                 self.switch_to_game()
 
-            elif self.game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
+            elif self.game_state in [GREEN_LIGHT, RED_LIGHT]:
                 # Has current light delay elapsed?
                 if time.time() - self.last_switch_time > self.delay_s:
-                    if self.game_state == constants.GREEN_LIGHT:
+                    if self.game_state == GREEN_LIGHT:
                         self.save_screen_to_disk(screen, "green_light.png")
                         self.switch_to_redlight()
                     else:
@@ -403,14 +416,14 @@ class SquidGame:
                 )
 
                 # Update last position while the green light is on
-                if self.game_state == constants.GREEN_LIGHT:
+                if self.game_state == GREEN_LIGHT:
                     if not self.no_tracker and self.shooter.is_laser_enabled():
                         self.shooter.set_laser(False)
                     for player in self.players:
                         player.set_last_position(player.get_coords())
 
                 # Check for movements during the red light
-                if self.game_state == constants.RED_LIGHT:
+                if self.game_state == RED_LIGHT:
                     if time.time() > self.last_switch_time:
                         for player in self.players:
                             if (
@@ -442,7 +455,7 @@ class SquidGame:
                 # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
                 self.check_endgame_conditions(crop_info, nn_frame, screen)
 
-            elif self.game_state in [constants.GAMEOVER, constants.VICTORY]:
+            elif self.game_state in [GAMEOVER, VICTORY]:
                 # Restart after 10 seconds
                 if time.time() - self.last_switch_time > 20:
                     self.switch_to_loading()

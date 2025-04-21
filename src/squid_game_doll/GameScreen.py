@@ -1,36 +1,46 @@
 import pygame
-from PIL import Image
 import cv2
-from img_processing import opencv_to_pygame
-from Player import Player
-import constants
-from LaserShooter import LaserShooter
 from collections.abc import Callable
-from GameSettings import GameSettings
-from GameCamera import GameCamera
+from PIL import Image
+
+from .img_processing import opencv_to_pygame
+from .Player import Player
+from .LaserShooter import LaserShooter
+from .GameSettings import GameSettings
+from .constants import (
+    RED,
+    ROOT,
+    DARK_GREEN,
+    SALMON,
+    BLACK,
+    WHITE,
+    GREEN,
+    YELLOW,
+    PLAYER_SIZE,
+    FADE_COLOR,
+    VICTORY,
+    GAMEOVER,
+    INIT,
+    GREEN_LIGHT,
+    RED_LIGHT,
+)
 from loguru import logger
 
 BUTTON_COLOR: tuple[int, int, int] = (255, 0, 0)  # Red like Squid Game theme
 BUTTON_HOVER_COLOR: tuple[int, int, int] = (200, 0, 0)
 BUTTON_TEXT_COLOR: tuple[int, int, int] = (0, 0, 0)  # Black text
 # Font Color
-FONT_COLOR: tuple[int, int, int] = constants.RED
+FONT_COLOR: tuple[int, int, int] = RED
 
 
 class GameScreen:
     def __init__(self, desktop_size: tuple[int, int], display_idx: int):
-        self._font_lcd: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/font_lcd.ttf", 48)
-        self._font_small: pygame.font.FontType = pygame.font.Font(
-            constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 36
-        )
-        self._font_button: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Bold.ttf", 42)
-        self._font_smaller: pygame.font.FontType = pygame.font.Font(
-            constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 24
-        )
-        self._font_big: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", 90)
-        self._font_bigger: pygame.font.FontType = pygame.font.Font(
-            constants.ROOT + "/media/SpaceGrotesk-Bold.ttf", 128
-        )
+        self._font_lcd: pygame.font.FontType = pygame.font.Font(ROOT + "/media/font_lcd.ttf", 48)
+        self._font_small: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Regular.ttf", 36)
+        self._font_button: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Bold.ttf", 42)
+        self._font_smaller: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Regular.ttf", 24)
+        self._font_big: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Regular.ttf", 90)
+        self._font_bigger: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Bold.ttf", 128)
 
         # Position and size of reinit button
         self._reset_button: pygame.Rect = pygame.Rect(desktop_size[0] - 210, desktop_size[1] - 60, 200, 50)
@@ -85,9 +95,7 @@ class GameScreen:
             y_pos = surface.get_height() - (len(self._active_buttons) - idx) * 90
             center = (surface.get_width() - 45, y_pos)
             pygame.draw.circle(surface, self.get_button_color(idx), center, 40)
-            text = self._font_button.render(
-                self.get_button_text(idx), True, constants.BLACK, self.get_button_color(idx)
-            )
+            text = self._font_button.render(self.get_button_text(idx), True, BLACK, self.get_button_color(idx))
             surface.blit(text, (center[0] - text.get_width() // 2, center[1] - text.get_height() // 2))
 
     def handle_buttons(self, joystick: pygame.joystick.JoystickType) -> bool:
@@ -132,7 +140,7 @@ class GameScreen:
 
     def update_config(self, fullscreen: pygame.Surface, webcam_frame: cv2.UMat, shooter: LaserShooter) -> None:
 
-        fullscreen.fill(constants.DARK_GREEN)
+        fullscreen.fill(DARK_GREEN)
 
         (w, h), (x_web, y_web) = self.compute_webcam_feed(webcam_frame)
 
@@ -143,9 +151,9 @@ class GameScreen:
 
         self.draw_reset_button(fullscreen)
 
-        img: pygame.Surface = pygame.image.load(constants.ROOT + "/media/shooter_off.png")
+        img: pygame.Surface = pygame.image.load(ROOT + "/media/shooter_off.png")
         if shooter is not None and shooter.isOnline():
-            img = pygame.image.load(constants.ROOT + "/media/shooter.png")
+            img = pygame.image.load(ROOT + "/media/shooter.png")
 
         # Add shooter icon depending on ESP32 status
         fullscreen.blit(img, (self.get_desktop_width() - img.get_width(), 0))
@@ -162,38 +170,36 @@ class GameScreen:
         settings: GameSettings,
     ) -> None:
 
-        fullscreen.fill(constants.SALMON)
+        fullscreen.fill(SALMON)
 
         (w, h), (x_web, y_web) = self.compute_webcam_feed(nn_frame)
 
         # Convert OpenCV BGR to RGB for PyGame
         video_surface: pygame.Surface = opencv_to_pygame(nn_frame, (w, h))
 
-        if game_state in [constants.INIT, constants.GREEN_LIGHT, constants.RED_LIGHT]:
+        if game_state in [INIT, GREEN_LIGHT, RED_LIGHT]:
             self.draw_finish_area(video_surface, settings)
 
-        self.draw_bounding_boxes(video_surface, players, game_state != constants.INIT)
+        self.draw_bounding_boxes(video_surface, players, game_state != INIT)
 
         video_surface = pygame.transform.flip(video_surface, True, False)
         fullscreen.blit(video_surface, (x_web, y_web))
 
-        if game_state in [constants.GREEN_LIGHT, constants.RED_LIGHT]:
-            self.draw_traffic_light(fullscreen, game_state == constants.GREEN_LIGHT)
+        if game_state in [GREEN_LIGHT, RED_LIGHT]:
+            self.draw_traffic_light(fullscreen, game_state == GREEN_LIGHT)
 
-        players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), constants.PLAYER_SIZE))
+        players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), PLAYER_SIZE))
 
-        self.display_players(
-            players_surface, self._convert_player_list(players), constants.SALMON, game_state == constants.VICTORY
-        )
+        self.display_players(players_surface, self._convert_player_list(players), SALMON, game_state == VICTORY)
 
-        fullscreen.blit(players_surface, (0, self.get_desktop_height() - constants.PLAYER_SIZE))
+        fullscreen.blit(players_surface, (0, self.get_desktop_height() - PLAYER_SIZE))
 
-        if game_state not in [constants.INIT]:
+        if game_state not in [INIT]:
             won = sum([100_000_000 for p in players if p.is_eliminated()])
             self.display_won(fullscreen, won, self._font_big)
 
-        if game_state == constants.GAMEOVER:
-            text = self._font_bigger.render("GAME OVER!", True, constants.RED)
+        if game_state == GAMEOVER:
+            text = self._font_bigger.render("GAME OVER!", True, RED)
             fullscreen.blit(
                 text,
                 (
@@ -202,8 +208,8 @@ class GameScreen:
                 ),
             )
 
-        if game_state == constants.VICTORY:
-            text = self._font_bigger.render("VICTORY!", True, constants.GREEN)
+        if game_state == VICTORY:
+            text = self._font_bigger.render("VICTORY!", True, GREEN)
             fullscreen.blit(
                 text,
                 (
@@ -212,9 +218,9 @@ class GameScreen:
                 ),
             )
 
-        img: pygame.Surface = pygame.image.load(constants.ROOT + "/media/shooter_off.png")
+        img: pygame.Surface = pygame.image.load(ROOT + "/media/shooter_off.png")
         if shooter is not None and shooter.isOnline():
-            img = pygame.image.load(constants.ROOT + "/media/shooter.png")
+            img = pygame.image.load(ROOT + "/media/shooter.png")
 
         # Add shooter icon depending on ESP32 status
         fullscreen.blit(img, (self.get_desktop_width() - img.get_width(), 0))
@@ -229,11 +235,11 @@ class GameScreen:
             min(radius * 5, self.get_desktop_height() - radius - 4),
         )
         if green_light:
-            pygame.draw.circle(screen, constants.GREEN, position, radius)
+            pygame.draw.circle(screen, GREEN, position, radius)
         else:
-            pygame.draw.circle(screen, constants.RED, position, radius)
+            pygame.draw.circle(screen, RED, position, radius)
 
-        pygame.draw.circle(screen, constants.BLACK, position, radius, 4)
+        pygame.draw.circle(screen, BLACK, position, radius, 4)
 
     def draw_bounding_boxes(
         self,
@@ -243,9 +249,7 @@ class GameScreen:
     ) -> None:
         for player in players:
             color: tuple[int, int, int] = (
-                constants.RED
-                if player.is_eliminated()
-                else (constants.GREEN if not player.has_moved() else constants.YELLOW)
+                RED if player.is_eliminated() else (GREEN if not player.has_moved() else YELLOW)
             )
             x, y, w, h = player.get_rect()
             # transforms the coordinates from the webcam frame to the pygame frame using the ratios
@@ -264,19 +268,19 @@ class GameScreen:
             if add_previous_pos and player.get_last_position() is not None and not player.is_eliminated():
                 x, y, w, h = player.get_last_rect()
                 x, y, w, h = x / self._ratio, y / self._ratio, w / self._ratio, h / self._ratio
-                pygame.draw.rect(frame_surface, constants.WHITE, (x, y, w, h), 1, border_radius=10)
+                pygame.draw.rect(frame_surface, WHITE, (x, y, w, h), 1, border_radius=10)
 
             if player.is_eliminated():
                 pygame.draw.line(
                     frame_surface,
-                    constants.RED,
+                    RED,
                     (x, y),
                     (x + w, y + h),
                     10,
                 )
                 pygame.draw.line(
                     frame_surface,
-                    constants.RED,
+                    RED,
                     (x + w, y),
                     (x, y + h),
                     10,
@@ -303,7 +307,7 @@ class GameScreen:
                 rect.height * webcam_surface.get_height() / settings.get_reference_frame().height,
             )
             # Draw the rectangles
-            pygame.draw.rect(webcam_surface, constants.YELLOW, scaled_rect, 2, border_radius=10)
+            pygame.draw.rect(webcam_surface, YELLOW, scaled_rect, 2, border_radius=10)
 
     def draw_text(
         self,
@@ -313,7 +317,7 @@ class GameScreen:
         color: tuple[int, int, int] = FONT_COLOR,
         size: int = 85,
     ) -> None:
-        font: pygame.font.FontType = pygame.font.Font(constants.ROOT + "/media/SpaceGrotesk-Regular.ttf", size)
+        font: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Regular.ttf", size)
         text_surface = font.render(text, True, color)
         screen.blit(text_surface, location)
 
@@ -339,7 +343,7 @@ class GameScreen:
 
     # Load player images (without blur)
     def load_player_image(self, image_path: str) -> pygame.image:
-        img = Image.open(image_path).convert("RGBA").resize((constants.PLAYER_SIZE, constants.PLAYER_SIZE))
+        img = Image.open(image_path).convert("RGBA").resize((PLAYER_SIZE, PLAYER_SIZE))
         pygame_img = pygame.image.fromstring(img.tobytes(), img.size, "RGBA")
         return pygame_img
 
@@ -348,7 +352,7 @@ class GameScreen:
         positions = []
         start_x, start_y = 0, 0
         for cpt, _ in enumerate(players):
-            x = start_x + (cpt * constants.PLAYER_SIZE + 20)
+            x = start_x + (cpt * PLAYER_SIZE + 20)
             y = start_y
             if x > self._desktop_size[0]:
                 logger.warning("Too many players")
@@ -369,7 +373,7 @@ class GameScreen:
         surface.blit(diamond, (x, y), special_flags=pygame.BLEND_RGBA_ADD)
 
     def display_won(self, surface: pygame.Surface, amount: int, font: pygame.font.FontType) -> None:
-        pig_img = pygame.image.load(constants.ROOT + "/media/pig.png")
+        pig_img = pygame.image.load(ROOT + "/media/pig.png")
         amount = f"₩ {amount:,}"
         text = font.render(amount, True, (255, 215, 0))
         pos = (surface.get_width() // 3, 0)
@@ -379,17 +383,17 @@ class GameScreen:
 
     # Function to mask player images into diamonds
     def mask_diamond(self, image: pygame.image) -> pygame.image:
-        image = pygame.transform.scale(image, (constants.PLAYER_SIZE, constants.PLAYER_SIZE))
-        mask = pygame.Surface((constants.PLAYER_SIZE, constants.PLAYER_SIZE), pygame.SRCALPHA)
+        image = pygame.transform.scale(image, (PLAYER_SIZE, PLAYER_SIZE))
+        mask = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
 
         pygame.draw.polygon(
             mask,
             (255, 255, 255, 255),
             [
-                (constants.PLAYER_SIZE // 2, 0),
-                (constants.PLAYER_SIZE, constants.PLAYER_SIZE // 2),
-                (constants.PLAYER_SIZE // 2, constants.PLAYER_SIZE),
-                (0, constants.PLAYER_SIZE // 2),
+                (PLAYER_SIZE // 2, 0),
+                (PLAYER_SIZE, PLAYER_SIZE // 2),
+                (PLAYER_SIZE // 2, PLAYER_SIZE),
+                (0, PLAYER_SIZE // 2),
             ],
         )
         masked_image = image.copy()
@@ -406,7 +410,7 @@ class GameScreen:
         for player in players:
             img = player.get_image()
             if img is None:
-                img = self.load_player_image(constants.ROOT + "/media/sample_player.jpg")
+                img = self.load_player_image(ROOT + "/media/sample_player.jpg")
             risultato.append(
                 {
                     "number": cpt,
@@ -428,7 +432,7 @@ class GameScreen:
         h2, w2, _ = frame.shape
 
         # Available height after reserving the PLAYER_SIZE band
-        available_height = h1 - constants.PLAYER_SIZE
+        available_height = h1 - PLAYER_SIZE
 
         # Compute the scaling factor to fit within the screen while maintaining aspect ratio
         scale_x = w1 / w2
@@ -465,7 +469,7 @@ class GameScreen:
 
         num = sum(1 for player in players if player["active"])
 
-        text = self._font_small.render(f"{num} giocator{'e' if num <= 1 else 'i'}", True, constants.GREEN)
+        text = self._font_small.render(f"{num} giocator{'e' if num <= 1 else 'i'}", True, GREEN)
         screen.blit(text, ((screen.get_width() - text.get_width()) // 2, screen.get_height() - text.get_height()))
 
         for i, player in enumerate(players):
@@ -474,37 +478,37 @@ class GameScreen:
             x, y = player_positions[i]
 
             # Draw blurred diamond
-            self.draw_blurred_diamond(screen, x, y, constants.PLAYER_SIZE)
+            self.draw_blurred_diamond(screen, x, y, PLAYER_SIZE)
 
             # Draw player image
             img = player["image"]
             img = self.mask_diamond(img)
 
             # Apply red tint
-            red_overlay = pygame.Surface((constants.PLAYER_SIZE, constants.PLAYER_SIZE), pygame.SRCALPHA)
-            red_overlay.fill(constants.GREEN if player["winner"] else constants.RED)
+            red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+            red_overlay.fill(GREEN if player["winner"] else RED)
             img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_MULT)
 
             if not player["active"]:
-                img.fill(constants.FADE_COLOR, special_flags=pygame.BLEND_MULT)
+                img.fill(FADE_COLOR, special_flags=pygame.BLEND_MULT)
 
             # Color number according to player status
             screen.blit(img, (x, y))
-            color = constants.YELLOW
+            color = YELLOW
             if player["visible"]:
                 if player["active"]:
-                    color = constants.GREEN
+                    color = GREEN
                 else:
-                    color = constants.RED
+                    color = RED
 
             if game_ended and player["winner"]:
                 total_prize = 100_000_000 * len([p for p in players if p["eliminated"]])
                 per_person = total_prize // len([p for p in players if p["winner"]])
-                text = self._font_smaller.render(f"₩ {per_person:,}", True, constants.YELLOW)
-                text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.8))
+                text = self._font_smaller.render(f"₩ {per_person:,}", True, YELLOW)
+                text_rect = text.get_rect(center=(x + PLAYER_SIZE // 2, y + PLAYER_SIZE * 0.8))
             else:
                 text = self._font_lcd.render(str(player["id"]), True, color)
-                text_rect = text.get_rect(center=(x + constants.PLAYER_SIZE // 2, y + constants.PLAYER_SIZE * 0.7))
+                text_rect = text.get_rect(center=(x + PLAYER_SIZE // 2, y + PLAYER_SIZE * 0.7))
             screen.blit(text, text_rect.topleft)
 
     @staticmethod

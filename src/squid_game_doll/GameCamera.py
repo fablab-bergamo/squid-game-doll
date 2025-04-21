@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
-from time import sleep
-from cv2_enumerate_cameras import enumerate_cameras
 import platform
 import threading
 import sys
-from GameSettings import GameSettings
+from time import sleep
+from cv2_enumerate_cameras import enumerate_cameras
 from pygame import Rect
 from loguru import logger
+
+from .GameSettings import GameSettings
 
 
 class GameCamera:

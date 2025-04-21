@@ -46,7 +46,7 @@ Product Name: HAILO-8L AI ACC M.2 B+M KEY MODULE EXT TMP
 * Run run.py and check webcam index:
 
 ```shell
-python ./src/squidgamesdolls/run.py
+python -m src.squid_game_doll.run
 ```
 
 Sample output
@@ -94,5 +94,5 @@ Listing webcams:
 * Start the game with forced webcam index (example: 200)
 
 ```shell
-python ./src/squidgamesdolls/run.py -w 200
+python -m src.squid_game_doll.run -w 200
 ```

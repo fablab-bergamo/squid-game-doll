@@ -3,12 +3,12 @@ import os
 import argparse
 import pygame
 import sys
-from GameCamera import GameCamera
-from GameScreen import GameScreen
-from GameSettings import GameSettings
-from SquidGame import SquidGame
-from ConfigPhase import GameConfigPhase
 from loguru import logger
+from .GameCamera import GameCamera
+from .GameScreen import GameScreen
+from .GameSettings import GameSettings
+from .SquidGame import SquidGame
+from .ConfigPhase import GameConfigPhase
 
 
 def command_line_args() -> any:
@@ -92,7 +92,7 @@ def run():
 
     pygame.init()
     size, monitor = GameScreen.get_desktop(args.monitor)
-    logger.info("Running on monitor", monitor, "size", size)
+    logger.info(f"Running on monitor {monitor}, size {size}")
     joystick: pygame.joystick.Joystick = None
     if args.joystick != -1:
         joystick = pygame.joystick.Joystick(args.joystick)
@@ -124,7 +124,7 @@ def run():
     if args.setup:
         screen = pygame.display.set_mode(size)
         if platform.system() == "Linux":
-            from PlayerTrackerHailo import PlayerTrackerHailo
+            from .PlayerTrackerHailo import PlayerTrackerHailo
 
             logger.info(f"Loading HAILO model ({args.model})...")
             if args.model != "":
@@ -132,7 +132,7 @@ def run():
             else:
                 nn = PlayerTrackerHailo()
         else:
-            from PlayerTrackerUL import PlayerTrackerUL
+            from .PlayerTrackerUL import PlayerTrackerUL
 
             logger.info(f"Loading Ultralytics model ({args.model})...")
             if args.model != "":

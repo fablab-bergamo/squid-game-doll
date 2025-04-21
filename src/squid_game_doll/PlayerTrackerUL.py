@@ -1,11 +1,12 @@
 import cv2
-from ultralytics import YOLO
-from Player import Player
 import torch
-from BasePlayerTracker import BasePlayerTracker
-from GameSettings import GameSettings
+from ultralytics import YOLO
 from pygame import Rect
 from loguru import logger
+
+from .BasePlayerTracker import BasePlayerTracker
+from .GameSettings import GameSettings
+from .Player import Player
 
 
 class PlayerTrackerUL(BasePlayerTracker):

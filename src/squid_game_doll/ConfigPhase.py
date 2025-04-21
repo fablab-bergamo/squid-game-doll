@@ -2,11 +2,11 @@ import pygame
 import cv2
 import sys
 import time
-from GameCamera import GameCamera
-from constants import PINK
-from BasePlayerTracker import BasePlayerTracker
-from GameSettings import GameSettings
 from loguru import logger
+from .GameCamera import GameCamera
+from .constants import PINK
+from .BasePlayerTracker import BasePlayerTracker
+from .GameSettings import GameSettings
 
 
 class GameConfigPhase:

@@ -123,7 +123,7 @@ class GameSettings:
 
     @staticmethod
     def default_areas(cam_width: int, cam_height: int) -> dict:
-        from constants import START_LINE_PERC, FINISH_LINE_PERC
+        from .constants import START_LINE_PERC, FINISH_LINE_PERC
 
         return {
             "vision": [pygame.Rect(0, 0, cam_width, cam_height)],

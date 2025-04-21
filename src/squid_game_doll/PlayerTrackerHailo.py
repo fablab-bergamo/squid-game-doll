@@ -3,12 +3,12 @@ import numpy as np
 import supervision as sv
 import threading
 import queue
-from Player import Player
-from utils import HailoAsyncInference  # Make sure this is available in your project
-from BasePlayerTracker import BasePlayerTracker
-from GameSettings import GameSettings
 from pygame import Rect
 from loguru import logger
+from .Player import Player
+from .utils import HailoAsyncInference  # Make sure this is available in your project
+from .BasePlayerTracker import BasePlayerTracker
+from .GameSettings import GameSettings
 
 
 class PlayerTrackerHailo(BasePlayerTracker):

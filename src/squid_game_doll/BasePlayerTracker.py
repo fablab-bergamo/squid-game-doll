@@ -1,11 +1,11 @@
-from Player import Player
 import numpy as np
 import supervision as sv
 import cv2
-from abc import ABC, abstractmethod
-from GameSettings import GameSettings
-from GameScreen import GameScreen
 import pygame
+
+from abc import ABC, abstractmethod
+from .GameSettings import GameSettings
+from .Player import Player
 
 
 class BasePlayerTracker:

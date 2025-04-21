@@ -3,8 +3,8 @@ import cv2
 
 # from drafts.gradient_search import test_gradient
 # from drafts.motion_pattern import motion_pattern_analysis
-from display import add_exclusion_rectangles
-from img_processing import brightness
+from .display import add_exclusion_rectangles
+from .img_processing import brightness
 
 DEBUG_LASER_FIND = False
 
