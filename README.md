@@ -16,6 +16,19 @@ Players are expected to line-up 8-10m from the screen, stand in line during regi
 | Elimination | player play screenshot | ![facing, red eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_on.png?raw=true) |
 | End game | prize distribution screenshot | ![facing, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_init.png?raw=true) |
 
+## Configuration screen
+
+* Webcam typically have 16/10 aspect ratios, and the play area may be a limited zone of the webcam field of view. It is useful to define a *vision area* from the webcam feed in order to avoid non-players detections, mask unwanted areas and to provide more details for the neural network limited 640x640 resolution.
+* To define *vision area*, one or more rectangles needs to be drawn on the screen (non-covered areas will be masked, i.e. to mask external lights).
+* Example screenshot from config phase:
+![config](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/config.png?raw=true)
+* Bounding rectangle in yellow of the *vision area* will be fed to the NN after image processing + resizing.
+* *Finish area*: player bounding box must intersect with finish area in order to be recognized as a winner. It can be drawn with rectangles like vision area.
+* *Starting area*: player bounding box must intersect with starting area in order to be registered as a player initially. It can be drawn with rectangles like vision area.
+* *Vision area* must intersect with finish and starting areas for the game to work properly.
+* During config phase, some settings can be adjusted (confidence level, contrast adjustments) in the SETTINGS menu option.
+* Live object detection & tracking performance can be checked, using the "Neural network preview" menu option.
+
 ## Open issues / Tasks
 
 * ~~(DOLL) Build a 3D model for a doll with red LED eyes and moving head~~ 
