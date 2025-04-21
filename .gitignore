@@ -182,3 +182,4 @@ yolov11m.hef
 *.hef
 screenshot_*.png
 config.yaml
+poetry.lock
