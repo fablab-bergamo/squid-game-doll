@@ -190,6 +190,8 @@ class SquidGame:
         visible_players: list[Player],
         allow_registration: bool,
         allow_faceless: bool,
+        settings: GameSettings,
+        crop_info: pygame.Rect,
     ) -> list[Player]:
 
         for p in players:
@@ -224,7 +226,10 @@ class SquidGame:
                         new_p.set_face(face)
                     # Add new player only if he is facing the camera
                     if allow_faceless or face is not None:
-                        players.append(new_p)
+                        # Check if the player bounding box intersects with the starting area
+                        player_rect = GameCamera.convert_nn_to_screen_coord(new_p.get_rect(), webcam_frame, crop_info)
+                        if GameCamera.intersect(player_rect, settings.areas["start"]):
+                            players.append(new_p)
         return players
 
     def load_model(self):
@@ -374,7 +379,9 @@ class SquidGame:
                         break
 
                     new_players = self.tracker.process_nn_frame(nn_frame, self.settings)
-                    self.players = self.merge_players_lists(nn_frame, [], new_players, True, False)
+                    self.players = self.merge_players_lists(
+                        nn_frame, [], new_players, True, False, self.settings, crop_info
+                    )
                     self.game_screen.update(
                         screen, nn_frame, self.game_state, self.players, self.shooter, self.settings
                     )
@@ -412,7 +419,13 @@ class SquidGame:
 
                 # New player positions
                 self.players = self.merge_players_lists(
-                    nn_frame, self.players, self.tracker.process_nn_frame(nn_frame, self.settings), False, True
+                    nn_frame,
+                    self.players,
+                    self.tracker.process_nn_frame(nn_frame, self.settings),
+                    False,
+                    True,
+                    self.settings,
+                    crop_info,
                 )
 
                 # Update last position while the green light is on
