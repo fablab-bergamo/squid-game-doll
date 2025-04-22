@@ -427,7 +427,7 @@ class SquidGame:
                     if time.time() > self.last_switch_time:
                         for player in self.players:
                             if (
-                                (player.has_moved() or player.has_expired())
+                                (player.has_moved(self.settings) or player.has_expired())
                                 and not player.is_eliminated()
                                 and not player.is_winner()
                             ):

@@ -180,7 +180,7 @@ class GameScreen:
         if game_state in [INIT, GREEN_LIGHT, RED_LIGHT]:
             self.draw_finish_area(video_surface, settings)
 
-        self.draw_bounding_boxes(video_surface, players, game_state != INIT)
+        self.draw_bounding_boxes(video_surface, players, settings, game_state != INIT)
 
         video_surface = pygame.transform.flip(video_surface, True, False)
         fullscreen.blit(video_surface, (x_web, y_web))
@@ -245,11 +245,12 @@ class GameScreen:
         self,
         frame_surface: pygame.Surface,
         players: list[Player],
+        settings: GameSettings,
         add_previous_pos: bool = False,
     ) -> None:
         for player in players:
             color: tuple[int, int, int] = (
-                RED if player.is_eliminated() else (GREEN if not player.has_moved() else YELLOW)
+                RED if player.is_eliminated() else (GREEN if not player.has_moved(settings) else YELLOW)
             )
             x, y, w, h = player.get_rect()
             # transforms the coordinates from the webcam frame to the pygame frame using the ratios

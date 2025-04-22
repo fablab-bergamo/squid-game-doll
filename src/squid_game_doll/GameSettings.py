@@ -15,6 +15,15 @@ class GameSettings:
         """
         return pygame.Rect(0, 0, self.reference_frame[0], self.reference_frame[1])
 
+    def get_param(self, key: str, default_value=None):
+        """
+        Get a parameter value from the settings.
+        """
+        for param in self.params:
+            if param["key"] == key:
+                return param["value"]
+        return default_value
+
     @staticmethod
     def load_settings(path: str):
         """
@@ -81,6 +90,7 @@ class GameSettings:
                 "max": 100,
                 "type": int,
                 "default": 40,
+                "value": 40,
             },
             {
                 "key": "bytetrack_confidence",
@@ -89,6 +99,7 @@ class GameSettings:
                 "max": 100,
                 "type": int,
                 "default": 40,
+                "value": 40,
             },
             {
                 "key": "tracking_memory",
@@ -97,6 +108,7 @@ class GameSettings:
                 "max": 60,
                 "type": int,
                 "default": 30,
+                "value": 30,
             },
             {
                 "key": "pixel_tolerance",
@@ -105,6 +117,7 @@ class GameSettings:
                 "max": 50,
                 "type": int,
                 "default": 15,
+                "value": 15,
             },
             {
                 "key": "img_normalization",
@@ -113,6 +126,7 @@ class GameSettings:
                 "max": 1,
                 "type": int,
                 "default": 0,
+                "value": 0,
             },
             {
                 "key": "img_brightness",
@@ -121,6 +135,7 @@ class GameSettings:
                 "max": 1,
                 "type": int,
                 "default": 0,
+                "value": 0,
             },
             # Add additional configurable settings here.
         ]

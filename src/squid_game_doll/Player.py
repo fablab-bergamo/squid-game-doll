@@ -2,6 +2,7 @@ import cv2
 import pygame
 import numpy as np
 import time
+from .GameSettings import GameSettings
 
 
 class Player:
@@ -114,7 +115,7 @@ class Player:
         Note: coordinates are relative to the webcam frame in original dimensions"""
         self._coords = coords
 
-    def has_moved(self):
+    def has_moved(self, game_settings: GameSettings) -> bool:
         """Returns the movement status of the player"""
         if self._last_position is None:
             self._last_position = self._coords
@@ -131,7 +132,7 @@ class Player:
             ]
         )
 
-        return distance > Player.MOVEMENT_THRESHOLD_PX
+        return distance > game_settings.get_param("pixel_tolerance", Player.MOVEMENT_THRESHOLD_PX)
 
     def __str__(self):
         return f"Player {self._id} at {self._coords} (moved: {self.has_moved()}, TTL: {round(Player.MAX_AGE_SECONDS - (time.time() - self._last_seen), 1)} s)"

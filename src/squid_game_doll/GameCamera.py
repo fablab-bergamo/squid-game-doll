@@ -285,7 +285,7 @@ class GameCamera:
         x = nn_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
         nn_frame = nn_frame[y : y + h, x : x + w]  # Crop the frame to the bounding rectangle
 
-        if settings.params.get("img_normalization", False):
+        if settings.get_param("img_normalization", False):
             # Normalize brightness and contrast using histogram equalization
             lab = cv2.cvtColor(nn_frame, cv2.COLOR_BGR2LAB)  # Convert to LAB color space
             l, a, b = cv2.split(lab)
@@ -293,7 +293,7 @@ class GameCamera:
             lab = cv2.merge((l, a, b))
             nn_frame = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)  # Convert back to BGR
 
-        if settings.params.get("img_brightness", False):
+        if settings.get_param("img_brightness", False):
             # Adjust brightness & contrast (fine-tuning)
             alpha = 1.2  # Contrast control (1.0-3.0)
             beta = 20  # Brightness control (0-100)
