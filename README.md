@@ -31,14 +31,14 @@ Players are expected to line-up 8-10m from the screen, stand in line during regi
 
 ## Open issues / Tasks
 
-* ~~(DOLL) Build a 3D model for a doll with red LED eyes and moving head~~ 
-* (VISION) How to combine laser red dot recognition requirements (low exposure) with players recognition requirements (normal exposure)
+* (VISION) How to combine laser red dot recognition requirements (low exposure) with players recognition requirements (normal exposure). Retrain a YOLO model?
+* (LASER SHOOTER) Speed of laser pointing - slow to converge, about 10-15 s
 * (LASER SHOOTER) Maybe using a depth estimator model to calculate the angles rather than adjusting based on a video stream
+* ~~(DOLL) Build a 3D model for a doll with red LED eyes and moving head~~ 
 * ~~(GAMEPLAY) How to terminate the game (finish line logic missing)~~ 
 * ~~(GAMEPLAY) Have a player registration step or not ??~~
-* (GAMEPLAY) Sensibility threshold to be shot is based on rectangle center movements, so large moves are authorized far from the camera, very little close to the camera. 
-* (LASER SHOOTER) Speed of laser pointing - slow to converge, about 10-15 s
-* (Various) Software quality: github actions for python packaging, some basic automated tests
+* ~~(GAMEPLAY) Sensibility threshold to be shot is based on rectangle center movements, so large moves are authorized far from the camera, very little close to the camera. Made setting adjustable, default 15 px.~~
+* ~~(Various) Software quality: github actions for python packaging, some basic automated tests~~
  
 ## Hardware
 
