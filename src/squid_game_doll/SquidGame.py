@@ -162,9 +162,8 @@ class SquidGame:
         for player in self.players:
             # Only consider players not already eliminated or marked as winner.
             if not player.is_eliminated() and not player.is_winner():
-                player_rect = pygame.Rect(player.get_rect())
                 # Convert player rectangle from nn frame to webcam frame coordinates (where areas rectangles are expressed)
-                player_rect = GameCamera.convert_nn_to_screen_coord(player_rect, nn_frame, crop_info, 1.0)
+                player_rect = GameCamera.convert_nn_to_screen_coord(player.get_rect(), nn_frame, crop_info, 1.0)
 
                 # If player has reached the finish area,
                 # mark the player as a winner. At least two seconds after last transition.
@@ -380,7 +379,7 @@ class SquidGame:
 
                     new_players = self.tracker.process_nn_frame(nn_frame, self.settings)
                     self.players = self.merge_players_lists(
-                        nn_frame, [], new_players, True, False, self.settings, crop_info
+                        nn_frame, [], new_players, True, False, self.settings, rect_info
                     )
                     self.game_screen.update(
                         screen, nn_frame, self.game_state, self.players, self.shooter, self.settings

@@ -49,7 +49,7 @@ class Player:
         return self._visible
 
     def get_target(self) -> tuple[int, int]:
-        rect = self.get_rect()
+        rect = self.get_bbox()
         """ Target = Half the width, one third height """
         return (rect[0] + rect[2] / 2, rect[1] + rect[3] / 3)
 
@@ -83,10 +83,15 @@ class Player:
         Note: coordinates are relative to the webcam frame in original dimensions"""
         self._coords = (rect[0], rect[1], rect[2] + rect[0], rect[3] + rect[1])
 
-    def get_rect(self):
+    def get_bbox(self) -> tuple:
         """Returns the bounding box rectangle in (x, y, w, h) format
         Note: coordinates are relative to the webcam frame in original dimensions"""
         return self.get_rect_from_pos(self._coords)
+
+    def get_rect(self) -> pygame.Rect:
+        """Returns the bounding box rectangle in (x, y, w, h) format
+        Note: coordinates are relative to the webcam frame in original dimensions"""
+        return pygame.Rect(self.get_bbox())
 
     def get_last_rect(self) -> tuple:
         """Returns the bounding box rectangle in (x, y, w, h) format
@@ -135,4 +140,4 @@ class Player:
         return distance > game_settings.get_param("pixel_tolerance", Player.MOVEMENT_THRESHOLD_PX)
 
     def __str__(self):
-        return f"Player {self._id} at {self._coords} (moved: {self.has_moved()}, TTL: {round(Player.MAX_AGE_SECONDS - (time.time() - self._last_seen), 1)} s)"
+        return f"Player {self._id} at {self._coords} (TTL: {round(Player.MAX_AGE_SECONDS - (time.time() - self._last_seen), 1)} s)"

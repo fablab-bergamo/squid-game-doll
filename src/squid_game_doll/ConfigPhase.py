@@ -394,7 +394,7 @@ class GameConfigPhase:
                 # Run the model and highlight detections
                 for p in self.neural_net.process_nn_frame(nn_frame, self.game_settings):
                     if p is not None:
-                        bbox = p.get_rect()
+                        bbox = p.get_bbox()
                         # Now apply scaling factors from NN Frame to webcam frame AND from webcam frame to resized surface
                         x = int(bbox[0] * new_width / rect.width * rect.width / nn_frame.shape[1])
                         y = int(bbox[1] * new_height / rect.height * rect.height / nn_frame.shape[0])

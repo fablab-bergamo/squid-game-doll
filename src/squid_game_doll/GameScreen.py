@@ -252,7 +252,7 @@ class GameScreen:
             color: tuple[int, int, int] = (
                 RED if player.is_eliminated() else (GREEN if not player.has_moved(settings) else YELLOW)
             )
-            x, y, w, h = player.get_rect()
+            x, y, w, h = player.get_bbox()
             # transforms the coordinates from the webcam frame to the pygame frame using the ratios
             x, y, w, h = x / self._ratio, y / self._ratio, w / self._ratio, h / self._ratio
             # Flip along central vertical
@@ -417,7 +417,7 @@ class GameScreen:
                     "number": cpt,
                     "active": not player.is_eliminated() and not player.is_winner(),
                     "image": img,
-                    "rectangle": player.get_rect(),
+                    "rectangle": player.get_bbox(),
                     "id": player.get_id(),
                     "visible": player.is_visible(),
                     "winner": player.is_winner(),

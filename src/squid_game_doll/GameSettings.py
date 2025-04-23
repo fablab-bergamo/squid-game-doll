@@ -19,6 +19,8 @@ class GameSettings:
         """
         Get a parameter value from the settings.
         """
+        if type(self.params) is dict:
+            return self.params.get(key, default_value)
         for param in self.params:
             if param["key"] == key:
                 return param["value"]
@@ -136,6 +138,15 @@ class GameSettings:
                 "type": int,
                 "default": 0,
                 "value": 0,
+            },
+            {
+                "key": "ttl",
+                "caption": "Maximum time for hidden players (seconds)",
+                "min": 5,
+                "max": 60,
+                "type": int,
+                "default": 60,
+                "value": 60,
             },
             # Add additional configurable settings here.
         ]

@@ -116,9 +116,9 @@ def test_has_moved():
     assert not player.has_moved(settings)
 
 
-def test_get_rect():
+def test_get_bbox():
     player = Player(1, (0, 0, 100, 100))
-    assert player.get_rect() == (0, 0, 100, 100)
+    assert player.get_bbox() == (0, 0, 100, 100)
 
 
 def test_get_last_rect():
