@@ -52,6 +52,8 @@ class PlayerTrackerHailo(BasePlayerTracker):
 
             start_time = cv2.getTickCount()
             # Put the preprocessed frame into the Hailo inference queue
+            # Ridimensiona nn_frame a 640 640
+            nn_frame = cv2.resize(nn_frame, (self.model_w, self.model_h))
             self.input_queue.put([nn_frame])
 
             # Retrieve the inference results (blocking call)

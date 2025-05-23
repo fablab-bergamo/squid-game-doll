@@ -66,7 +66,7 @@ class GameConfigPhase:
 
         # Create a dictionary to hold current setting values.
         for opt in self.settings_config:
-            if self.game_settings.params.get(opt["key"]) is None:
+            if opt["key"] not in self.game_settings.params:
                 logger.warning(f"Warning: {opt['key']} not found in config file. Using default value.")
                 self.game_settings.params = {opt["key"]: opt["default"] for opt in self.settings_config}
 

@@ -46,7 +46,7 @@ class SquidGame:
         self.previous_positions: list = []  # List of bounding boxes (tuples)
         self.tracker: BasePlayerTracker = None  # Initialize later
         self.FAKE: bool = False
-        self.face_extractor: FaceExtractor = None  # Initialize later
+        self.face_extractor: FaceExtractor = FaceExtractor()  # Initialize later
         self.players: list[Player] = []
         self.green_sound: pygame.mixer.Sound = pygame.mixer.Sound(ROOT + "/media/green_light.mp3")
         # 무궁화 꽃이 피었습니다
@@ -234,7 +234,7 @@ class SquidGame:
     def load_model(self):
 
         if platform.system() == "Linux":
-            from PlayerTrackerHailo import PlayerTrackerHailo
+            from .PlayerTrackerHailo import PlayerTrackerHailo
 
             logger.info(f"Loading HAILO model ({self.model})...")
             # self.tracker = PlayerTrackerHailo("yolov11m.hef")

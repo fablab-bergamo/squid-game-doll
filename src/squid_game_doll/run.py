@@ -115,7 +115,7 @@ def run():
     settings = GameSettings.load_settings(args.config)
     if settings is None:
         settings = GameSettings()
-        frame_size = cam.get_frame_size()
+        frame_size = cam.get_native_resolution(args.webcam)
         settings.params = GameSettings.default_params()
         settings.areas = GameSettings.default_areas(frame_size[0], frame_size[1])
         settings.save(args.config)
