@@ -17,7 +17,7 @@ def do_connect():
             print("connecting...")
             start = time.time()
             TIMEOUT = start + 10
-            while not wlan.isconnected() and time.time() - TIMEOUT < 0:
+            while not wlan.isconnected() and time.time() < TIMEOUT:
                 pass
         except Exception as e:
             print("WiFi failed", e)

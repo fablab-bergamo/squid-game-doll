@@ -487,7 +487,7 @@ class SquidGame:
         """Start the Squid Game (Green Light Red Light)"""
         # Initialize screen
         screen: pygame.Surface = pygame.display.set_mode(
-            (self.game_screen.get_desktop_width(), self.game_screen.get_desktop_width()),
+            (self.game_screen.get_desktop_width(), self.game_screen.get_desktop_height()),
             flags=pygame.FULLSCREEN,
             display=self.game_screen.get_display_idx(),
         )

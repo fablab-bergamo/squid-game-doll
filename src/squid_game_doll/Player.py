@@ -76,7 +76,7 @@ class Player:
     def get_image(self) -> pygame.image:
         if self._face is None:
             return None
-        return pygame.image.frombuffer(self._face.tostring(), self._face.shape[1::-1], "BGR")
+        return pygame.image.frombuffer(self._face.tobytes(), self._face.shape[1::-1], "BGR")
 
     def set_rect(self, rect: tuple):
         """Sets the bounding box rectangle in (x, y, w, h) format

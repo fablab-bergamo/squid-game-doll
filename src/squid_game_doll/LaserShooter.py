@@ -30,7 +30,7 @@ class LaserShooter:
         self._enable_laser = enable_laser
 
     def is_laser_enabled(self) -> bool:
-        return self.is_laser_enabled
+        return self._enable_laser
 
     def set_coeffs(self, px_per_degree: tuple):
         if px_per_degree is not None:

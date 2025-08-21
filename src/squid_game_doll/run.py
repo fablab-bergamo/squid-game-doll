@@ -11,7 +11,7 @@ from .SquidGame import SquidGame
 from .ConfigPhase import GameConfigPhase
 
 
-def command_line_args() -> any:
+def command_line_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("run.py")
     parser.add_argument(
         "-m", "--monitor", help="0-based index of the monitor", dest="monitor", type=int, default=-1, required=False
@@ -80,11 +80,15 @@ def command_line_args() -> any:
 
 def run():
     logger.add("squidgame.log", rotation="1 MB", retention="7 days", level="DEBUG")
-    if platform.system() != "Linux":
+    if platform.system() == "Windows":
         import ctypes
 
         ctypes.windll.user32.SetProcessDPIAware()
         # Disable hardware acceleration for webcam on Windows
+        os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+        os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+    elif platform.system() != "Linux":
+        # For non-Linux, non-Windows systems (like macOS), only set OpenCV environment variables
         os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
         os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
 

@@ -39,7 +39,7 @@ class GameCamera:
             # Try to find
             index = GameCamera.getCameraIndex(index)
             if index != -1:
-                logger.debug("Trying with webcam idx", index)
+                logger.debug(f"Trying with webcam idx {index}")
 
         self.cap = self.__setup_webcam(index)
 
