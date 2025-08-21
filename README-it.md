@@ -147,7 +147,7 @@ Devi definire tre aree critiche:
 
 ### Installazione Dettagliata
 - **Setup PC**: Vedi istruzioni di installazione sopra
-- **Raspberry Pi 5**: Vedi [INSTALL.md](INSTALL.md) per setup completo Hailo AI Kit
+- **Raspberry Pi 5**: Vedi [INSTALL.md](INSTALL.md) ([Italiano](INSTALL_IT.md)) per setup completo Hailo AI Kit
 - **Programmazione ESP32**: Usa [Thonny IDE](https://thonny.org/) con MicroPython (vedi cartella `esp32/`)
 
 ## 🎲 Opzioni Linea di Comando
@@ -292,7 +292,7 @@ circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
 
 ## 📚 Risorse Aggiuntive
 
-- **Guida Installazione**: [INSTALL.md](INSTALL.md) per setup Raspberry Pi
+- **Guida Installazione**: [INSTALL.md](INSTALL.md) ([Italiano](INSTALL_IT.md)) per setup Raspberry Pi
 - **Sviluppo ESP32**: Usa [Thonny IDE](https://thonny.org/) per MicroPython
 - **Reti Neurali**: [Dettagli implementazione Hailo AI](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
 - **Ottimizzazione Telecamera**: [Consigli prestazioni telecamera OpenCV](https://forum.opencv.org/t/opencv-camera-low-fps/567/4)
