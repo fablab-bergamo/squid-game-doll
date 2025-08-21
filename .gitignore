@@ -184,3 +184,4 @@ screenshot_*.png
 config.yaml
 poetry.lock
 config-test.yaml
+.claude/settings.local.json
