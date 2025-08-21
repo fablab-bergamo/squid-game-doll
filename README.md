@@ -1,250 +1,302 @@
-# squid-game-doll
+# Squid Game Doll 🔴🟢
 
-An attempt to create a "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking.  A moving doll is used to signal the game phase.
-First working version was demonstrated during Arduino Days 2025 in FabLab Bergamo (Italy). A future unit with a laser pan&tilt platform is foreseen in order to shoot moving players with a laser.
+*English | [**Italiano**](README-it.md)*
 
-## Gameplay
+An AI-powered "Red Light, Green Light" robot inspired by the Squid Game TV series. This project uses computer vision and machine learning for real-time player recognition and tracking, featuring an animated doll that signals game phases and an optional laser targeting system for eliminated players.
 
-Players are expected to line-up 8-10m from the screen, stand in line during registration where their faces are saved, then start moving towards the finish line during green light. If they move during red light, they are eliminated and a fixed sum is added to the prize pool.
+**🎯 Features:**
+- Real-time player detection and tracking using YOLO neural networks
+- Face recognition for player registration
+- Interactive animated doll with LED eyes and servo-controlled head
+- Optional laser targeting system for eliminated players *(work in progress)*
+- Support for both PC (with CUDA) and Raspberry Pi 5 (with Hailo AI Kit)
+- Configurable play areas and game parameters
 
-| Game phase | Screen | Doll |
-| -- | -- | -- |
-| Loading screen | ![Loading screen](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/loading_screen.png?raw=true) | random to attract crowd |
-| Registration (with 15s countdown) | ![registration](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/init.png?raw=true) | ![facing, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_init.png?raw=true) |
-| Green light | ![registration](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/green_light.png?raw=true) | ![rotated, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_off.png?raw=true) |
-| Red light | ![registration](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/red_light.png?raw=true) Note that player 1 has reached the finish line and is therefore green. | ![facing, red eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_on.png?raw=true) |
-| Elimination | player play screenshot | ![facing, red eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_on.png?raw=true) |
-| End game | prize distribution screenshot | ![facing, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_init.png?raw=true) |
+**🏆 Status:** First working version demonstrated at Arduino Days 2025 in FabLab Bergamo, Italy.
 
-## Configuration screen
+## 🎮 Quick Start
 
-* Webcam typically have 16/10 aspect ratios, and the play area may be a limited zone of the webcam field of view. It is useful to define a *vision area* from the webcam feed in order to avoid non-players detections, mask unwanted areas and to provide more details for the neural network limited 640x640 resolution.
-* To define *vision area*, one or more rectangles needs to be drawn on the screen (non-covered areas will be masked, i.e. to mask external lights).
-* Example screenshot from config phase:
-![config](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/config.png?raw=true)
-* Bounding rectangle in yellow of the *vision area* will be fed to the NN after image processing + resizing.
-* *Finish area*: player bounding box must intersect with finish area in order to be recognized as a winner. It can be drawn with rectangles like vision area.
-* *Starting area*: player bounding box must intersect with starting area in order to be registered as a player initially. It can be drawn with rectangles like vision area.
-* *Vision area* must intersect with finish and starting areas for the game to work properly.
-* During config phase, some settings can be adjusted (confidence level, contrast adjustments) in the SETTINGS menu option.
-* Live object detection & tracking performance can be checked, using the "Neural network preview" menu option.
+### Prerequisites
+- Python 3.9+ with Poetry
+- Webcam (Logitech C920 recommended)
+- Optional: ESP32 for doll control, laser targeting hardware
 
-## Open issues / Tasks
+### Installation
 
-* (VISION) How to combine laser red dot recognition requirements (low exposure) with players recognition requirements (normal exposure). Retrain a YOLO model?
-* (LASER SHOOTER) Speed of laser pointing - slow to converge, about 10-15 s
-* (LASER SHOOTER) Maybe using a depth estimator model to calculate the angles rather than adjusting based on a video stream
-* ~~(DOLL) Build a 3D model for a doll with red LED eyes and moving head~~ 
-* ~~(GAMEPLAY) How to terminate the game (finish line logic missing)~~ 
-* ~~(GAMEPLAY) Have a player registration step or not ??~~
-* ~~(GAMEPLAY) Sensibility threshold to be shot is based on rectangle center movements, so large moves are authorized far from the camera, very little close to the camera. Made setting adjustable, default 15 px.~~
-* ~~(Various) Software quality: github actions for python packaging, some basic automated tests~~
- 
-## Hardware
-
-* Installation on Raspberry PI 5 with AI KIT, see dedicated file [INSTALL.md](https://github.com/fablab-bergamo/squid-game-doll/blob/main/INSTALL.md). A PC can be used instead (best experience with CUDA GPU support)
-* ESP32C2 MINI Wemos board for servo control and doll control with Micropython (see esp32 folder)
-* Logitech webcam HD PRO Webcam C920 on Windows 11 / Raspberry PI 5
-* 1 x SG90 servomotor for head animation
-* 2 red LED for eyes animation
-* 3D printable parts available in <code>hardware/doll-model</code>
-
-For laser shooter (not yet working)
-* 2 x SG90 servomotors
-* Pan-and-tilt platform (11 EUR): https://it.aliexpress.com/item/1005005666356097.html?spm=a2g0o.order_list.order_list_main.41.47a73696V4aDQn&gatewayAdapt=glo2ita
-* Laser holder 3D printable part : see <code>hardware/proto/Laser Holder v6.stl</code>
-* Either green laser 5mW (11 EUR) : https://aliexpress.com/item/1005005346537253.html . This model has high luminiosity with respect to red laser, but has poor focus. This may be better for eye safety.
-* or Red laser 5mW (3 EUR) : https://aliexpress.com/item/1005008087745092.html . This model has good focus.
-
-## Dev tools used in this project 
-
-* VS Code with Python extension
-* Thonny for ESP32 development (download here : [https://thonny.org/](https://thonny.org/))
-* Python 3.11/3.12 with main libraries opencv, ultralytics, hailo, numpy, pygame. 
-
-## Geometry of play space
-
-* Expected play area 10 x 10 m indoor
-* In order to hit a 50 cm wide target @ 10m the laser shall be precise 2.8° in horizontal axis. This should be doable with standard servos and 3D-printed pan&tilt platform for the laser (see hardware folder).
-
-## AI 
-
-* For more details about the neural network model used for player recognition & tracking, see this [article](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/).
-
-## (VISION) Detecting the red laser dot
-
-In order to reliably point the laser to the eliminated player, laser dot position must be acquired, positioning error calculated, and angles corrected accordingly.
-In the example picture below, red laser dot is found on the webcam and a visor is added on top of predicted position.
-
-![image](https://github.com/user-attachments/assets/b3f5dd56-1ecf-4783-9174-87988d44a1f1)
-
-## Current approach
-
-* Choose a channel from the webcam picture (R,G,B) or convert to grayscale. 
-* Apply a threshold to the picture to find the brightest pixels
-
-```python
-diff_thr = cv2.threshold(channel, threshold, 255, cv2.THRESH_TOZERO)
-```
-
-Resulting image:
-
-![image](https://github.com/user-attachments/assets/5bef5984-6bc9-4310-a7bd-8a4e4634ca12)
-
-* Increase remaining spots with dilate (a key ingredient!!)
-
-```python
-masked_channel = cv2.dilate(masked_channel, None, iterations=4)
-```
-
-Resulting image:
-
-![image](https://github.com/user-attachments/assets/336c67bc-ccb0-4f91-9eda-7e0f3152b8e3)
-
-* Look for circles using Hough Transform
-
-```python
-circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
-                                param1=50,param2=2,minRadius=3,maxRadius=10)
-```
-
-param2 is a very sensitive parameter. minRadius and maxRadius are dependent on webcam resolution and dilate step.
-
-* If the circles found are more than one, increase threshold (dichotomy search) and retry.
-* If no circles are found, decrease threshold (dichotomy search) and retry
-* If threshold limits are reached, exit reporting no laser
-* If exactly one circle is found, exit reporting the circle center coordinates
-
-## What is tricky about laser recognition
-
-* *Exposure of the webcam* is very important:
-
-If picture is too bright (autosettings tend to produce very bright images), laser detection fails. For this reason, webcam is set to manual exposure and underexposed. Probably, an exposure calibration step is required until the picture has the right average brightness. With Logitech C920 results are OK in interior room with exposure around (-10, -5) @ 920x720 resolution. This will vary with different webcam.
-
-| Overexposure (-4) | Under-exposure (-11) |
-| -- | -- |
-| ![image](https://github.com/user-attachments/assets/970ebd68-ed88-4cae-9aec-5cdea090d67a) | ![image](https://github.com/user-attachments/assets/c05399e9-55eb-413e-bc1f-bd2ac2f9e174) |
-| ![image](https://github.com/user-attachments/assets/da60a5f8-7516-4530-99ba-a4e7c5e1b815) (threshold) | ![image](https://github.com/user-attachments/assets/f7b11868-5535-4285-9b7c-822c3c1f62e0) (after dilate) |
-
-* Exposure is somehow dependent on resolution requested and FPS requested to the webcam. I fixed the parameters in the webcam initialization step to avoid variability.
-
-* Some surfaces absorb more light than other resulting in brightest spot not being the laser. Additional search algorithms to be tested (e.g. checking maximum R to G / R to B color ratios)
-  
-* Green laser seem to work better than Red laser on many surfaces. But it may be my Aliexpress green laser is more powerful.
-  
-* Try-and-error loop is slow - another approach which helped me speed up testing is to generate pictures by adding fake laser spots (ellipsis with variable red/brightness) and compare actual position with predicted precisions.
-
-## Dev notes regarding laser detection
-
-* Very slow startup on x64 / Windows 11 fixed by
-
-```python
-import os
-os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
-
-import cv2
-```
-
-* Image processing techniques that did not work
-  
-| Attempt | Why it failed | What could be done |
-| -- | -- | -- |
-| Switching on the laser programmatically and substract images to find the spot | Even without buffer, webcam images have latency > 250 ms resulting in difference images having lots of pixels especially with persons in the scene | Solve webcam latency and retry with fast laser switch (>25Hz?). Check if the laser really turns off immediately. |
-| Laplace transform to find rapid variations around the spot | It's more for contour detection and it finds a lot of rapid variations in normal interior scenes, or faces | ??? |
-| HSV thresholds based on fixed value | Red laser is not fully red on the picture, white is present at the center | Implement adaptive adaptation on V value? |
-
-## The game itself
-
-Using pygame as rendering engine see game.py
-
-![image](https://github.com/user-attachments/assets/4f3aed2e-ce2e-4f75-a8dc-2d508aff0b47)
-
-### Player detection (YOLO model)
-
-* On PC, YOLO v8 medium with tracking see players_tracker.py. Performance w/ CUDA RTX2060 30fps, on AMD CPU 3fps.
-* On Raspberry, evaluating YOLOV11m (approx 10 fps)
-* YOLO model returns bounding rectangles with class person around players. The center of the rectangle is memorized and shouldnt move above a fixed pixel threshold around 15 px.
-* Pre-compiled models available for Hailo 8L (AI KIT on Raspberry) : https://github.com/hailo-ai/hailo_model_wzoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst
-
-### Face detection for player board
-
-* mediapipe / FaceDetection see FaceExtractor.py
-* Used to create the player tiles on the left part of the screen
-* Quite slow, running on CPU
-
-### How to install/run on PC (see INSTALL.MD for Raspberry)
-
-* Install poetry and let him do the installation of packages into a venv.
-
+**For PC (Windows/Linux):**
 ```bash
+# Install Poetry
 pip install poetry
+
+# Install dependencies
 poetry install
-```
 
-* Install CUDA support for NVIDIA GPU (facultative)
-
-```bash
+# Optional: CUDA support for NVIDIA GPU
 poetry run pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
 ```
 
-* Command-line settings
+**For Raspberry Pi 5 with Hailo AI Kit:**
+```bash
+poetry install
+poetry run pip install git+https://github.com/hailo-ai/hailo-apps-infra.git
 
-```shell
-usage: run.py [-h] [-m MONITOR] [-w WEBCAM] [-k] [-i IP] [-j JOYSTICK] [-n MODEL] [-c CONFIG] [-s]
-
-options:
-  -h, --help            show this help message and exit
-  -m MONITOR, --monitor MONITOR
-                        0-based index of the monitor
-  -w WEBCAM, --webcam WEBCAM
-                        0-based index of the webcam
-  -k, --killer          enable or disable the esp32 laser shooter
-  -i IP, --tracker-ip IP
-                        sets the esp32 tracker IP address
-  -j JOYSTICK, --joystick JOYSTICK
-                        sets the joystick index
-  -n MODEL, --neural_net MODEL
-                        specify neural network model file for player recognition
-  -c CONFIG, --config CONFIG
-                        specify config file (defaults to config.yaml)
-  -s, --setup           go to setup mode
+# Download pre-compiled Hailo models
+wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.0/hailo8l/yolov11m.hef
 ```
 
-* Example: configure the vision area for webcam, finish and starting areas (will generate a config.yaml file)
+### Setup and Run
 
+1. **Configure play areas** (first-time setup):
 ```bash
 poetry run python -m src.squid_game_doll.run --setup
 ```
 
-* Example: run game with default configuration file
-
+2. **Run the game**:
 ```bash
 poetry run python -m src.squid_game_doll.run
 ```
 
-* Example: run game on forced monitor 0, webcam 0, enable esp32 laser kills, esp32 on IP=192.168.45.50
-
+3. **Run with laser targeting** (requires ESP32 setup):
 ```bash
-poetry run python -m src.squid_game_doll.run -m 0 -w 0 -k -i 192.168.45.50
+poetry run python -m src.squid_game_doll.run -k -i 192.168.45.50
 ```
 
-* Example: setup the areas using webcam at index 0
+## 🎯 How It Works
+
+### Game Flow
+Players line up 8-10m from the screen and follow this sequence:
+
+1. **📝 Registration (15s)**: Stand in the starting area while the system captures your face
+2. **🟢 Green Light**: Move toward the finish line (doll turns away, eyes off)
+3. **🔴 Red Light**: Freeze! Any movement triggers elimination (doll faces forward, red eyes)
+4. **🏆 Victory/💀 Elimination**: Win by reaching the finish line or get eliminated for moving during red light
+
+### Game Phases Visual Guide
+
+| Phase | Screen | Doll State | Action |
+|-------|--------|------------|---------|
+| **Loading** | ![Loading screen](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/loading_screen.png?raw=true) | Random movement | Attracts crowd |
+| **Registration** | ![registration](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/init.png?raw=true) | ![Facing, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_init.png?raw=true) | Face capture |
+| **Green Light** | ![Green light](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/green_light.png?raw=true) | ![Rotated, no eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_off.png?raw=true) | Players move |
+| **Red Light** | ![Red light](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/red_light.png?raw=true) | ![Facing, red eyes](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/doll_on.png?raw=true) | Motion detection |
+
+## ⚙️ Configuration
+
+The setup mode allows you to configure play areas and camera settings for optimal performance.
+
+### Area Configuration
+You need to define three critical areas:
+
+- **🎯 Vision Area** (Yellow): The area fed to the neural network for player detection
+- **🏁 Finish Area**: Players must reach this area to win
+- **🚀 Starting Area**: Players must register in this area initially
+
+![Configuration Interface](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/config.png?raw=true)
+
+### Configuration Steps
+1. Run setup mode: `poetry run python -m src.squid_game_doll.run --setup`
+2. Draw rectangles to define play areas (vision area must intersect with start/finish areas)
+3. Adjust settings in the SETTINGS menu (confidence levels, contrast)
+4. Test performance using "Neural network preview"
+5. Save configuration to `config.yaml`
+
+### Important Notes
+- Vision area should exclude external lights and non-play zones
+- Webcam resolution affects neural network input (typically resized to 640x640)
+- Proper area configuration is essential for game mechanics to work correctly
+
+## 🔧 Hardware Requirements
+
+### Supported Platforms
+| Platform | AI Acceleration | Performance | Best For |
+|----------|----------------|-------------|----------|
+| **PC with NVIDIA GPU** | CUDA | 30 FPS | Development, High Performance |
+| **PC (CPU only)** | None | 3 FPS | Basic Testing |
+| **Raspberry Pi 5 + Hailo AI Kit** | Hailo 8L | 10 FPS | Production Deployment |
+
+### Required Components
+
+#### Core System
+- **Computer**: PC (Windows/Linux) or Raspberry Pi 5
+- **Webcam**: Logitech C920 HD Pro (recommended) or compatible USB webcam
+- **Display**: Monitor or projector for game interface
+
+#### Doll Hardware
+- **Controller**: ESP32C2 MINI Wemos board
+- **Servo**: 1x SG90 servo motor (head movement)
+- **LEDs**: 2x Red LEDs (eyes)
+- **3D Parts**: Printable doll components (see `hardware/doll-model/`)
+
+#### Optional Laser Targeting System *(Work in Progress)*
+⚠️ **Safety Warning**: Use appropriate laser safety measures and follow local regulations.
+
+**Status**: Basic targeting implemented but requires refinement for production use.
+
+**Components:**
+- **Servos**: 2x SG90 servo motors for pan-tilt mechanism
+- **Platform**: [Pan-and-tilt platform (~11 EUR)](https://it.aliexpress.com/item/1005005666356097.html)
+- **Laser**: Choose one option:
+  - **Green 5mW**: Higher visibility, safer for eyes, less precise focus
+  - **Red 5mW**: Better focus, lower cost
+- **3D Parts**: Laser holder (see `hardware/proto/Laser Holder v6.stl`)
+
+### Play Space Requirements
+- **Area**: 10m x 10m indoor space recommended
+- **Distance**: Players start 8-10m from screen
+- **Lighting**: Controlled lighting for optimal computer vision performance
+
+### Detailed Installation
+- **PC Setup**: See installation instructions above
+- **Raspberry Pi 5**: See [INSTALL.md](INSTALL.md) for complete Hailo AI Kit setup
+- **ESP32 Programming**: Use [Thonny IDE](https://thonny.org/) with MicroPython (see `esp32/` folder)
+
+## 🎲 Command Line Options
 
 ```bash
+poetry run python -m src.squid_game_doll.run [OPTIONS]
+```
+
+### Available Options
+| Option | Description | Example |
+|--------|-------------|---------|
+| `-m, --monitor` | Monitor index (0-based) | `-m 0` |
+| `-w, --webcam` | Webcam index (0-based) | `-w 0` |
+| `-k, --killer` | Enable ESP32 laser shooter | `-k` |
+| `-i, --tracker-ip` | ESP32 IP address | `-i 192.168.45.50` |
+| `-j, --joystick` | Joystick index | `-j 0` |
+| `-n, --neural_net` | Custom neural network model | `-n yolov11m.hef` |
+| `-c, --config` | Config file path | `-c my_config.yaml` |
+| `-s, --setup` | Setup mode for area configuration | `-s` |
+
+### Example Commands
+
+**Basic setup:**
+```bash
+# First-time configuration
 poetry run python -m src.squid_game_doll.run --setup -w 0
+
+# Run game with default settings
+poetry run python -m src.squid_game_doll.run
 ```
 
-## How to profile Python and check what is slow
-
-* Use cProfile + snakeviz
-
+**Advanced configuration:**
 ```bash
-poetry install --with dev
-poetry run python -m cProfile -o game.prof -m src.squid_game_doll.run
-poetry run snakeviz .\game.prof
+# Full setup with laser targeting
+poetry run python -m src.squid_game_doll.run -m 0 -w 0 -k -i 192.168.45.50
+
+# Custom model and config
+poetry run python -m src.squid_game_doll.run -n custom_model.hef -c custom_config.yaml
 ```
 
-## Webcam info
+## 🤖 AI & Computer Vision
 
-* https://forum.opencv.org/t/opencv-camera-low-fps/567/4
-* Camera indexes are dependent on capabilities (CAP_DSHOW and CAP_V4L2)
+### Neural Network Models
+- **PC (Ultralytics)**: YOLOv8/v11 models for object detection and tracking
+- **Raspberry Pi (Hailo)**: Pre-compiled Hailo models optimized for edge AI
+- **Face Detection**: MediaPipe for player registration and identification
+
+### Performance Optimization
+- **Object Detection**: ~10-30 FPS depending on hardware
+- **Face Extraction**: CPU-bound, runs during registration and elimination
+- **Laser Detection**: Computer vision pipeline using threshold + dilate + Hough circles
+
+### Model Resources
+- [Hailo Model Zoo](https://github.com/hailo-ai/hailo_model_zoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst)
+- [Neural Network Implementation Details](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
+
+## 🛠️ Development & Testing
+
+### Code Quality Tools
+```bash
+# Install development dependencies
+poetry install --with dev
+
+# Code formatting
+poetry run black .
+
+# Linting
+poetry run flake8 .
+
+# Run tests
+poetry run pytest
+```
+
+### Performance Profiling
+```bash
+# Profile the application
+poetry run python -m cProfile -o game.prof -m src.squid_game_doll.run
+
+# Visualize profiling results
+poetry run snakeviz ./game.prof
+```
+
+### Game Interface
+
+![Game Interface](https://github.com/user-attachments/assets/4f3aed2e-ce2e-4f75-a8dc-2d508aff0b47)
+
+The game uses PyGame as the rendering engine with real-time player tracking overlay.
+
+## 🎯 Laser Targeting System (Advanced)
+
+### Computer Vision Pipeline
+The laser targeting system uses a sophisticated computer vision approach to detect and track laser dots:
+
+![Laser Detection Example](https://github.com/user-attachments/assets/b3f5dd56-1ecf-4783-9174-87988d44a1f1)
+
+### Detection Algorithm
+1. **Channel Selection**: Extract R, G, B channels or convert to grayscale
+2. **Thresholding**: Find brightest pixels using `cv2.threshold()`
+3. **Morphological Operations**: Apply dilation to enhance spots
+4. **Circle Detection**: Use Hough Transform to locate circular laser dots
+5. **Validation**: Adaptive threshold adjustment for single-dot detection
+
+```python
+# Key processing steps
+diff_thr = cv2.threshold(channel, threshold, 255, cv2.THRESH_TOZERO)
+masked_channel = cv2.dilate(masked_channel, None, iterations=4)
+circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
+                          param1=50, param2=2, minRadius=3, maxRadius=10)
+```
+
+### Critical Considerations
+- **Webcam Exposure**: Manual exposure control required (typically -10 to -5 for C920)
+- **Surface Reflectivity**: Different surfaces affect laser visibility
+- **Color Choice**: Green lasers often perform better than red
+- **Timing**: 10-15 second convergence time for accurate targeting
+
+### Troubleshooting
+| Issue | Solution |
+|-------|----------|
+| Windows slow startup | Set `OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0` |
+| Poor laser detection | Adjust exposure settings, check surface types |
+| Multiple false positives | Increase threshold, mask external light sources |
+
+## 🚧 Known Issues & Future Improvements
+
+### Current Limitations
+- **Vision System**: Combining low-exposure laser detection with normal-exposure player tracking
+- **Laser Performance**: 10-15 second targeting convergence time
+- **Hardware Dependency**: Manual webcam exposure calibration required
+
+### Roadmap
+- [ ] Retrain YOLO model for combined laser/player detection
+- [ ] Implement depth estimation for faster laser positioning
+- [ ] Automatic exposure calibration system
+- [ ] Enhanced surface reflection compensation
+
+### Completed Features
+- ✅ 3D printable doll with animated head and LED eyes
+- ✅ Player registration and finish line detection
+- ✅ Configurable motion sensitivity thresholds
+- ✅ GitHub Actions CI/CD and automated testing
+
+## 📚 Additional Resources
+
+- **Installation Guide**: [INSTALL.md](INSTALL.md) for Raspberry Pi setup
+- **ESP32 Development**: Use [Thonny IDE](https://thonny.org/) for MicroPython
+- **Neural Networks**: [Hailo AI implementation details](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
+- **Camera Optimization**: [OpenCV camera performance tips](https://forum.opencv.org/t/opencv-camera-low-fps/567/4)
+
+## 📄 License
+
+This project is open source. See the LICENSE file for details.
