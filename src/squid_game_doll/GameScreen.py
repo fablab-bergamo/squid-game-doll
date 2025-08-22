@@ -457,6 +457,27 @@ class GameScreen:
 
         return (w3, h3), (x, y)
 
+    def _enhance_face_basic(self, face_surface: pygame.Surface) -> pygame.Surface:
+        """
+        Apply basic face enhancement: light contrast boost and normalization
+        """
+        # Convert pygame surface to opencv array
+        face_array = pygame.surfarray.array3d(face_surface)
+        face_array = face_array.swapaxes(0, 1)  # Fix orientation
+        face_cv = cv2.cvtColor(face_array, cv2.COLOR_RGB2BGR)
+        
+        # Apply light contrast and brightness boost
+        alpha = 1.1  # Light contrast multiplier
+        beta = 5     # Small brightness offset
+        enhanced = cv2.convertScaleAbs(face_cv, alpha=alpha, beta=beta)
+        
+        # Convert back to pygame surface
+        result_rgb = cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB)
+        result_rgb = result_rgb.swapaxes(0, 1)  # Fix orientation back
+        enhanced_surface = pygame.surfarray.make_surface(result_rgb)
+        
+        return enhanced_surface
+
     def display_players(
         self,
         screen: pygame.Surface,
@@ -481,17 +502,21 @@ class GameScreen:
             # Draw blurred diamond
             self.draw_blurred_diamond(screen, x, y, PLAYER_SIZE)
 
-            # Draw player image
+            # Draw player image with basic enhancement
             img = player["image"]
+            img = self._enhance_face_basic(img)
             img = self.mask_diamond(img)
 
-            # Apply red tint
-            red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
-            red_overlay.fill(GREEN if player["winner"] else RED)
-            img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_MULT)
-
-            if not player["active"]:
+            # Apply color tint only for game end state (winners/losers)
+            if not player["active"]:  # Eliminated players
+                red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+                red_overlay.fill((*RED, 80))  # Semi-transparent red
+                img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA)
                 img.fill(FADE_COLOR, special_flags=pygame.BLEND_MULT)
+            elif player["winner"]:  # Winners
+                green_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+                green_overlay.fill((*GREEN, 80))  # Semi-transparent green
+                img.blit(green_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA)
 
             # Color number according to player status
             screen.blit(img, (x, y))
