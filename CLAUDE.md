@@ -250,3 +250,4 @@ The ESP32 exposes these commands via TCP:
 - ESP32 communication uses simple TCP protocol for reliability
 - Servo angle limits are configurable in tracker.py constants
 - update the italian versions when you update any MD file in English
+- dont commit without being asked to

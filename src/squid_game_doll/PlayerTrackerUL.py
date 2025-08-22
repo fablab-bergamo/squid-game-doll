@@ -1,7 +1,6 @@
 import cv2
 import torch
 import os
-import platform
 from ultralytics import YOLO
 from pygame import Rect
 from loguru import logger
@@ -9,6 +8,14 @@ from loguru import logger
 from .BasePlayerTracker import BasePlayerTracker
 from .GameSettings import GameSettings
 from .Player import Player
+from .utils.platform import (
+    is_jetson_nano,
+    get_optimal_model_for_platform,
+    get_optimal_input_size,
+    get_optimal_thread_count,
+    should_use_tensorrt,
+    get_platform_info
+)
 
 
 class PlayerTrackerUL(BasePlayerTracker):
@@ -23,12 +30,12 @@ class PlayerTrackerUL(BasePlayerTracker):
         """
         super().__init__()
         
-        # Auto-select optimal model for Jetson Nano if not specified
+        # Auto-select optimal model if not specified
         if not model_path:
-            model_path = self._get_optimal_model()
+            model_path = get_optimal_model_for_platform()
         
         self.model_path = model_path
-        self.is_jetson = self._is_jetson_nano()
+        self.is_jetson = is_jetson_nano()
         
         # Try to load TensorRT optimized model first
         tensorrt_path = self._get_tensorrt_model_path()
@@ -38,28 +45,14 @@ class PlayerTrackerUL(BasePlayerTracker):
         
         self.yolo: YOLO = YOLO(self.model_path, verbose=False)
         
-        # Optimize for Jetson Nano
+        # Optimize for current platform
         if self.is_jetson:
             self._optimize_for_jetson()
         elif torch.cuda.is_available():
             self.yolo.to("cuda")
 
-        logger.info(f"YOLO running on {self.yolo.device} (Jetson: {self.is_jetson})")
+        logger.info(f"YOLO running on {self.yolo.device} ({get_platform_info()})")
     
-    def _is_jetson_nano(self) -> bool:
-        """Check if running on Jetson Nano"""
-        try:
-            return (platform.machine() == "aarch64" and 
-                   os.path.exists("/etc/nv_tegra_release"))
-        except:
-            return False
-    
-    def _get_optimal_model(self) -> str:
-        """Get optimal model for current platform"""
-        if self._is_jetson_nano():
-            return "yolo11n.pt"  # Nano model for Jetson Nano
-        else:
-            return "yolo11s.pt"  # Small model for other platforms
     
     def _get_tensorrt_model_path(self) -> str:
         """Get TensorRT model path"""
@@ -69,8 +62,8 @@ class PlayerTrackerUL(BasePlayerTracker):
     def _optimize_for_jetson(self) -> None:
         """Apply Jetson-specific optimizations"""
         try:
-            # Set optimal number of threads for ARM processors
-            torch.set_num_threads(4)
+            # Set optimal number of threads for current platform
+            torch.set_num_threads(get_optimal_thread_count())
             
             # Use GPU if available on Jetson
             if torch.cuda.is_available():
@@ -130,13 +123,13 @@ class PlayerTrackerUL(BasePlayerTracker):
             
         self.yolo: YOLO = YOLO(model_path, verbose=False)
         
-        # Optimize for Jetson Nano
+        # Optimize for current platform
         if self.is_jetson:
             self._optimize_for_jetson()
         elif torch.cuda.is_available():
             self.yolo.to("cuda")
 
-        logger.info(f"YOLO running on {self.yolo.device} (Jetson: {self.is_jetson})")
+        logger.info(f"YOLO running on {self.yolo.device} ({get_platform_info()})")
 
     def process_nn_frame(self, nn_frame: cv2.UMat, gamesettings: GameSettings) -> list[Player]:
         """
@@ -189,4 +182,4 @@ class PlayerTrackerUL(BasePlayerTracker):
 
     def get_max_size(self) -> int:
         """Get optimal input size for current platform"""
-        return 640  # Standard size for all platforms
+        return get_optimal_input_size()

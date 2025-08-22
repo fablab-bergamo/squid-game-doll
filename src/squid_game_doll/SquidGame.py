@@ -12,6 +12,12 @@ from .GameCamera import GameCamera
 from .LaserShooter import LaserShooter
 from .LaserTracker import LaserTracker
 from .GameSettings import GameSettings
+from .utils.platform import (
+    is_jetson_nano,
+    is_raspberry_pi,
+    should_use_hailo,
+    get_platform_info
+)
 from .constants import (
     ROOT,
     DARK_GREEN,
@@ -232,25 +238,14 @@ class SquidGame:
         return players
 
     def load_model(self):
-        # Detect hardware platform for proper tracker selection
-        is_raspberry_pi = False
-        platform_info = ""
-        try:
-            with open('/proc/cpuinfo', 'r') as f:
-                cpuinfo = f.read().lower()
-                if 'raspberry' in cpuinfo or 'bcm' in cpuinfo:
-                    is_raspberry_pi = True
-                    platform_info = " (Raspberry Pi)"
-                elif 'tegra' in cpuinfo:
-                    platform_info = " (Jetson)"
-        except:
-            pass
-            
+        # Use platform utilities for hardware detection
+        platform_info = get_platform_info()
+        
         # Only try Hailo on Raspberry Pi, use Ultralytics elsewhere
-        if platform.system() == "Linux" and is_raspberry_pi:
+        if should_use_hailo():
             try:
                 from .PlayerTrackerHailo import PlayerTrackerHailo
-                logger.info(f"Loading HAILO model{platform_info} ({self.model})...")
+                logger.info(f"Loading HAILO model ({platform_info}) - {self.model}...")
                 if self.model != "":
                     self.tracker = PlayerTrackerHailo(self.model)
                 else:
@@ -259,7 +254,7 @@ class SquidGame:
             except (ImportError, ModuleNotFoundError) as import_error:
                 logger.warning(f"Hailo dependencies not available ({import_error}), falling back to Ultralytics")
                 try:
-                    logger.info(f"Loading Ultralytics model{platform_info} ({self.model})...")
+                    logger.info(f"Loading Ultralytics model ({platform_info}) - {self.model}...")
                     if self.model != "":
                         self.tracker = PlayerTrackerUL(self.model)
                     else:
@@ -271,7 +266,7 @@ class SquidGame:
             except Exception as hailo_error:
                 logger.error(f"Failed to initialize Hailo tracker: {hailo_error}")
                 try:
-                    logger.info(f"Attempting Ultralytics fallback{platform_info}...")
+                    logger.info(f"Attempting Ultralytics fallback ({platform_info})...")
                     if self.model != "":
                         self.tracker = PlayerTrackerUL(self.model)
                     else:
@@ -283,7 +278,7 @@ class SquidGame:
         else:
             # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
             try:
-                logger.info(f"Loading Ultralytics model{platform_info} ({self.model})...")
+                logger.info(f"Loading Ultralytics model ({platform_info}) - {self.model}...")
                 if self.model != "":
                     self.tracker = PlayerTrackerUL(self.model)
                 else:
@@ -383,6 +378,7 @@ class SquidGame:
             if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.KEYDOWN:
+                logger.debug(f"Key pressed: {event.key} (Q key is {pygame.K_q})")
                 if event.key == pygame.K_q:
                     logger.info("Game exit requested by user (Q key)")
                     return False
@@ -390,6 +386,12 @@ class SquidGame:
                 return self.game_screen.handle_buttons_click(screen, event)
             elif event.type == pygame.JOYBUTTONDOWN:
                 return self.game_screen.handle_buttons(self.joystick)
+
+        # Also check if Q key is currently pressed (alternative method)
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_q]:
+            logger.info("Game exit requested by user (Q key held)")
+            return False
 
         return True
 
@@ -411,6 +413,8 @@ class SquidGame:
             if not self._init_done:
                 self.loading_screen(screen)
                 clock.tick(frame_rate)
+                # Handle events even during loading to allow Q key exit
+                running = self.handle_events(screen)
                 continue
                 
             # Check if tracker is available before proceeding

@@ -9,6 +9,10 @@ from .GameScreen import GameScreen
 from .GameSettings import GameSettings
 from .SquidGame import SquidGame
 from .ConfigPhase import GameConfigPhase
+from .utils.platform import (
+    should_use_hailo,
+    get_platform_info
+)
 
 
 def command_line_args() -> argparse.Namespace:
@@ -128,21 +132,15 @@ def run():
     if args.setup:
         screen = pygame.display.set_mode(size)
         
-        # Detect hardware platform - only use Hailo on Raspberry Pi
-        is_raspberry_pi = False
-        try:
-            with open('/proc/cpuinfo', 'r') as f:
-                cpuinfo = f.read().lower()
-                is_raspberry_pi = 'raspberry' in cpuinfo or 'bcm' in cpuinfo
-        except:
-            pass
+        # Use platform utilities for hardware detection
+        platform_info = get_platform_info()
         
         # Use the same robust tracker loading as in SquidGame
         nn = None
-        if platform.system() == "Linux" and is_raspberry_pi:
+        if should_use_hailo():
             try:
                 from .PlayerTrackerHailo import PlayerTrackerHailo
-                logger.info(f"Loading HAILO model for Raspberry Pi ({args.model})...")
+                logger.info(f"Loading HAILO model ({platform_info}) - {args.model}...")
                 if args.model != "":
                     nn = PlayerTrackerHailo(args.model)
                 else:
@@ -152,7 +150,7 @@ def run():
                 logger.warning(f"Hailo not available ({e}), falling back to Ultralytics for setup")
                 try:
                     from .PlayerTrackerUL import PlayerTrackerUL
-                    logger.info(f"Loading Ultralytics model ({args.model})...")
+                    logger.info(f"Loading Ultralytics model ({platform_info}) - {args.model}...")
                     if args.model != "":
                         nn = PlayerTrackerUL(args.model)
                     else:
@@ -165,7 +163,7 @@ def run():
             # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
             try:
                 from .PlayerTrackerUL import PlayerTrackerUL
-                logger.info(f"Loading Ultralytics model ({args.model})...")
+                logger.info(f"Loading Ultralytics model ({platform_info}) - {args.model}...")
                 if args.model != "":
                     nn = PlayerTrackerUL(args.model)
                 else:
