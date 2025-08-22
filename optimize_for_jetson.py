@@ -49,7 +49,7 @@ def set_jetson_max_performance():
     except FileNotFoundError:
         logger.error("Jetson utilities not found. Make sure you're running on a Jetson device.")
 
-def convert_to_tensorrt(model_path: str, imgsz: int = 416, half: bool = True, int8: bool = False):
+def convert_to_tensorrt(model_path: str, imgsz: int = 640, half: bool = True, int8: bool = False):
     """Convert YOLO model to TensorRT format"""
     try:
         from ultralytics import YOLO
@@ -135,8 +135,8 @@ def main():
     parser = argparse.ArgumentParser(description="Optimize YOLO models for Jetson Nano")
     parser.add_argument("--model", type=str, default="", 
                        help="Path to YOLO model (default: download yolo11n.pt)")
-    parser.add_argument("--imgsz", type=int, default=416,
-                       help="Input image size (default: 416 for Jetson Nano)")
+    parser.add_argument("--imgsz", type=int, default=640,
+                       help="Input image size (default: 640)")
     parser.add_argument("--int8", action="store_true",
                        help="Use INT8 quantization (fastest but may reduce accuracy)")
     parser.add_argument("--no-performance", action="store_true",

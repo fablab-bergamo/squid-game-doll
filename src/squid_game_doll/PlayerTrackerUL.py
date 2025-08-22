@@ -81,7 +81,7 @@ class PlayerTrackerUL(BasePlayerTracker):
         except Exception as e:
             logger.warning(f"Jetson optimization failed: {e}")
     
-    def export_to_tensorrt(self, imgsz: int = 416, half: bool = True, int8: bool = False) -> str:
+    def export_to_tensorrt(self, imgsz: int = 640, half: bool = True, int8: bool = False) -> str:
         """
         Export model to TensorRT for optimal Jetson performance
         
@@ -189,7 +189,4 @@ class PlayerTrackerUL(BasePlayerTracker):
 
     def get_max_size(self) -> int:
         """Get optimal input size for current platform"""
-        if self.is_jetson:
-            return 416  # Smaller input for Jetson Nano performance
-        else:
-            return 640  # Standard size for more powerful hardware
+        return 640  # Standard size for all platforms

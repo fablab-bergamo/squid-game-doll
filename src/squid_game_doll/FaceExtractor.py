@@ -78,60 +78,69 @@ class FaceExtractor:
 
     def _enhance_face_appearance(self, face_crop):
         """
-        Simplified face processing: background removal, contour enhancement, make face stand out.
+        Clean face processing with better background removal and contrast enhancement.
         """
-        # 1. Create face mask for background removal
-        face_mask = self._create_simple_face_mask(face_crop)
+        # 1. Create better face mask using skin color and contour detection
+        face_mask = self._create_advanced_face_mask(face_crop)
         
-        # 2. Enhance contrast and reduce oversaturation
-        alpha = 1.4  # Strong contrast for dramatic effect
-        beta = 15    # Brightness boost
+        # 2. Enhance contrast but keep it natural
+        alpha = 1.3  # Moderate contrast
+        beta = 10    # Slight brightness boost
         face_enhanced = cv2.convertScaleAbs(face_crop, alpha=alpha, beta=beta)
         
-        # 3. Enhance facial contours with edge detection
-        gray = cv2.cvtColor(face_enhanced, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 50, 150)
-        
-        # Apply edge enhancement
-        edges_colored = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-        face_with_edges = cv2.addWeighted(face_enhanced, 0.8, edges_colored, 0.2, 0)
-        
-        # 4. Remove background with dramatic effect
-        # Create 3-channel mask
-        face_mask_3d = np.stack([face_mask] * 3, axis=2).astype(np.float32) / 255.0
-        
-        # Create stylistic background (dark gradient)
+        # 3. Create clean background (pure black for dramatic effect)
         h, w = face_crop.shape[:2]
         background = np.zeros_like(face_crop, dtype=np.uint8)
-        # Add subtle dark gradient from edges
-        center = (w//2, h//2)
-        Y, X = np.ogrid[:h, :w]
-        dist_from_center = np.sqrt((X - center[0])**2 + (Y - center[1])**2)
-        max_dist = np.sqrt(center[0]**2 + center[1]**2)
-        gradient = (dist_from_center / max_dist * 40).astype(np.uint8)
-        background[:, :, 0] = gradient  # Slight blue tint in background
-        background[:, :, 1] = gradient * 0.8
-        background[:, :, 2] = gradient * 0.6
         
-        # Blend face with stylistic background
-        face_result = (face_with_edges * face_mask_3d + background * (1 - face_mask_3d)).astype(np.uint8)
+        # 4. Apply mask with smooth blending
+        face_mask_3d = np.stack([face_mask] * 3, axis=2).astype(np.float32) / 255.0
+        
+        # Blend face with clean black background
+        face_result = (face_enhanced * face_mask_3d + background * (1 - face_mask_3d)).astype(np.uint8)
         
         return face_result
     
-    def _create_simple_face_mask(self, face_crop):
+    def _create_advanced_face_mask(self, face_crop):
         """
-        Create a simple elliptical mask to isolate the face from background.
+        Create a better face mask using skin color detection and morphological operations.
         """
         h, w = face_crop.shape[:2]
-        mask = np.zeros((h, w), dtype=np.uint8)
         
-        # Create elliptical mask covering most of the image (assuming face is centered)
+        # Method 1: Skin color detection in HSV space
+        hsv = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
+        
+        # Define skin color range in HSV (covers most skin tones)
+        lower_skin = np.array([0, 20, 70])
+        upper_skin = np.array([20, 255, 255])
+        skin_mask1 = cv2.inRange(hsv, lower_skin, upper_skin)
+        
+        # Additional skin range for different lighting
+        lower_skin2 = np.array([0, 48, 80])
+        upper_skin2 = np.array([20, 255, 255])
+        skin_mask2 = cv2.inRange(hsv, lower_skin2, upper_skin2)
+        
+        # Combine skin masks
+        skin_mask = cv2.bitwise_or(skin_mask1, skin_mask2)
+        
+        # Method 2: Create elliptical base mask as fallback
+        base_mask = np.zeros((h, w), dtype=np.uint8)
         center = (w//2, h//2)
-        axes = (int(w*0.45), int(h*0.45))  # Cover 90% of width/height
+        axes = (int(w*0.4), int(h*0.5))  # More conservative ellipse
+        cv2.ellipse(base_mask, center, axes, 0, 0, 360, 255, -1)
         
-        cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
+        # Combine skin detection with elliptical mask
+        combined_mask = cv2.bitwise_and(skin_mask, base_mask)
         
-        # Smooth the edges for better blending
-        mask = cv2.GaussianBlur(mask, (21, 21), 10)
+        # Fill holes and smooth the mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
+        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN, kernel)
         
-        return mask
+        # If skin detection failed, fall back to elliptical mask
+        if cv2.countNonZero(combined_mask) < (h * w * 0.05):  # Less than 5% of image
+            combined_mask = base_mask
+        
+        # Smooth the edges for natural blending
+        combined_mask = cv2.GaussianBlur(combined_mask, (15, 15), 5)
+        
+        return combined_mask
