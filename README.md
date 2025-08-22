@@ -161,7 +161,7 @@ You need to define three critical areas:
 
 ### Detailed Installation
 - **PC Setup**: See installation instructions above
-- **Raspberry Pi 5**: See [INSTALL.md](INSTALL.md) for complete Hailo AI Kit setup
+- **Raspberry Pi 5**: See [INSTALL.md](INSTALL.md) ([Italiano](INSTALL_IT.md)) for complete Hailo AI Kit setup
 - **ESP32 Programming**: Use [Thonny IDE](https://thonny.org/) with MicroPython (see `esp32/` folder)
 
 ## 🎲 Command Line Options
@@ -327,7 +327,7 @@ circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
 
 ## 📚 Additional Resources
 
-- **Installation Guide**: [INSTALL.md](INSTALL.md) for Raspberry Pi setup
+- **Installation Guide**: [INSTALL.md](INSTALL.md) ([Italiano](INSTALL_IT.md)) for Raspberry Pi setup
 - **ESP32 Development**: Use [Thonny IDE](https://thonny.org/) for MicroPython
 - **Neural Networks**: [Hailo AI implementation details](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
 - **Camera Optimization**: [OpenCV camera performance tips](https://forum.opencv.org/t/opencv-camera-low-fps/567/4)

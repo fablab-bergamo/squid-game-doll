@@ -74,31 +74,52 @@ poetry run python -m src.squid_game_doll.run -w 0
 
 # Setup on Raspberry Pi 5 + AI KIT
 
-## Hardware
+> **Note**: This installation guide is specifically for Raspberry Pi 5 with Hailo AI KIT hardware. For other platforms (PC/Windows, Jetson Nano), see the main [README.md](README.md) and [CLAUDE.md](CLAUDE.md) files.
 
-* Make sure Raspberry Pi 5 and AI KIT are configured properly
-* Webcam is configured and visible. This has been tested with USB Camera but native Raspberry cam should be usable.
+## Prerequisites
+
+* Raspberry Pi 5 with Hailo AI KIT properly installed and configured
+* USB webcam (tested) or Raspberry Pi camera module
+* SD card with Raspberry Pi OS (64-bit recommended)
+* Internet connection for package installation
+
+## Hardware Setup
+
+### Camera Configuration
+Ensure your webcam is properly connected and recognized:
 
 ```shell
+# List available camera devices
 v4l2-ctl --list-devices
+
+# Test camera configuration (optional)
 v4l2-ctl -v width=1920,height=1080,pixelformat=MJPG
 v4l2-ctl --stream-mmap=3 --stream-to=/dev/null --stream-count=250
 ```
 
-## Software
+## Software Installation
 
-* Install HAILO software stack on Raspberry Pi:
+### 1. Install Hailo Software Stack
+
+Install the Hailo AI Kit software packages:
 
 ```shell
+sudo apt update
 sudo apt install hailo-all
 sudo apt install python3-gi
 sudo reboot
 ```
 
-* Check Hailo chip is recognized with hailortcli command:
+### 2. Verify Hailo Installation
+
+Check that the Hailo chip is properly recognized:
 
 ```shell
-(.venv) $ hailortcli fw-control identify
+hailortcli fw-control identify
+```
+
+Expected output should show:
+```
 Executing on device: 0000:01:00.0
 Identifying board
 Control Protocol Version: 2
@@ -111,62 +132,92 @@ Part Number: HM21LB1C2LAE
 Product Name: HAILO-8L AI ACC M.2 B+M KEY MODULE EXT TMP
 ```
 
-* Run install script to create venv and install Python requirements and HEF model
+### 3. Install Project Dependencies
+
+Clone the repository and install the Squid Game Doll software:
 
 ```bash
-./setup.sh
+# Install Poetry (Python dependency manager)
+pip install poetry
+
+# Install project dependencies and setup virtual environment
+poetry install
+
+# Install Hailo-specific dependencies
+poetry run pip install git+https://github.com/hailo-ai/hailo-apps-infra.git
+
+# Download pre-trained Hailo model
+wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.0/hailo8l/yolov11m.hef
 ```
 
-* Run run.py and check webcam index:
+## Configuration and Testing
+
+### 1. Find Your Camera Index
+
+Test the application to identify the correct camera device:
 
 ```bash
 poetry run python -m src.squid_game_doll.run
 ```
 
-Sample output
+The application will list available cameras. Look for USB webcam devices (typically lower numbers) among the Raspberry Pi specific devices:
 
 ```
 Hello from the pygame community. https://www.pygame.org/contribute.html
 SquidGame(res=(1920, 1080) on #0, tracker disabled=True, ip=192.168.45.50)
-Listing webcams:
-	 1820: pispbe-input
+Listing webcams with capabilities:
+	 0: USB Camera: USB Camera          # <-- USB webcam (use this)
+	 1820: pispbe-input                 # <-- Pi-specific devices
 	 1821: pispbe-tdn_input
 	 1822: pispbe-stitch_input
-	 1823: pispbe-output0
-	 1824: pispbe-output1
-	 1825: pispbe-tdn_output
-	 1826: pispbe-stitch_output
-	 1827: pispbe-config
-	 1828: pispbe-input
-	 1829: pispbe-tdn_input
-	 1830: pispbe-stitch_input
-	 1831: pispbe-output0
-	 1832: pispbe-output1
-	 1833: pispbe-tdn_output
-	 1834: pispbe-stitch_output
-	 1835: pispbe-config
+	 [... more Pi-specific devices ...]
 	 1819: rpivid
-	 220: pispbe-input
-	 221: pispbe-tdn_input
-	 222: pispbe-stitch_input
-	 223: pispbe-output0
-	 224: pispbe-output1
-	 225: pispbe-tdn_output
-	 226: pispbe-stitch_output
-	 227: pispbe-config
-	 228: pispbe-input
-	 229: pispbe-tdn_input
-	 230: pispbe-stitch_input
-	 231: pispbe-output0
-	 232: pispbe-output1
-	 233: pispbe-tdn_output
-	 234: pispbe-stitch_output
-	 235: pispbe-config
-	 219: rpivid
 ```
 
-* Start the game with forced webcam index (example: 200)
+### 2. Configure Vision Areas
 
-```shell
-poetry run python -m src.squid_game_doll.run -w 200
+Run the setup mode to configure detection areas:
+
+```bash
+# Use the webcam index you identified (e.g., 0 for USB camera)
+poetry run python -m src.squid_game_doll.run --setup -w 0
 ```
+
+Follow the on-screen instructions to define:
+- **Start Zone**: Where players register their faces
+- **Finish Zone**: Goal area players must reach
+- **Vision Area**: Detection area for movement monitoring
+
+### 3. Run the Game
+
+Start the game with your configured camera:
+
+```bash
+# Replace 0 with your actual camera index
+poetry run python -m src.squid_game_doll.run -w 0
+```
+
+## Optional: ESP32 Laser Integration
+
+To enable the animated doll with laser targeting:
+
+```bash
+# Enable ESP32 tracker with specific IP
+poetry run python -m src.squid_game_doll.run -w 0 -k -i 192.168.45.50
+```
+
+See the [ESP32 documentation](esp32/) for hardware setup details.
+
+## Troubleshooting
+
+### Camera Issues
+- If no USB camera is detected, check `lsusb` output
+- Try different USB ports or cables
+- Verify camera permissions: `ls -la /dev/video*`
+
+### Hailo Issues
+- Ensure AI KIT is properly seated in M.2 slot
+- Check `dmesg | grep hailo` for hardware messages
+- Verify Hailo installation: `hailortcli scan`
+
+For additional help, see [CLAUDE.md](CLAUDE.md) for detailed development information.
