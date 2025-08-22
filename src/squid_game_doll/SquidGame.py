@@ -232,28 +232,76 @@ class SquidGame:
         return players
 
     def load_model(self):
-
-        if platform.system() == "Linux":
-            from .PlayerTrackerHailo import PlayerTrackerHailo
-
-            logger.info(f"Loading HAILO model ({self.model})...")
-            # self.tracker = PlayerTrackerHailo("yolov11m.hef")
-            if self.model != "":
-                self.tracker = PlayerTrackerHailo(self.model)
-            else:
-                self.tracker = PlayerTrackerHailo()
+        # Detect hardware platform for proper tracker selection
+        is_raspberry_pi = False
+        platform_info = ""
+        try:
+            with open('/proc/cpuinfo', 'r') as f:
+                cpuinfo = f.read().lower()
+                if 'raspberry' in cpuinfo or 'bcm' in cpuinfo:
+                    is_raspberry_pi = True
+                    platform_info = " (Raspberry Pi)"
+                elif 'tegra' in cpuinfo:
+                    platform_info = " (Jetson)"
+        except:
+            pass
+            
+        # Only try Hailo on Raspberry Pi, use Ultralytics elsewhere
+        if platform.system() == "Linux" and is_raspberry_pi:
+            try:
+                from .PlayerTrackerHailo import PlayerTrackerHailo
+                logger.info(f"Loading HAILO model{platform_info} ({self.model})...")
+                if self.model != "":
+                    self.tracker = PlayerTrackerHailo(self.model)
+                else:
+                    self.tracker = PlayerTrackerHailo()
+                logger.info("Successfully loaded Hailo tracker")
+            except (ImportError, ModuleNotFoundError) as import_error:
+                logger.warning(f"Hailo dependencies not available ({import_error}), falling back to Ultralytics")
+                try:
+                    logger.info(f"Loading Ultralytics model{platform_info} ({self.model})...")
+                    if self.model != "":
+                        self.tracker = PlayerTrackerUL(self.model)
+                    else:
+                        self.tracker = PlayerTrackerUL()
+                    logger.info("Successfully loaded Ultralytics tracker")
+                except Exception as ul_error:
+                    logger.error(f"Failed to load Ultralytics tracker: {ul_error}")
+                    self.tracker = None
+            except Exception as hailo_error:
+                logger.error(f"Failed to initialize Hailo tracker: {hailo_error}")
+                try:
+                    logger.info(f"Attempting Ultralytics fallback{platform_info}...")
+                    if self.model != "":
+                        self.tracker = PlayerTrackerUL(self.model)
+                    else:
+                        self.tracker = PlayerTrackerUL()
+                    logger.info("Successfully loaded Ultralytics tracker")
+                except Exception as ul_error:
+                    logger.error(f"Failed to load Ultralytics tracker: {ul_error}")
+                    self.tracker = None
         else:
-            logger.info(f"Loading Ultralytics model ({self.model})...")
-            if self.model != "":
-                self.tracker = PlayerTrackerUL(self.model)
-            else:
-                self.tracker = PlayerTrackerUL()
+            # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
+            try:
+                logger.info(f"Loading Ultralytics model{platform_info} ({self.model})...")
+                if self.model != "":
+                    self.tracker = PlayerTrackerUL(self.model)
+                else:
+                    self.tracker = PlayerTrackerUL()
+                logger.info("Successfully loaded Ultralytics tracker")
+            except Exception as e:
+                logger.error(f"Failed to load Ultralytics tracker: {e}")
+                self.tracker = None
+
+        if self.tracker is None:
+            logger.error("No tracker could be loaded - application cannot continue")
+            self._init_done = False
+            return
 
         logger.debug("Loading face extractor")
         self.face_extractor = FaceExtractor()
 
-        logger.info("load_model complete")
-
+        logger.info("Model loading complete")
         self._init_done = True
 
     def save_screen_to_disk(self, screen: pygame.Surface, filename: str) -> None:
@@ -334,6 +382,10 @@ class SquidGame:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    logger.info("Game exit requested by user (Q key)")
+                    return False
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 return self.game_screen.handle_buttons_click(screen, event)
             elif event.type == pygame.JOYBUTTONDOWN:
@@ -355,6 +407,17 @@ class SquidGame:
         self.switch_to_init()
 
         while running:
+            # Wait for model loading to complete
+            if not self._init_done:
+                self.loading_screen(screen)
+                clock.tick(frame_rate)
+                continue
+                
+            # Check if tracker is available before proceeding
+            if self.tracker is None:
+                logger.error("Tracker not initialized, cannot continue")
+                break
+                
             nn_frame, webcam_frame, crop_info = self.cam.read_nn(self.settings, self.tracker.get_max_size())
             if nn_frame is None:
                 break

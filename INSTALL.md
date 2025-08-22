@@ -1,3 +1,77 @@
+# Installation Guide
+
+This guide covers installation for both supported hardware platforms:
+- **Raspberry Pi 5 + Hailo AI KIT** (hardware-accelerated AI)
+- **NVIDIA Jetson Nano** (CUDA-accelerated AI)
+
+---
+
+## NVIDIA Jetson Nano Installation
+
+### Prerequisites
+* NVIDIA Jetson Nano with JetPack 6.0+ installed
+* USB webcam (Logitech C920 recommended)
+* Internet connection for package installation
+* At least 8GB microSD card (16GB+ recommended)
+
+### 1. Install System Dependencies
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install python3-pip python3-venv git wget curl
+```
+
+### 2. Install Project Dependencies
+
+Clone the repository and install the Squid Game Doll software:
+
+```bash
+# Install Poetry (Python dependency manager)
+pip install poetry
+
+# Install project dependencies
+poetry install
+
+# IMPORTANT: Install CUDA-enabled PyTorch for Jetson Nano
+poetry run pip uninstall torch torchvision torchaudio -y
+poetry run pip install torch==2.8.0 torchvision==0.23.0 --index-url=https://pypi.jetson-ai-lab.io/jp6/cu126
+```
+
+### 3. Verify CUDA Installation
+
+Check that PyTorch recognizes the Jetson GPU:
+
+```bash
+poetry run python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"}')"
+```
+
+Expected output:
+```
+CUDA available: True
+Device: Orin
+```
+
+### 4. Optimize Performance (Optional)
+
+For maximum performance, enable high-performance mode:
+
+```bash
+# Set Jetson to maximum performance mode
+sudo nvpmodel -m 0 && sudo jetson_clocks
+```
+
+### 5. Configuration and Testing
+
+```bash
+# Configure vision areas
+poetry run python -m src.squid_game_doll.run --setup -w 0
+
+# Run the game
+poetry run python -m src.squid_game_doll.run -w 0
+```
+
+---
+
 # Setup on Raspberry Pi 5 + AI KIT
 
 ## Hardware

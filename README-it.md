@@ -9,7 +9,7 @@ Un robot "Uno, Due, Tre... Stella!" alimentato da AI ispirato alla serie TV Squi
 - Riconoscimento facciale per la registrazione dei giocatori
 - Bambola animata interattiva con occhi LED e testa controllata da servo
 - Sistema opzionale di puntamento laser per giocatori eliminati *(in sviluppo)*
-- Supporto per PC (con CUDA) e Raspberry Pi 5 (con Hailo AI Kit)
+- Supporto per PC (con CUDA), NVIDIA Jetson Nano (con CUDA), e Raspberry Pi 5 (con Hailo AI Kit)
 - Aree di gioco e parametri configurabili
 
 **🏆 Stato:** Prima versione funzionante dimostrata all'Arduino Day 2025 al FabLab Bergamo, Italia.
@@ -33,6 +33,19 @@ poetry install
 
 # Opzionale: supporto CUDA per GPU NVIDIA
 poetry run pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
+```
+
+**Per NVIDIA Jetson Nano:**
+```bash
+# Installa Poetry
+pip install poetry
+
+# Installa dipendenze
+poetry install
+
+# IMPORTANTE: Installa PyTorch con CUDA per Jetson Nano
+poetry run pip uninstall torch torchvision torchaudio -y
+poetry run pip install torch==2.8.0 torchvision==0.23.0 --index-url=https://pypi.jetson-ai-lab.io/jp6/cu126
 ```
 
 **Per Raspberry Pi 5 con Hailo AI Kit:**
@@ -110,14 +123,15 @@ Devi definire tre aree critiche:
 ### Piattaforme Supportate
 | Piattaforma | Accelerazione AI | Prestazioni | Ideale Per |
 |-------------|-----------------|-------------|------------|
-| **PC con GPU NVIDIA** | CUDA | 30 FPS | Sviluppo, Alte Prestazioni |
-| **PC (solo CPU)** | Nessuna | 3 FPS | Test Base |
-| **Raspberry Pi 5 + Hailo AI Kit** | Hailo 8L | 10 FPS | Distribuzione Produzione |
+| **PC con GPU NVIDIA** | CUDA | 30+ FPS | Sviluppo, Alte Prestazioni |
+| **NVIDIA Jetson Nano** | CUDA | 15-25 FPS | Distribuzione Mobile, Edge Computing |
+| **Raspberry Pi 5 + Hailo AI Kit** | Hailo 8L | 10-15 FPS | Distribuzione Produzione |
+| **PC (solo CPU)** | Nessuna | 3-5 FPS | Test Base |
 
 ### Componenti Richiesti
 
 #### Sistema Core
-- **Computer**: PC (Windows/Linux) o Raspberry Pi 5
+- **Computer**: PC (Windows/Linux), NVIDIA Jetson Nano, o Raspberry Pi 5
 - **Webcam**: Logitech C920 HD Pro (consigliata) o webcam USB compatibile
 - **Display**: Monitor o proiettore per interfaccia di gioco
 
