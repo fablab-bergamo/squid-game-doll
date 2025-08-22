@@ -378,10 +378,12 @@ class SquidGame:
             if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.KEYDOWN:
-                logger.debug(f"Key pressed: {event.key} (Q key is {pygame.K_q})")
+                logger.debug(f"Key pressed: {event.key}")
                 if event.key == pygame.K_q:
                     logger.info("Game exit requested by user (Q key)")
-                    return False
+                    pygame.quit()
+                    from sys import exit
+                    exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 return self.game_screen.handle_buttons_click(screen, event)
             elif event.type == pygame.JOYBUTTONDOWN:

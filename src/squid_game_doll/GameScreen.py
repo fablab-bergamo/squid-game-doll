@@ -511,12 +511,12 @@ class GameScreen:
             if not player["active"]:  # Eliminated players
                 red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
                 red_overlay.fill((*RED, 80))  # Semi-transparent red
-                img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA)
+                img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
                 img.fill(FADE_COLOR, special_flags=pygame.BLEND_MULT)
             elif player["winner"]:  # Winners
                 green_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
                 green_overlay.fill((*GREEN, 80))  # Semi-transparent green
-                img.blit(green_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA)
+                img.blit(green_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
 
             # Color number according to player status
             screen.blit(img, (x, y))
