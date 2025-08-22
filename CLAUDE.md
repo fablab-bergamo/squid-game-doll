@@ -62,6 +62,14 @@ poetry run python -m src.squid_game_doll.run -m 0 -w 0 -k -i 192.168.45.50
 # -n/--neural_net: custom neural network model file
 # -c/--config: config file (default: config.yaml)
 # -s/--setup: setup mode for area configuration
+
+### Game Controls
+```bash
+# During gameplay or setup:
+# Q key: Exit the game/setup immediately
+# ESC key: Exit setup mode (setup only)
+# Mouse: Click buttons and interact with UI
+# Close window: Standard window close button
 ```
 
 ### Testing and Quality
@@ -92,7 +100,7 @@ poetry run snakeviz ./game.prof
 - **PlayerTrackerUL**: Ultralytics YOLO implementation for PC (supports CUDA)
 - **PlayerTrackerHailo**: Hailo AI accelerated tracking for Raspberry Pi 5
 - **Player**: Player state management (position, face, elimination status, movement detection)
-- **FaceExtractor**: Mediapipe-based face detection for player registration
+- **FaceExtractor**: OpenCV Haar cascade face detection for player registration (improved Jetson compatibility)
 
 ### Laser Targeting System (Work in Progress)
 - **LaserShooter**: ESP32 communication for servo control and laser activation
@@ -236,7 +244,9 @@ The ESP32 exposes these commands via TCP:
 - Webcam exposure must be manually controlled for reliable laser detection
 - Frame rate typically 10 FPS for game loop, 30 FPS possible with CUDA acceleration
 - Vision areas must be properly configured for game mechanics to work
-- Face detection runs on CPU and can be performance bottleneck
+- Face detection uses OpenCV Haar cascades for better cross-platform compatibility
+- Enhanced face processing includes background removal and contour enhancement for dramatic visual effects
 - Laser targeting requires careful calibration of threshold parameters (Work in Progress)
 - ESP32 communication uses simple TCP protocol for reliability
 - Servo angle limits are configurable in tracker.py constants
+- update the italian versions when you update any MD file in English

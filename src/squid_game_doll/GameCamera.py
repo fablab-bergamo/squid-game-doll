@@ -257,15 +257,28 @@ class GameCamera:
         mask = cv2.cvtColor(nn_frame, cv2.COLOR_BGR2GRAY)
         mask[:] = 0  # Initialize mask to zero
         for rect in rectangles:
+            # Skip invalid rectangles to prevent division by zero
+            if reference_surface.w == 0 or reference_surface.h == 0 or rect.width == 0 or rect.height == 0:
+                continue
+                
             # Convert rect coordinates to frame coordinates
             x = int(rect.x / reference_surface.w * nn_frame.shape[1])
             y = int(rect.y / reference_surface.h * nn_frame.shape[0])
             w = int(rect.width / reference_surface.w * nn_frame.shape[1])
             h = int(rect.height / reference_surface.h * nn_frame.shape[0])
-            # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
-            x = nn_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
-            # Draw the rectangle on the mask
-            cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
+            
+            # Ensure coordinates are within bounds
+            x = max(0, min(x, nn_frame.shape[1]))
+            y = max(0, min(y, nn_frame.shape[0]))
+            w = max(0, min(w, nn_frame.shape[1] - x))
+            h = max(0, min(h, nn_frame.shape[0] - y))
+            
+            if w > 0 and h > 0:
+                # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
+                x = nn_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
+                x = max(0, x)  # Ensure x is not negative
+                # Draw the rectangle on the mask
+                cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
 
         # Apply the mask to the frame
         nn_frame = cv2.bitwise_and(nn_frame, nn_frame, mask=mask)
