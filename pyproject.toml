@@ -29,7 +29,7 @@ dependencies = [
     "lap>=0.5.12",
     "loguru==0.7.2"
 ]
-include = ["LICENSE", "src/squid_game_doll", "INSTALL.md", "run.sh", "install.bat", "requirements.txt", "src/squid_game_doll/README.md", "src/squid_game_doll/media"]
+include = ["LICENSE", "src/squid_game_doll", "INSTALL.md", "INSTALL_IT.md", "README-it.md", "src/squid_game_doll/media"]
 readme = { file = "README.md", content-type = "text/markdown" }
 keywords = [
     "squid game",
