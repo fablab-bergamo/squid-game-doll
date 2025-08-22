@@ -65,9 +65,7 @@ class FaceExtractor:
                 return None
 
             face_crop = cv2.resize(face_crop, (PLAYER_SIZE, PLAYER_SIZE), interpolation=cv2.INTER_AREA)  # Resize
-
-            # **Enhanced face processing for better visual quality**
-            face_crop = self._enhance_face_appearance(face_crop)
+            
             self._memory[id] = face_crop
             return face_crop
 
@@ -76,71 +74,3 @@ class FaceExtractor:
 
         return None
 
-    def _enhance_face_appearance(self, face_crop):
-        """
-        Clean face processing with better background removal and contrast enhancement.
-        """
-        # 1. Create better face mask using skin color and contour detection
-        face_mask = self._create_advanced_face_mask(face_crop)
-        
-        # 2. Enhance contrast but keep it natural
-        alpha = 1.3  # Moderate contrast
-        beta = 10    # Slight brightness boost
-        face_enhanced = cv2.convertScaleAbs(face_crop, alpha=alpha, beta=beta)
-        
-        # 3. Create clean background (pure black for dramatic effect)
-        h, w = face_crop.shape[:2]
-        background = np.zeros_like(face_crop, dtype=np.uint8)
-        
-        # 4. Apply mask with smooth blending
-        face_mask_3d = np.stack([face_mask] * 3, axis=2).astype(np.float32) / 255.0
-        
-        # Blend face with clean black background
-        face_result = (face_enhanced * face_mask_3d + background * (1 - face_mask_3d)).astype(np.uint8)
-        
-        return face_result
-    
-    def _create_advanced_face_mask(self, face_crop):
-        """
-        Create a better face mask using skin color detection and morphological operations.
-        """
-        h, w = face_crop.shape[:2]
-        
-        # Method 1: Skin color detection in HSV space
-        hsv = cv2.cvtColor(face_crop, cv2.COLOR_BGR2HSV)
-        
-        # Define skin color range in HSV (covers most skin tones)
-        lower_skin = np.array([0, 20, 70])
-        upper_skin = np.array([20, 255, 255])
-        skin_mask1 = cv2.inRange(hsv, lower_skin, upper_skin)
-        
-        # Additional skin range for different lighting
-        lower_skin2 = np.array([0, 48, 80])
-        upper_skin2 = np.array([20, 255, 255])
-        skin_mask2 = cv2.inRange(hsv, lower_skin2, upper_skin2)
-        
-        # Combine skin masks
-        skin_mask = cv2.bitwise_or(skin_mask1, skin_mask2)
-        
-        # Method 2: Create elliptical base mask as fallback
-        base_mask = np.zeros((h, w), dtype=np.uint8)
-        center = (w//2, h//2)
-        axes = (int(w*0.4), int(h*0.5))  # More conservative ellipse
-        cv2.ellipse(base_mask, center, axes, 0, 0, 360, 255, -1)
-        
-        # Combine skin detection with elliptical mask
-        combined_mask = cv2.bitwise_and(skin_mask, base_mask)
-        
-        # Fill holes and smooth the mask
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
-        combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN, kernel)
-        
-        # If skin detection failed, fall back to elliptical mask
-        if cv2.countNonZero(combined_mask) < (h * w * 0.05):  # Less than 5% of image
-            combined_mask = base_mask
-        
-        # Smooth the edges for natural blending
-        combined_mask = cv2.GaussianBlur(combined_mask, (15, 15), 5)
-        
-        return combined_mask
