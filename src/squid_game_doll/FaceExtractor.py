@@ -1,12 +1,12 @@
-import mediapipe as mp
 import cv2
+import numpy as np
 from .constants import PLAYER_SIZE
 
 
 class FaceExtractor:
     def __init__(self):
-        # Mediapipe Face Detector
-        self.face_detector = mp.solutions.face_detection.FaceDetection(min_detection_confidence=0.4)
+        # OpenCV Haar Cascade Face Detector
+        self.face_detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         self._memory = {}
 
     def reset_memory(self):
@@ -29,46 +29,48 @@ class FaceExtractor:
         if person_crop.size == 0:
             return None
 
-        # Convert to RGB for Mediapipe
-        rgb_face = cv2.cvtColor(person_crop, cv2.COLOR_BGR2RGB)
+        # Convert to grayscale for OpenCV Haar cascades
+        gray_face = cv2.cvtColor(person_crop, cv2.COLOR_BGR2GRAY)
 
-        # Detect faces
-        results = self.face_detector.process(rgb_face)
+        # Detect faces using Haar cascades
+        faces = self.face_detector.detectMultiScale(
+            gray_face,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(30, 30),
+            flags=cv2.CASCADE_SCALE_IMAGE
+        )
 
-        if results.detections:
-            for detection in results.detections:
-                # Get face bounding box relative to the cropped person
-                bboxC = detection.location_data.relative_bounding_box
-                fx, fy, fw, fh = bboxC.xmin, bboxC.ymin, bboxC.width, bboxC.height
+        if len(faces) > 0:
+            # Get the largest face (most confident detection)
+            face = max(faces, key=lambda x: x[2] * x[3])  # Sort by area (w * h)
+            fx, fy, fw, fh = face
 
-                # Convert relative coordinates to absolute
-                h, w, _ = person_crop.shape
-                fx, fy, fw, fh = int(fx * w), int(fy * h), int(fw * w), int(fh * h)
+            # **Increase space around the face**
+            margin = 0.3  # 30% margin
+            extra_w = int(fw * margin)
+            extra_h = int(fh * margin)
 
-                # **Increase space around the face**
-                margin = 0.3  # 30% margin
-                extra_w = int(fw * margin)
-                extra_h = int(fh * margin)
+            # New bounding box with margin, ensuring it stays within image bounds
+            h, w = gray_face.shape
+            x_start = max(fx - extra_w, 0)
+            y_start = max(fy - extra_h, 0)
+            x_end = min(fx + fw + extra_w, w)
+            y_end = min(fy + fh + extra_h, h)
 
-                # New bounding box with margin, ensuring it stays within image bounds
-                x_start = max(fx - extra_w, 0)
-                y_start = max(fy - extra_h, 0)
-                x_end = min(fx + fw + extra_w, w)
-                y_end = min(fy + fh + extra_h, h)
+            # Extract expanded face region from original color image
+            face_crop = person_crop[y_start:y_end, x_start:x_end]
 
-                # Extract expanded face region
-                face_crop = person_crop[y_start:y_end, x_start:x_end]
+            if face_crop.size == 0:
+                return None
 
-                face_crop = cv2.resize(face_crop, (PLAYER_SIZE, PLAYER_SIZE), interpolation=cv2.INTER_AREA)  # Resize
-
-                # **Enhance contrast**
-                alpha = 1.8  # Contrast factor (adjustable)
-                beta = 9  # Brightness factor (adjustable)
-                face_crop = cv2.convertScaleAbs(face_crop, alpha=alpha, beta=beta)
-                self._memory[id] = face_crop
-                return face_crop
+            face_crop = cv2.resize(face_crop, (PLAYER_SIZE, PLAYER_SIZE), interpolation=cv2.INTER_AREA)  # Resize
+            
+            self._memory[id] = face_crop
+            return face_crop
 
         if id in self._memory:
             return self._memory[id]
 
         return None
+

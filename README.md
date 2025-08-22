@@ -9,7 +9,7 @@ An AI-powered "Red Light, Green Light" robot inspired by the Squid Game TV serie
 - Face recognition for player registration
 - Interactive animated doll with LED eyes and servo-controlled head
 - Optional laser targeting system for eliminated players *(work in progress)*
-- Support for both PC (with CUDA) and Raspberry Pi 5 (with Hailo AI Kit)
+- Support for PC (with CUDA), NVIDIA Jetson Nano (with CUDA), and Raspberry Pi 5 (with Hailo AI Kit)
 - Configurable play areas and game parameters
 
 **🏆 Status:** First working version demonstrated at Arduino Days 2025 in FabLab Bergamo, Italy.
@@ -33,6 +33,19 @@ poetry install
 
 # Optional: CUDA support for NVIDIA GPU
 poetry run pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
+```
+
+**For NVIDIA Jetson Nano:**
+```bash
+# Install Poetry
+pip install poetry
+
+# Install dependencies
+poetry install
+
+# IMPORTANT: Install CUDA-enabled PyTorch for Jetson Nano
+poetry run pip uninstall torch torchvision torchaudio -y
+poetry run pip install torch==2.8.0 torchvision==0.23.0 --index-url=https://pypi.jetson-ai-lab.io/jp6/cu126
 ```
 
 **For Raspberry Pi 5 with Hailo AI Kit:**
@@ -110,14 +123,15 @@ You need to define three critical areas:
 ### Supported Platforms
 | Platform | AI Acceleration | Performance | Best For |
 |----------|----------------|-------------|----------|
-| **PC with NVIDIA GPU** | CUDA | 30 FPS | Development, High Performance |
-| **PC (CPU only)** | None | 3 FPS | Basic Testing |
-| **Raspberry Pi 5 + Hailo AI Kit** | Hailo 8L | 10 FPS | Production Deployment |
+| **PC with NVIDIA GPU** | CUDA | 30+ FPS | Development, High Performance |
+| **NVIDIA Jetson Nano** | CUDA | 15-25 FPS | Mobile Deployment, Edge Computing |
+| **Raspberry Pi 5 + Hailo AI Kit** | Hailo 8L | 10-15 FPS | Production Deployment |
+| **PC (CPU only)** | None | 3-5 FPS | Basic Testing |
 
 ### Required Components
 
 #### Core System
-- **Computer**: PC (Windows/Linux) or Raspberry Pi 5
+- **Computer**: PC (Windows/Linux), NVIDIA Jetson Nano, or Raspberry Pi 5
 - **Webcam**: Logitech C920 HD Pro (recommended) or compatible USB webcam
 - **Display**: Monitor or projector for game interface
 
@@ -192,12 +206,33 @@ poetry run python -m src.squid_game_doll.run -n custom_model.hef -c custom_confi
 
 ### Neural Network Models
 - **PC (Ultralytics)**: YOLOv8/v11 models for object detection and tracking
+- **NVIDIA Jetson Nano**: CUDA-optimized YOLOv11 models with automatic platform detection
 - **Raspberry Pi (Hailo)**: Pre-compiled Hailo models optimized for edge AI
-- **Face Detection**: MediaPipe for player registration and identification
+- **Face Detection**: OpenCV Haar cascades for player registration and identification
 
 ### Performance Optimization
-- **Object Detection**: ~10-30 FPS depending on hardware
-- **Face Extraction**: CPU-bound, runs during registration and elimination
+
+#### Platform-Specific Optimizations
+**NVIDIA Jetson Nano:**
+- **Automatic CUDA acceleration** with optimized PyTorch wheels
+- **Reduced input size** (416px vs 640px) for faster inference  
+- **FP16 precision** for 2x speed improvement
+- **Optimized thread count** for ARM processors
+- **Jetson-specific model selection** (yolo11n.pt for optimal speed/accuracy balance)
+
+**Raspberry Pi 5 + Hailo:**
+- **Hardware-accelerated inference** using Hailo 8L AI processor
+- **Optimized .hef models** compiled specifically for Hailo architecture
+- **Parallel processing** between ARM CPU and Hailo AI accelerator
+
+**PC with NVIDIA GPU:**
+- **Full CUDA acceleration** with maximum input resolution
+- **High-precision models** for best accuracy
+- **Multi-threaded processing** for real-time performance
+
+#### General Performance
+- **Object Detection**: 3-30+ FPS depending on hardware and optimization
+- **Face Extraction**: CPU-bound with OpenCV Haar cascades (replaces MediaPipe for better compatibility)
 - **Laser Detection**: Computer vision pipeline using threshold + dilate + Hough circles
 
 ### Model Resources

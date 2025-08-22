@@ -23,6 +23,11 @@ poetry run pip install git+https://github.com/hailo-ai/hailo-apps-infra.git
 
 # Download Hailo models for Raspberry Pi
 wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.0/hailo8l/yolov11m.hef
+
+# For Jetson Nano optimization (TensorRT acceleration)
+poetry install
+poetry run python optimize_for_jetson.py --int8  # Full optimization with INT8
+poetry run python optimize_for_jetson.py         # Standard optimization with FP16
 ```
 
 ### ESP32 Development
@@ -57,6 +62,14 @@ poetry run python -m src.squid_game_doll.run -m 0 -w 0 -k -i 192.168.45.50
 # -n/--neural_net: custom neural network model file
 # -c/--config: config file (default: config.yaml)
 # -s/--setup: setup mode for area configuration
+
+### Game Controls
+```bash
+# During gameplay or setup:
+# Q key: Exit the game/setup immediately
+# ESC key: Exit setup mode (setup only)
+# Mouse: Click buttons and interact with UI
+# Close window: Standard window close button
 ```
 
 ### Testing and Quality
@@ -87,7 +100,7 @@ poetry run snakeviz ./game.prof
 - **PlayerTrackerUL**: Ultralytics YOLO implementation for PC (supports CUDA)
 - **PlayerTrackerHailo**: Hailo AI accelerated tracking for Raspberry Pi 5
 - **Player**: Player state management (position, face, elimination status, movement detection)
-- **FaceExtractor**: Mediapipe-based face detection for player registration
+- **FaceExtractor**: OpenCV Haar cascade face detection for player registration (improved Jetson compatibility)
 
 ### Laser Targeting System (Work in Progress)
 - **LaserShooter**: ESP32 communication for servo control and laser activation
@@ -103,8 +116,41 @@ poetry run snakeviz ./game.prof
 
 ### Neural Network Model Selection
 - **Linux (Raspberry Pi)**: Automatically uses Hailo models (.hef files) via PlayerTrackerHailo
+- **Linux (Jetson Nano)**: Uses TensorRT-optimized YOLO models via PlayerTrackerUL for maximum performance
 - **Windows/PC**: Uses Ultralytics YOLO models via PlayerTrackerUL
 - Models are loaded dynamically based on platform detection
+
+### Jetson Nano Performance Optimization
+The PlayerTrackerUL class includes specific optimizations for Jetson Nano:
+
+**Automatic TensorRT Model Loading**: 
+- Automatically detects Jetson Nano hardware (aarch64 + /etc/nv_tegra_release)
+- Prioritizes TensorRT (.engine) models over PyTorch (.pt) models
+- Uses yolo11n.pt (nano model) by default for optimal speed vs accuracy balance
+
+**Performance Optimizations**:
+- Reduced input size (416px vs 640px) for faster inference
+- FP16 precision for 2x speed improvement
+- Disabled augmentation during inference
+- Optimized thread count for ARM processors
+- Static input shapes for TensorRT optimization
+
+**TensorRT Export**: Use the optimization script for best performance:
+```bash
+# Basic optimization (FP16)
+python optimize_for_jetson.py
+
+# Maximum speed optimization (INT8, may reduce accuracy)
+python optimize_for_jetson.py --int8
+
+# Set Jetson to max performance mode
+sudo nvpmodel -m 0 && sudo jetson_clocks
+```
+
+**Expected Performance**: 
+- PyTorch model: ~60ms inference (16.7 FPS)
+- TensorRT FP16: ~30-40ms inference (25-33 FPS)  
+- TensorRT INT8: ~20-30ms inference (33-50 FPS)
 
 ### Hardware Integration
 - **ESP32 Controller**: MicroPython-based servo and LED control (see esp32/ folder)
@@ -198,7 +244,10 @@ The ESP32 exposes these commands via TCP:
 - Webcam exposure must be manually controlled for reliable laser detection
 - Frame rate typically 10 FPS for game loop, 30 FPS possible with CUDA acceleration
 - Vision areas must be properly configured for game mechanics to work
-- Face detection runs on CPU and can be performance bottleneck
+- Face detection uses OpenCV Haar cascades for better cross-platform compatibility
+- Enhanced face processing includes background removal and contour enhancement for dramatic visual effects
 - Laser targeting requires careful calibration of threshold parameters (Work in Progress)
 - ESP32 communication uses simple TCP protocol for reliability
 - Servo angle limits are configurable in tracker.py constants
+- update the italian versions when you update any MD file in English
+- dont commit without being asked to

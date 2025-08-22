@@ -9,6 +9,10 @@ from .GameScreen import GameScreen
 from .GameSettings import GameSettings
 from .SquidGame import SquidGame
 from .ConfigPhase import GameConfigPhase
+from .utils.platform import (
+    should_use_hailo,
+    get_platform_info
+)
 
 
 def command_line_args() -> argparse.Namespace:
@@ -127,22 +131,51 @@ def run():
 
     if args.setup:
         screen = pygame.display.set_mode(size)
-        if platform.system() == "Linux":
-            from .PlayerTrackerHailo import PlayerTrackerHailo
-
-            logger.info(f"Loading HAILO model ({args.model})...")
-            if args.model != "":
-                nn = PlayerTrackerHailo(args.model)
-            else:
-                nn = PlayerTrackerHailo()
+        
+        # Use platform utilities for hardware detection
+        platform_info = get_platform_info()
+        
+        # Use the same robust tracker loading as in SquidGame
+        nn = None
+        if should_use_hailo():
+            try:
+                from .PlayerTrackerHailo import PlayerTrackerHailo
+                logger.info(f"Loading HAILO model ({platform_info}) - {args.model}...")
+                if args.model != "":
+                    nn = PlayerTrackerHailo(args.model)
+                else:
+                    nn = PlayerTrackerHailo()
+                logger.info("Successfully loaded Hailo tracker for setup")
+            except (ImportError, ModuleNotFoundError) as e:
+                logger.warning(f"Hailo not available ({e}), falling back to Ultralytics for setup")
+                try:
+                    from .PlayerTrackerUL import PlayerTrackerUL
+                    logger.info(f"Loading Ultralytics model ({platform_info}) - {args.model}...")
+                    if args.model != "":
+                        nn = PlayerTrackerUL(args.model)
+                    else:
+                        nn = PlayerTrackerUL()
+                    logger.info("Successfully loaded Ultralytics tracker for setup")
+                except Exception as e2:
+                    logger.error(f"Failed to load any tracker for setup: {e2}")
+                    return
         else:
-            from .PlayerTrackerUL import PlayerTrackerUL
-
-            logger.info(f"Loading Ultralytics model ({args.model})...")
-            if args.model != "":
-                nn = PlayerTrackerUL(args.model)
-            else:
-                nn = PlayerTrackerUL()
+            # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
+            try:
+                from .PlayerTrackerUL import PlayerTrackerUL
+                logger.info(f"Loading Ultralytics model ({platform_info}) - {args.model}...")
+                if args.model != "":
+                    nn = PlayerTrackerUL(args.model)
+                else:
+                    nn = PlayerTrackerUL()
+                logger.info("Successfully loaded Ultralytics tracker for setup")
+            except Exception as e:
+                logger.error(f"Failed to load Ultralytics tracker for setup: {e}")
+                return
+        
+        if nn is None:
+            logger.error("No tracker could be loaded for setup mode")
+            return
 
         config_phase = GameConfigPhase(
             camera=cam, screen=screen, neural_net=nn, game_settings=settings, config_file=args.config

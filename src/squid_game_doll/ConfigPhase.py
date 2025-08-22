@@ -123,6 +123,11 @@ class GameConfigPhase:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    logger.info("Setup exit requested by user (Q key)")
+                    pygame.quit()
+                    sys.exit()
 
             # Check for lateral button clicks (unchanged)
             if event.type == pygame.MOUSEBUTTONDOWN:
