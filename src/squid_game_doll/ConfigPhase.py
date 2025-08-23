@@ -29,7 +29,7 @@ class GameConfigPhase:
         self.config_file = config_file
 
         # Center and resize the webcam feed on the screen
-        w, h = GameCamera.get_native_resolution(camera.index)
+        w, h = camera.get_native_resolution(camera.index)
         aspect_ratio = w / h
         new_width = 100
         new_height = 100

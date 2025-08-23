@@ -150,6 +150,15 @@ def command_line_args() -> argparse.Namespace:
         default=False,
         required=False,
     )
+    parser.add_argument(
+        "-f",
+        "--fixed-image",
+        help="fixed image for testing",
+        dest="fixed_image",
+        type=str,
+        default="",
+        required=False,
+    )
     return parser.parse_args()
 
 
@@ -181,7 +190,7 @@ def run():
         for idx in range(0, pygame.joystick.get_count()):
             logger.debug(f"\t{idx}:{pygame.joystick.Joystick(idx).get_name()}")
 
-    cam = GameCamera(args.webcam)
+    cam = GameCamera(args.webcam, args.fixed_image)
 
     if not cam.valid:
         logger.error("No compatible webcam found")

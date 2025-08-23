@@ -28,13 +28,18 @@ class GameCamera:
                 return preferred_idx
         return index
 
-    def __init__(self, index: int = -1):
+    def __init__(self, index: int = -1, fixed_image:str = ""):
         """
         Initializes the Camera object with the given webcam index.
 
         Parameters:
         index (int): The index of the webcam to use.
         """
+        if fixed_image != "":
+            self.fixed_image = cv2.imread(fixed_image)
+        else:
+            self.fixed_image = None
+
         if index == -1:
             # Try to find
             index = GameCamera.getCameraIndex(index)
@@ -51,6 +56,8 @@ class GameCamera:
 
         self.exposure = -1
         self.index = index
+    
+        
         self.lock = threading.Lock()
 
     def __del__(self):
@@ -109,8 +116,10 @@ class GameCamera:
         logger.info(f"Exposure adjusted: 1/{ int(2**(-1*current_exposure))}")
         self.exposure = current_exposure
 
-    @staticmethod
-    def get_native_resolution(idx: int) -> tuple[int, int]:
+    def get_native_resolution(self, idx: int) -> tuple[int, int]:
+        if self.fixed_image is not None:
+            return (self.fixed_image.shape[1], self.fixed_image.shape[0])
+
         for camera_info in enumerate_cameras(GameCamera.get_cv2_cap()):
             if idx == camera_info.index:
                 if "HD Pro Webcam C920" in camera_info.name:
@@ -162,7 +171,7 @@ class GameCamera:
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
 
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        resolution = GameCamera.get_native_resolution(index)
+        resolution = self.get_native_resolution(index)
         if resolution is None:
             raise ValueError("Invalid camera index", index)
         else:
@@ -190,6 +199,8 @@ class GameCamera:
     def read(self) -> tuple[bool, cv2.UMat]:
         self.lock.acquire()
         try:
+            if self.fixed_image is not None:
+                return (True, self.fixed_image)
             return self.cap.read()
         finally:
             self.lock.release()
@@ -375,3 +386,31 @@ class GameCamera:
         h = int(rect.height * nn_to_webcam_ratio_h * webcam_to_screen_ratio)
 
         return Rect(x, y, w, h)
+
+    @staticmethod
+    def convert_camera_to_screen_coord(
+        rect: Rect, webcam_to_screen_ratio: float = 1.0
+    ) -> Rect:
+
+        x = int(rect.x * webcam_to_screen_ratio)
+        y = int(rect.y * webcam_to_screen_ratio)
+        w = int(rect.width * webcam_to_screen_ratio)
+        h = int(rect.height * webcam_to_screen_ratio)
+
+        return Rect(x, y, w, h)
+
+
+    @staticmethod
+    def convert_list_camera_to_screen_coord(
+        rect_list: list[Rect], webcam_to_screen_ratio: float = 1.0
+    ) -> list[Rect]:
+
+        result = []
+        for r in rect_list:
+            x = int(rect.x * webcam_to_screen_ratio)
+            y = int(rect.y * webcam_to_screen_ratio)
+            w = int(rect.width * webcam_to_screen_ratio)
+            h = int(rect.height * webcam_to_screen_ratio)
+            result.append(Rect(x, y, w, h))
+        
+        return result
