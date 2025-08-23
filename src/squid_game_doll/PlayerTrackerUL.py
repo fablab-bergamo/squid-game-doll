@@ -338,7 +338,7 @@ class PlayerTrackerUL(BasePlayerTracker):
             logger.info(f"📊 Slow post-processing: YOLO→Supervision {yolo_conv_time:.1f}ms | Supervision→Players {supervision_time:.1f}ms")
         # Only log individual players occasionally
         if self.frame_count % 60 == 0 and players:
-            logger.debug(f"Players: {[f'ID:{p.get_id()} pos:({p.get_bbox()[0]},{p.get_bbox()[1]})' for p in players]}")
+            logger.debug(f"Players: {[f'ID:{p.get_id()} pos:({p.get_bbox()[0]},{p.get_bbox()[1]}) {int(p.get_confidence()*100)} %' for p in players]}")
         self.previous_result = players
         end_time = cv2.getTickCount()
         time_taken = (end_time - start_time) / cv2.getTickFrequency()
