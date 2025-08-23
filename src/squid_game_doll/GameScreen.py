@@ -189,7 +189,7 @@ class GameScreen:
         video_surface = pygame.transform.flip(video_surface, True, False)
         
         # Draw solid salmon border around webcam viewport
-        border_width = 8
+        border_width = 5
         pygame.draw.rect(fullscreen, SALMON, 
                        (x_web - border_width, y_web - border_width, 
                         w + 2 * border_width, h + 2 * border_width), border_width)
@@ -199,11 +199,11 @@ class GameScreen:
         if game_state in [GREEN_LIGHT, RED_LIGHT]:
             self.draw_traffic_light(fullscreen, game_state == GREEN_LIGHT)
 
-        players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), PLAYER_SIZE))
+        players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), (PLAYER_SIZE * 1.4 + 20)))
 
         self.display_players(players_surface, self._convert_player_list(players), game_state == VICTORY)
 
-        fullscreen.blit(players_surface, (0, self.get_desktop_height() - PLAYER_SIZE))
+        fullscreen.blit(players_surface, (0, self.get_desktop_height() - players_surface.get_height()))
 
         if game_state not in [INIT]:
             won = sum([100_000_000 for p in players if p.is_eliminated()])
@@ -369,14 +369,50 @@ class GameScreen:
     # Arrange players in a triangle
     def get_player_positions(self, players: list, screen_width: int) -> list:
         positions = []
-        start_x, start_y = 0, 0
-        for cpt, _ in enumerate(players):
-            x = start_x + (cpt * PLAYER_SIZE + 20)
-            y = start_y
-            if x > self._desktop_size[0]:
-                logger.warning("Too many players")
-                break
-            positions.append((x, y))
+        player_count = len(players)
+        
+        if player_count == 0:
+            return positions
+        
+        # Diamond spacing parameters
+        horizontal_spacing = PLAYER_SIZE + 8  # Space between diamonds horizontally
+        vertical_spacing = PLAYER_SIZE // 2 + 8  # Space between rows vertically
+        
+
+        # Multi-row staggered layout for 4+ players
+        # Top row: even indices (0, 2, 4, ...)
+        # Bottom row: odd indices (1, 3, 5, ...)
+        
+        top_row_count = (player_count + 1) // 2  # Ceiling division
+        bottom_row_count = player_count // 2     # Floor division
+        
+        start_x = 5
+        
+        # Calculate total height needed for both rows
+        total_formation_height = PLAYER_SIZE + vertical_spacing
+        # Center the formation vertically within the available space
+        vertical_offset = max(0, (PLAYER_SIZE - total_formation_height) // 2)
+        
+        top_y = vertical_offset
+        bottom_y = vertical_offset + vertical_spacing
+        
+        top_index = 0
+        bottom_index = 0
+        
+        for i in range(player_count):
+            if i % 2 == 0:  # Even indices go to top row
+                x = start_x + (top_index * horizontal_spacing)
+                y = top_y
+                positions.append((x, y))
+                top_index += 1
+            else:  # Odd indices go to bottom row
+                # Offset bottom row by half spacing to create stagger effect
+                bottom_start_x = start_x + horizontal_spacing // 2
+                x = bottom_start_x + (bottom_index * horizontal_spacing)
+                y = bottom_y
+                positions.append((x, y))
+                bottom_index += 1
+    
         return positions
 
     # Function to draw blurred diamond
@@ -538,7 +574,7 @@ class GameScreen:
         player_positions = self.get_player_positions(players, screen.get_width())
         
         # Use a portion of the background image for the player area
-        bottom_rect = pygame.Rect(0, self.get_desktop_height() - PLAYER_SIZE, self.get_desktop_width(), PLAYER_SIZE)
+        bottom_rect = pygame.Rect(0, self.get_desktop_height() - screen.get_height(), self.get_desktop_width(), screen.get_height())
         background_portion = self._background_image.subsurface(bottom_rect)
         screen.blit(background_portion, (0, 0))
 

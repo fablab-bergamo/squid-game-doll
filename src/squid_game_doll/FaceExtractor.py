@@ -55,12 +55,12 @@ class FaceExtractor:
         # Convert to grayscale for OpenCV Haar cascades (GPU accelerated if available)
         gray_face = cuda_cvt_color(person_crop, cv2.COLOR_BGR2GRAY)
 
-        # Detect faces using Haar cascades (optimized parameters)
+        # Detect faces using Haar cascades
         faces = self.face_detector.detectMultiScale(
             gray_face,
             scaleFactor=1.3,  # Faster detection (was 1.1)
             minNeighbors=3,   # Faster detection (was 5)
-            minSize=(40, 40), # Larger minimum size for better performance
+            minSize=(20, 20), # Larger minimum size for better performance
             flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING  # Additional optimization
         )
 
