@@ -41,6 +41,10 @@ class GameScreen:
         self._font_smaller: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Regular.ttf", 24)
         self._font_big: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Regular.ttf", 90)
         self._font_bigger: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Bold.ttf", 128)
+        
+        # Load and cache background image
+        self._background_image = pygame.image.load(ROOT + "/media/background-2.png")
+        self._background_image = pygame.transform.scale(self._background_image, desktop_size)
 
         # Position and size of reinit button
         self._reset_button: pygame.Rect = pygame.Rect(desktop_size[0] - 210, desktop_size[1] - 60, 200, 50)
@@ -170,7 +174,7 @@ class GameScreen:
         settings: GameSettings,
     ) -> None:
 
-        fullscreen.fill(SALMON)
+        fullscreen.blit(self._background_image, (0, 0))
 
         (w, h), (x_web, y_web) = self.compute_webcam_feed(nn_frame)
 
@@ -183,6 +187,13 @@ class GameScreen:
         self.draw_bounding_boxes(video_surface, players, settings, game_state != INIT)
 
         video_surface = pygame.transform.flip(video_surface, True, False)
+        
+        # Draw solid salmon border around webcam viewport
+        border_width = 8
+        pygame.draw.rect(fullscreen, SALMON, 
+                       (x_web - border_width, y_web - border_width, 
+                        w + 2 * border_width, h + 2 * border_width), border_width)
+        
         fullscreen.blit(video_surface, (x_web, y_web))
 
         if game_state in [GREEN_LIGHT, RED_LIGHT]:
@@ -190,7 +201,7 @@ class GameScreen:
 
         players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), PLAYER_SIZE))
 
-        self.display_players(players_surface, self._convert_player_list(players), SALMON, game_state == VICTORY)
+        self.display_players(players_surface, self._convert_player_list(players), None, game_state == VICTORY)
 
         fullscreen.blit(players_surface, (0, self.get_desktop_height() - PLAYER_SIZE))
 
@@ -432,8 +443,9 @@ class GameScreen:
         w1, h1 = self.get_desktop_width(), self.get_desktop_height()
         h2, w2, _ = frame.shape
 
-        # Available height after reserving the PLAYER_SIZE band
-        available_height = h1 - PLAYER_SIZE
+        # Available height after reserving the PLAYER_SIZE band and border space
+        border_width = 20
+        available_height = h1 - PLAYER_SIZE - border_width
 
         # Compute the scaling factor to fit within the screen while maintaining aspect ratio
         scale_x = w1 / w2
@@ -444,9 +456,9 @@ class GameScreen:
         w3 = int(w2 * scale)
         h3 = int(h2 * scale)
 
-        # Center the webcam feed on the screen
+        # Center the webcam feed on the screen and move down by 10 pixels
         x = (w1 - w3) // 2
-        y = (available_height - h3) // 2
+        y = (available_height - h3) // 2 + 10
 
         self._ratio = w2 / w3
         if self._first_run:
@@ -487,7 +499,13 @@ class GameScreen:
     ) -> None:
 
         player_positions = self.get_player_positions(players, screen.get_width())
-        screen.fill(background)
+        if background is None:
+            # Use a portion of the background image for the player area
+            bottom_rect = pygame.Rect(0, self.get_desktop_height() - PLAYER_SIZE, self.get_desktop_width(), PLAYER_SIZE)
+            background_portion = self._background_image.subsurface(bottom_rect)
+            screen.blit(background_portion, (0, 0))
+        else:
+            screen.fill(background)
 
         num = sum(1 for player in players if player["active"])
 
