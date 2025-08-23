@@ -130,6 +130,11 @@ def run():
         logger.info("Default settings created")
 
     if args.setup:
+        # Set SDL hint to center window and raise it
+        os.environ["SDL_VIDEO_WINDOW_POS"] = "centered"
+        os.environ["SDL_VIDEO_CENTERED"] = "1"
+        
+        # Create window 
         screen = pygame.display.set_mode(size)
         
         # Use platform utilities for hardware detection

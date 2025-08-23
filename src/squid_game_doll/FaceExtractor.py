@@ -1,12 +1,35 @@
 import cv2
 import numpy as np
 from .constants import PLAYER_SIZE
+from .cuda_utils import cuda_cvt_color, cuda_resize, is_cuda_opencv_available
 
 
 class FaceExtractor:
     def __init__(self):
         # OpenCV Haar Cascade Face Detector
-        self.face_detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        try:
+            # Try standard OpenCV data path
+            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            self.face_detector = cv2.CascadeClassifier(cascade_path)
+        except AttributeError:
+            # Fallback for custom OpenCV builds without cv2.data
+            import os
+            cascade_paths = [
+                '/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml',
+                '/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml',
+                '/opt/opencv/data/haarcascades/haarcascade_frontalface_default.xml'
+            ]
+            cascade_path = None
+            for path in cascade_paths:
+                if os.path.exists(path):
+                    cascade_path = path
+                    break
+            
+            if cascade_path:
+                self.face_detector = cv2.CascadeClassifier(cascade_path)
+                print(f"✅ Using Haar cascade from: {cascade_path}")
+            else:
+                raise RuntimeError("Could not find haarcascade_frontalface_default.xml. Please install opencv-data package.")
         self._memory = {}
 
     def reset_memory(self):
@@ -29,16 +52,16 @@ class FaceExtractor:
         if person_crop.size == 0:
             return None
 
-        # Convert to grayscale for OpenCV Haar cascades
-        gray_face = cv2.cvtColor(person_crop, cv2.COLOR_BGR2GRAY)
+        # Convert to grayscale for OpenCV Haar cascades (GPU accelerated if available)
+        gray_face = cuda_cvt_color(person_crop, cv2.COLOR_BGR2GRAY)
 
-        # Detect faces using Haar cascades
+        # Detect faces using Haar cascades (optimized parameters)
         faces = self.face_detector.detectMultiScale(
             gray_face,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE
+            scaleFactor=1.3,  # Faster detection (was 1.1)
+            minNeighbors=3,   # Faster detection (was 5)
+            minSize=(40, 40), # Larger minimum size for better performance
+            flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING  # Additional optimization
         )
 
         if len(faces) > 0:
@@ -64,7 +87,7 @@ class FaceExtractor:
             if face_crop.size == 0:
                 return None
 
-            face_crop = cv2.resize(face_crop, (PLAYER_SIZE, PLAYER_SIZE), interpolation=cv2.INTER_AREA)  # Resize
+            face_crop = cuda_resize(face_crop, (PLAYER_SIZE, PLAYER_SIZE), interpolation=cv2.INTER_AREA)  # GPU-accelerated resize
             
             self._memory[id] = face_crop
             return face_crop

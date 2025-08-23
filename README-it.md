@@ -46,6 +46,11 @@ poetry install
 # IMPORTANTE: Installa PyTorch con CUDA per Jetson Nano
 poetry run pip uninstall torch torchvision torchaudio -y
 poetry run pip install torch==2.8.0 torchvision==0.23.0 --index-url=https://pypi.jetson-ai-lab.io/jp6/cu126
+
+# Opzionale: OpenCV CUDA per massime prestazioni (vedi OPENCV_JETSON_IT.md)
+# Dopo aver compilato OpenCV CUDA a livello di sistema:
+VENV_PATH=$(poetry env info --path)
+cp -r /usr/lib/python3/dist-packages/cv2* "$VENV_PATH/lib/python3.10/site-packages/"
 ```
 
 **Per Raspberry Pi 5 con Hailo AI Kit:**
@@ -206,12 +211,36 @@ poetry run python -m src.squid_game_doll.run -n custom_model.hef -c custom_confi
 
 ### Modelli Rete Neurale
 - **PC (Ultralytics)**: Modelli YOLOv8/v11 per rilevamento oggetti e tracciamento
+- **NVIDIA Jetson Nano**: Modelli YOLO ottimizzati CUDA con rilevamento automatico piattaforma
 - **Raspberry Pi (Hailo)**: Modelli Hailo pre-compilati ottimizzati per edge AI
-- **Rilevamento Volti**: MediaPipe per registrazione e identificazione giocatori
+- **Rilevamento Volti**: Haar cascades OpenCV per registrazione e identificazione giocatori
 
 ### Ottimizzazione Prestazioni
-- **Rilevamento Oggetti**: ~10-30 FPS a seconda dell'hardware
-- **Estrazione Volti**: Legato alla CPU, funziona durante registrazione ed eliminazione
+
+#### Ottimizzazioni Specifiche per Piattaforma
+**NVIDIA Jetson Nano:**
+- **Accelerazione CUDA automatica** con wheel PyTorch ottimizzati
+- **Supporto OpenCV CUDA** per elaborazione immagini accelerata GPU (opzionale)
+- **Dimensione input ridotta** (416px vs 640px) per inferenza più veloce
+- **Precisione FP16** per miglioramento velocità 2x
+- **Conteggio thread ottimizzato** per processori ARM
+- **Selezione modello specifica Jetson** (yolo11n.pt per bilanciamento ottimale velocità/accuratezza)
+- **Ottimizzazione TensorRT** disponibile tramite script `optimize_for_jetson.py`
+
+**Raspberry Pi 5 + Hailo:**
+- **Inferenza accelerata hardware** usando processore AI Hailo 8L
+- **Modelli .hef ottimizzati** compilati specificamente per architettura Hailo
+- **Elaborazione parallela** tra ARM CPU e acceleratore AI Hailo
+
+**PC con GPU NVIDIA:**
+- **Accelerazione CUDA completa** con risoluzione input massima
+- **Modelli alta precisione** per miglior accuratezza
+- **Elaborazione multi-thread** per prestazioni tempo reale
+
+#### Prestazioni Generali
+- **Rilevamento Oggetti**: 3-30+ FPS a seconda dell'hardware e ottimizzazione
+- **Estrazione Volti**: CPU-bound con Haar cascades OpenCV (accelerata GPU con OpenCV CUDA)
+- **Elaborazione Immagini**: Speedup 2-5x con OpenCV CUDA per conversioni colore e ridimensionamento
 - **Rilevamento Laser**: Pipeline computer vision usando soglia + dilatazione + cerchi di Hough
 
 ### Risorse Modelli
@@ -307,6 +336,7 @@ circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
 ## 📚 Risorse Aggiuntive
 
 - **Guida Installazione**: [INSTALL.md](INSTALL.md) ([Italiano](INSTALL_IT.md)) per setup Raspberry Pi
+- **Setup OpenCV CUDA**: [OPENCV_JETSON_IT.md](OPENCV_JETSON_IT.md) per accelerazione GPU Jetson Nano
 - **Sviluppo ESP32**: Usa [Thonny IDE](https://thonny.org/) per MicroPython
 - **Reti Neurali**: [Dettagli implementazione Hailo AI](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
 - **Ottimizzazione Telecamera**: [Consigli prestazioni telecamera OpenCV](https://forum.opencv.org/t/opencv-camera-low-fps/567/4)

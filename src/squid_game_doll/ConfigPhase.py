@@ -7,6 +7,8 @@ from .GameCamera import GameCamera
 from .constants import PINK
 from .BasePlayerTracker import BasePlayerTracker
 from .GameSettings import GameSettings
+from .FaceExtractor import FaceExtractor
+from .cuda_utils import cuda_cvt_color
 
 
 class GameConfigPhase:
@@ -58,6 +60,18 @@ class GameConfigPhase:
         # Neural network instance (expects a BasePlayerTracker instance)
         self.neural_net = neural_net
 
+        # Face extractor for testing face detection
+        self.face_extractor = FaceExtractor()
+        self.current_faces = []  # List to store currently detected faces (cleared each frame)
+        self.face_detection_enabled = False  # Toggle for face detection mode
+        self.cached_faces = []  # Cache face detections to avoid duplicate detectMultiScale calls
+        self.cached_vision_offset = (0, 0)  # Cache vision area offset for coordinate conversion
+        
+        # FPS tracking for face detection
+        self.face_detection_fps = 0.0
+        self.frame_times = []
+        self.last_fps_update = time.time()
+
         if len(self.game_settings.areas) == 0:
             self.__setup_defaults()
 
@@ -91,6 +105,7 @@ class GameConfigPhase:
             {"label": "Finish Area", "mode": "finish"},
             {"label": "Settings", "mode": "settings"},
             {"label": "Neural net preview", "mode": "nn_preview"},
+            {"label": "Face detection test", "mode": "face_test"},
             {"label": "Exit without saving", "mode": "dont_save"},
             {"label": "Exit saving changes", "mode": "save"},
         ]
@@ -140,6 +155,18 @@ class GameConfigPhase:
                         self.current_rect = None
                         if self.current_mode == "nn_preview":
                             self.neural_net.reset()
+                        elif self.current_mode == "face_test":
+                            self.face_detection_enabled = True
+                            self.current_faces = []
+                            self.cached_faces = []  # Reset cached faces
+                            self.cached_vision_offset = (0, 0)  # Reset cached offset
+                            self.face_extractor.reset_memory()
+                            self.frame_times = []  # Reset FPS tracking
+                            self.last_fps_update = time.time()
+                        else:
+                            self.face_detection_enabled = False
+                            self.cached_faces = []  # Clear cached faces when disabling
+                            self.cached_vision_offset = (0, 0)
                         return
 
                 if self.current_mode in self.reset_buttons:
@@ -362,9 +389,150 @@ class GameConfigPhase:
             self.settings_buttons[key] = {"minus": minus_rect, "plus": plus_rect}
             y_offset += 30
 
+    def process_face_detection(self, webcam_frame: cv2.UMat):
+        """Process frame for face detection and extract currently detected faces"""
+        if not self.face_detection_enabled:
+            return
+            
+        # Track frame timing for FPS calculation
+        current_time = time.time()
+        self.frame_times.append(current_time)
+        
+        # Keep only last 30 frame times for FPS calculation
+        if len(self.frame_times) > 30:
+            self.frame_times.pop(0)
+            
+        # Update FPS every second
+        if current_time - self.last_fps_update >= 1.0:
+            if len(self.frame_times) > 1:
+                time_diff = self.frame_times[-1] - self.frame_times[0]
+                if time_diff > 0:
+                    self.face_detection_fps = (len(self.frame_times) - 1) / time_diff
+            self.last_fps_update = current_time
+            
+        # Clear previous frame's faces - only show currently detected ones
+        self.current_faces = []
+            
+        # Get vision area for face detection (use full frame if no vision area defined)
+        vision_rects = self.game_settings.areas.get("vision", [])
+        if not vision_rects:
+            # Use full webcam frame
+            roi_frame = webcam_frame
+        else:
+            # Use the first vision area as ROI
+            vision_rect = vision_rects[0]
+            roi_frame = webcam_frame[vision_rect.y:vision_rect.y + vision_rect.height, 
+                                   vision_rect.x:vision_rect.x + vision_rect.width]
+        
+        # Detect faces directly in the full play area using OpenCV (optimized parameters)
+        gray = cuda_cvt_color(roi_frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_extractor.face_detector.detectMultiScale(
+            gray,
+            scaleFactor=1.3,  # Faster detection (was 1.1)
+            minNeighbors=3,   # Faster detection (was 5)
+            minSize=(40, 40), # Larger minimum size for better performance
+            flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING  # Additional optimization
+        )
+        
+        # Cache faces and vision offset for reuse in draw_face_detection_overlay
+        self.cached_faces = faces
+        if vision_rects:
+            vision_rect = vision_rects[0]
+            self.cached_vision_offset = (vision_rect.x, vision_rect.y)
+        else:
+            self.cached_vision_offset = (0, 0)
+        
+        # Extract and store only currently detected faces
+        for idx, (fx, fy, fw, fh) in enumerate(faces):
+            # Create bbox in original frame coordinates if using vision area
+            if vision_rects:
+                vision_rect = vision_rects[0]
+                bbox = (vision_rect.x + fx, vision_rect.y + fy, 
+                       vision_rect.x + fx + fw, vision_rect.y + fy + fh)
+            else:
+                bbox = (fx, fy, fx + fw, fy + fh)
+            
+            # Extract face using the existing FaceExtractor method
+            face_crop = self.face_extractor.extract_face(webcam_frame, bbox, idx)
+            if face_crop is not None:
+                # Store only current frame's faces
+                self.current_faces.append(face_crop)
+
+    def draw_detected_faces(self):
+        """Draw currently detected faces at the bottom of the screen"""
+        if not self.current_faces or self.current_mode != "face_test":
+            return
+            
+        face_size = 80  # Size of each face thumbnail
+        margin = 10
+        start_x = 20
+        start_y = self.screen_height - face_size - 20
+        
+        # Draw background for face area
+        face_area_width = len(self.current_faces) * (face_size + margin) + margin
+        face_bg_rect = pygame.Rect(start_x - 5, start_y - 25, face_area_width, face_size + 30)
+        pygame.draw.rect(self.screen, (50, 50, 50, 180), face_bg_rect)
+        pygame.draw.rect(self.screen, (255, 255, 255), face_bg_rect, 2)
+        
+        # Label for face detection area
+        label_text = f"Currently Detected Faces ({len(self.current_faces)})"
+        label_surf = self.font.render(label_text, True, (255, 255, 255))
+        self.screen.blit(label_surf, (start_x, start_y - 20))
+        
+        # Draw each currently detected face
+        for idx, face in enumerate(self.current_faces):
+            x_pos = start_x + idx * (face_size + margin)
+            
+            # Convert OpenCV image to pygame surface
+            face_rgb = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+            face_surface = pygame.surfarray.make_surface(face_rgb.swapaxes(0, 1))
+            face_surface = pygame.transform.scale(face_surface, (face_size, face_size))
+            
+            # Draw face with border
+            face_rect = pygame.Rect(x_pos, start_y, face_size, face_size)
+            pygame.draw.rect(self.screen, (255, 255, 255), face_rect, 2)
+            self.screen.blit(face_surface, (x_pos, start_y))
+
+    def draw_face_detection_overlay(self, webcam_frame: cv2.UMat):
+        """Draw face detection rectangles on the webcam feed using cached face detections"""
+        if not self.face_detection_enabled:
+            return
+            
+        # Use cached faces from process_face_detection to avoid duplicate detectMultiScale calls
+        faces = self.cached_faces
+        offset_x, offset_y = self.cached_vision_offset
+        
+        # Draw face detection rectangles using cached results
+        for (fx, fy, fw, fh) in faces:
+            # Convert to screen coordinates (without offset adjustment first)
+            x = int((offset_x + fx) * self.webcam_to_screen_ratio)
+            y = int((offset_y + fy) * self.webcam_to_screen_ratio)
+            w = int(fw * self.webcam_to_screen_ratio)
+            h = int(fh * self.webcam_to_screen_ratio)
+            
+            # Flip the x coordinate to match pygame orientation (same as neural net preview)
+            x = self.webcam_rect.width - x - w
+            
+            # Apply webcam rect offset
+            screen_x = x + self.webcam_rect.x
+            screen_y = y + self.webcam_rect.y
+            screen_w = w
+            screen_h = h
+            
+            # Draw face detection rectangle
+            pygame.draw.rect(self.screen, (0, 255, 0), (screen_x, screen_y, screen_w, screen_h), 3)
+            # Draw center point
+            center_x = screen_x + screen_w // 2
+            center_y = screen_y + screen_h // 2
+            pygame.draw.circle(self.screen, (255, 0, 0), (center_x, center_y), 5)
+
     def draw_ui(self, webcam_surf: pygame.Surface, webcam_frame: cv2.UMat):
 
         self.screen.fill(PINK)
+
+        # Process face detection if in face test mode
+        if self.current_mode == "face_test":
+            self.process_face_detection(webcam_frame)
 
         if self.current_mode == "nn_preview":
             # Apply the vision frame to the webcam surface
@@ -427,6 +595,26 @@ class GameConfigPhase:
                 )
                 label_rect = label_surf.get_rect(center=(x_offset + new_width // 2, y_offset - 20))
                 self.screen.blit(label_surf, label_rect.topleft)
+        elif self.current_mode == "face_test":
+            # Resize the webcam surface to fit the screen
+            webcam_surf = pygame.transform.scale(webcam_surf, (self.webcam_rect.w, self.webcam_rect.h))
+            
+            # Draw the webcam feed for face detection
+            self.screen.blit(webcam_surf, self.webcam_rect.topleft)
+            
+            # Draw face detection rectangles on the webcam feed
+            self.draw_face_detection_overlay(webcam_frame)
+            
+            # Draw a rectangle around the face test preview
+            pygame.draw.rect(self.screen, (0, 255, 255), self.webcam_rect, 2)
+            # Add a label with FPS
+            label_surf = self.font.render(
+                f"Face Detection Test - Detected: {len(self.current_faces)} faces, FPS: {self.face_detection_fps:.1f}",
+                True,
+                (255, 255, 255),
+            )
+            label_rect = label_surf.get_rect(center=(self.webcam_rect.centerx, self.webcam_rect.y - 20))
+            self.screen.blit(label_surf, label_rect.topleft)
         else:
             # Resize the webcam surface to fit the screen
             webcam_surf = pygame.transform.scale(webcam_surf, (self.webcam_rect.w, self.webcam_rect.h))
@@ -476,6 +664,9 @@ class GameConfigPhase:
         if self.current_mode == "settings":
             self.draw_settings(self.screen)
 
+        # Draw detected faces at the bottom (for face test mode)
+        self.draw_detected_faces()
+        
         # Validate configuration and display warning messages if needed.
         warnings = self.validate_configuration()
         if warnings:

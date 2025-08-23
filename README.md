@@ -46,6 +46,11 @@ poetry install
 # IMPORTANT: Install CUDA-enabled PyTorch for Jetson Nano
 poetry run pip uninstall torch torchvision torchaudio -y
 poetry run pip install torch==2.8.0 torchvision==0.23.0 --index-url=https://pypi.jetson-ai-lab.io/jp6/cu126
+
+# Optional: CUDA OpenCV for maximum performance (see OPENCV_JETSON.md)
+# After building CUDA OpenCV system-wide:
+VENV_PATH=$(poetry env info --path)
+cp -r /usr/lib/python3/dist-packages/cv2* "$VENV_PATH/lib/python3.10/site-packages/"
 ```
 
 **For Raspberry Pi 5 with Hailo AI Kit:**
@@ -215,10 +220,12 @@ poetry run python -m src.squid_game_doll.run -n custom_model.hef -c custom_confi
 #### Platform-Specific Optimizations
 **NVIDIA Jetson Nano:**
 - **Automatic CUDA acceleration** with optimized PyTorch wheels
+- **CUDA OpenCV support** for GPU-accelerated image processing (optional)
 - **Reduced input size** (416px vs 640px) for faster inference  
 - **FP16 precision** for 2x speed improvement
 - **Optimized thread count** for ARM processors
 - **Jetson-specific model selection** (yolo11n.pt for optimal speed/accuracy balance)
+- **TensorRT optimization** available via `optimize_for_jetson.py` script
 
 **Raspberry Pi 5 + Hailo:**
 - **Hardware-accelerated inference** using Hailo 8L AI processor
@@ -232,7 +239,8 @@ poetry run python -m src.squid_game_doll.run -n custom_model.hef -c custom_confi
 
 #### General Performance
 - **Object Detection**: 3-30+ FPS depending on hardware and optimization
-- **Face Extraction**: CPU-bound with OpenCV Haar cascades (replaces MediaPipe for better compatibility)
+- **Face Extraction**: CPU-bound with OpenCV Haar cascades (GPU-accelerated with CUDA OpenCV)
+- **Image Processing**: 2-5x speedup with CUDA OpenCV for color conversions and resizing
 - **Laser Detection**: Computer vision pipeline using threshold + dilate + Hough circles
 
 ### Model Resources
@@ -328,6 +336,7 @@ circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
 ## 📚 Additional Resources
 
 - **Installation Guide**: [INSTALL.md](INSTALL.md) ([Italiano](INSTALL_IT.md)) for Raspberry Pi setup
+- **CUDA OpenCV Setup**: [OPENCV_JETSON.md](OPENCV_JETSON.md) for Jetson Nano GPU acceleration
 - **ESP32 Development**: Use [Thonny IDE](https://thonny.org/) for MicroPython
 - **Neural Networks**: [Hailo AI implementation details](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
 - **Camera Optimization**: [OpenCV camera performance tips](https://forum.opencv.org/t/opencv-camera-low-fps/567/4)

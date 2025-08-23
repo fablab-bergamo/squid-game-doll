@@ -9,6 +9,7 @@ from .PlayerTrackerUL import PlayerTrackerUL
 from .Player import Player
 from .FaceExtractor import FaceExtractor
 from .GameCamera import GameCamera
+from .cuda_utils import is_cuda_opencv_available
 from .LaserShooter import LaserShooter
 from .LaserTracker import LaserTracker
 from .GameSettings import GameSettings
@@ -295,6 +296,12 @@ class SquidGame:
 
         logger.debug("Loading face extractor")
         self.face_extractor = FaceExtractor()
+        
+        # Log CUDA status
+        if is_cuda_opencv_available():
+            logger.info("🚀 CUDA OpenCV enabled - GPU acceleration active")
+        else:
+            logger.info("ℹ️ Using CPU-only OpenCV processing")
 
         logger.info("Model loading complete")
         self._init_done = True
@@ -404,7 +411,7 @@ class SquidGame:
         """
         # Game Loop
         running: bool = True
-        frame_rate: float = 10.0
+        frame_rate: float = 15.0  # Increased from 10.0 for better responsiveness
         # Create a clock object to manage the frame rate
         clock: pygame.time.Clock = pygame.time.Clock()
 
