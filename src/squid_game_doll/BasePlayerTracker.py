@@ -62,7 +62,8 @@ class BasePlayerTracker:
         for i in range(len(detections.xyxy)):
             x1, y1, x2, y2 = map(int, detections.xyxy[i])
             track_id = int(detections.tracker_id[i]) if detections.tracker_id[i] is not None else None
-            players.append(Player(track_id, (x1, y1, x2, y2)))
+            confidence = float(detections.confidence[i]) if len(detections.confidence) > i else 0.0
+            players.append(Player(track_id, (x1, y1, x2, y2), confidence))
         return players
 
     @abstractmethod

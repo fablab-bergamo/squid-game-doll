@@ -622,7 +622,14 @@ class GameConfigPhase:
                 y_offset = (self.screen_height - new_height) // 2
 
                 # Run the model and highlight detections - use same settings format as game mode  
-                for p in self.neural_net.process_nn_frame(nn_frame, self.game_settings):
+                players = self.neural_net.process_nn_frame(nn_frame, self.game_settings)
+                
+                # Calculate statistics for label
+                detection_count = len([p for p in players if p is not None])
+                confidences = [p.get_confidence() for p in players if p is not None]
+                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+                
+                for p in players:
                     if p is not None:
                         bbox = p.get_bbox()
                         # Now apply scaling factors from NN Frame to webcam frame AND from webcam frame to resized surface
@@ -632,13 +639,46 @@ class GameConfigPhase:
                         h = int(bbox[3] * new_height / rect.height * rect.height / nn_frame.shape[0])
                         # Flip the x coordinate to match pygame orientation
                         x = new_width - x - w
-                        logger.debug(f"Player ID: {p.get_id()} bbox: {bbox} scaled:{(x, y, w, h)}")
+                        logger.debug(f"Player ID: {p.get_id()} bbox: {bbox} scaled:{(x, y, w, h)} conf: {p.get_confidence():.2f}")
 
-                        # Draw the bounding box around the detected player
-                        pygame.draw.rect(nn_surf_resized, (128, 255, 255), (x, y, w, h), 5)
+                        # Get confidence for color coding
+                        confidence = p.get_confidence()
+                        conf_percentage = int(confidence * 100)
+                        
+                        # Color code bounding box based on confidence
+                        # High confidence (80-100%): Bright green
+                        # Medium confidence (60-79%): Yellow-green  
+                        # Low confidence (40-59%): Orange
+                        # Very low confidence (<40%): Red
+                        if confidence >= 0.8:
+                            bbox_color = (0, 255, 0)  # Bright green
+                            text_color = (0, 255, 0)
+                        elif confidence >= 0.6:
+                            bbox_color = (128, 255, 0)  # Yellow-green
+                            text_color = (128, 255, 0)
+                        elif confidence >= 0.4:
+                            bbox_color = (255, 165, 0)  # Orange
+                            text_color = (255, 165, 0)
+                        else:
+                            bbox_color = (255, 0, 0)  # Red
+                            text_color = (255, 0, 0)
+                        
+                        # Draw the bounding box around the detected player with confidence-based color
+                        pygame.draw.rect(nn_surf_resized, bbox_color, (x, y, w, h), 3)
+                        
+                        # Draw semi-transparent background for text
+                        text_bg_height = 35
+                        text_bg = pygame.Surface((max(80, w), text_bg_height), pygame.SRCALPHA)
+                        text_bg.fill((0, 0, 0, 180))  # Semi-transparent black
+                        nn_surf_resized.blit(text_bg, (x, y - text_bg_height))
+                        
                         # Draw the player ID
-                        id_surf = self.big_font.render(str(p.get_id()), True, (255, 0, 0))
-                        nn_surf_resized.blit(id_surf, (x + 5, y + 5))
+                        id_surf = self.font.render(f"ID:{p.get_id()}", True, text_color)
+                        nn_surf_resized.blit(id_surf, (x + 2, y - text_bg_height + 2))
+                        
+                        # Draw confidence percentage with color coding
+                        conf_surf = self.font.render(f"{conf_percentage}%", True, text_color)
+                        nn_surf_resized.blit(conf_surf, (x + 2, y - text_bg_height + 17))
 
                 self.screen.blit(nn_surf_resized, (x_offset, y_offset))
 
