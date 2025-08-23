@@ -1,8 +1,13 @@
 import platform
 import os
 import argparse
-import pygame
+import warnings
 import sys
+
+# Suppress NumPy subnormal value warnings that occur on some systems during initialization
+warnings.filterwarnings("ignore", message="The value of the smallest subnormal.*is zero", category=UserWarning)
+
+import pygame
 from loguru import logger
 from .GameCamera import GameCamera
 from .GameScreen import GameScreen
@@ -17,58 +22,65 @@ from .utils.platform import (
 
 def load_neural_network(model: str):
     """Load neural network using the same logic as SquidGame.load_model()"""
+    import os
+    from .utils.platform import get_optimal_model_for_platform
+    
     # Use platform utilities for hardware detection
     platform_info = get_platform_info()
     tracker = None
+    
+    # Determine the actual model that will be used for better logging
+    actual_model = model if model != "" else get_optimal_model_for_platform()
+    model_name = os.path.splitext(os.path.basename(actual_model))[0]  # Extract model name (e.g., "yolo11n")
     
     # Only try Hailo on Raspberry Pi, use Ultralytics elsewhere
     if should_use_hailo():
         try:
             from .PlayerTrackerHailo import PlayerTrackerHailo
-            logger.info(f"Loading HAILO model ({platform_info}) - {model}...")
+            logger.info(f"🤖 Loading HAILO model '{model_name}' ({platform_info})")
             if model != "":
                 tracker = PlayerTrackerHailo(model)
             else:
                 tracker = PlayerTrackerHailo()
-            logger.info("Successfully loaded Hailo tracker")
+            logger.info(f"✅ Successfully loaded HAILO tracker with model '{model_name}'")
         except (ImportError, ModuleNotFoundError) as import_error:
-            logger.warning(f"Hailo dependencies not available ({import_error}), falling back to Ultralytics")
+            logger.warning(f"⚠️  HAILO dependencies not available ({import_error}), falling back to Ultralytics")
             try:
                 from .PlayerTrackerUL import PlayerTrackerUL
-                logger.info(f"Loading Ultralytics model ({platform_info}) - {model}...")
+                logger.info(f"🤖 Loading Ultralytics model '{model_name}' ({platform_info})")
                 if model != "":
                     tracker = PlayerTrackerUL(model)
                 else:
                     tracker = PlayerTrackerUL()
-                logger.info("Successfully loaded Ultralytics tracker")
+                logger.info(f"✅ Successfully loaded Ultralytics tracker with model '{model_name}'")
             except Exception as ul_error:
-                logger.error(f"Failed to load Ultralytics tracker: {ul_error}")
+                logger.error(f"❌ Failed to load Ultralytics tracker: {ul_error}")
                 tracker = None
         except Exception as hailo_error:
-            logger.error(f"Failed to initialize Hailo tracker: {hailo_error}")
+            logger.error(f"❌ Failed to initialize HAILO tracker: {hailo_error}")
             try:
                 from .PlayerTrackerUL import PlayerTrackerUL
-                logger.info(f"Attempting Ultralytics fallback ({platform_info})...")
+                logger.info(f"🤖 Attempting Ultralytics fallback with model '{model_name}' ({platform_info})")
                 if model != "":
                     tracker = PlayerTrackerUL(model)
                 else:
                     tracker = PlayerTrackerUL()
-                logger.info("Successfully loaded Ultralytics tracker")
+                logger.info(f"✅ Successfully loaded Ultralytics tracker with model '{model_name}'")
             except Exception as ul_error:
-                logger.error(f"Failed to load Ultralytics tracker: {ul_error}")
+                logger.error(f"❌ Failed to load Ultralytics tracker: {ul_error}")
                 tracker = None
     else:
         # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
         try:
             from .PlayerTrackerUL import PlayerTrackerUL
-            logger.info(f"Loading Ultralytics model ({platform_info}) - {model}...")
+            logger.info(f"🤖 Loading Ultralytics model '{model_name}' ({platform_info})")
             if model != "":
                 tracker = PlayerTrackerUL(model)
             else:
                 tracker = PlayerTrackerUL()
-            logger.info("Successfully loaded Ultralytics tracker")
+            logger.info(f"✅ Successfully loaded Ultralytics tracker with model '{model_name}'")
         except Exception as e:
-            logger.error(f"Failed to load Ultralytics tracker: {e}")
+            logger.error(f"❌ Failed to load Ultralytics tracker: {e}")
             tracker = None
 
     return tracker
