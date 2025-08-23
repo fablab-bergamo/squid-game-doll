@@ -20,33 +20,38 @@ class BasePlayerTracker:
     def yolo_to_supervision(self, yolo_results) -> sv.Detections:
         """
         Converts YOLO results into a supervision Detections object with proper scaling.
+        Optimized to minimize GPU→CPU transfers.
         """
         detections = []
         for result in yolo_results:
             if result.boxes is None:
                 continue
+            
+            # Batch transfer all data from GPU to CPU in one go (MAJOR OPTIMIZATION)
+            boxes = result.boxes
+            if len(boxes) == 0:
+                continue
+                
+            # Single GPU→CPU transfer for all boxes
+            confidences = boxes.conf.cpu().numpy()
+            class_ids = boxes.cls.cpu().numpy() 
+            xyxy_coords = boxes.xyxy.cpu().numpy()
+            track_ids = boxes.id.cpu().numpy() if boxes.id is not None else None
 
-            for box in result.boxes:
-                conf = float(box.conf[0].cpu().numpy())
-                class_id = int(box.cls[0].cpu().numpy())
+            # Process each detection using CPU arrays (no more GPU transfers)
+            for i in range(len(boxes)):
+                conf = float(confidences[i])
+                class_id = int(class_ids[i])
+                
                 if conf > self.confidence and class_id == 0:
-                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                    x1, y1, x2, y2 = xyxy_coords[i]
                     x1 = int(x1 * self.frame_rect.width / self.nn_rect.width + self.nn_rect.x)
                     y1 = int(y1 * self.frame_rect.height / self.nn_rect.height + self.nn_rect.y)
                     x2 = int(x2 * self.frame_rect.width / self.nn_rect.width + self.nn_rect.x)
                     y2 = int(y2 * self.frame_rect.height / self.nn_rect.height + self.nn_rect.y)
-                    conv_rect = pygame.Rect(x1, y1, x2 - x1, y2 - y1)
-                    track_id = int(box.id[0].cpu().numpy()) if box.id is not None else None
-                    detections.append(
-                        [
-                            conv_rect.x,
-                            conv_rect.y,
-                            conv_rect.x + conv_rect.w,
-                            conv_rect.y + conv_rect.h,
-                            conf,
-                            track_id,
-                        ]
-                    )
+                    
+                    track_id = int(track_ids[i]) if track_ids is not None else None
+                    detections.append([x1, y1, x2, y2, conf, track_id])
 
         if not detections:
             return sv.Detections.empty()
