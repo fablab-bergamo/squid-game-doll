@@ -10,7 +10,7 @@ import platform
 from loguru import logger
 
 
-def is_jetson_nano() -> bool:
+def is_jetson_orin() -> bool:
     """
     Check if running on NVIDIA Jetson Nano.
     
@@ -48,8 +48,8 @@ def get_platform_info() -> str:
     Returns:
         str: Platform description string
     """
-    if is_jetson_nano():
-        return "NVIDIA Jetson Nano"
+    if is_jetson_orin():
+        return "NVIDIA Jetson Orin"
     elif is_raspberry_pi():
         return "Raspberry Pi"
     elif platform.system() == "Linux":
@@ -69,7 +69,7 @@ def get_optimal_model_for_platform() -> str:
     Returns:
         str: Model filename optimized for current hardware
     """
-    if is_jetson_nano():
+    if is_jetson_orin():
         # Use nano model for Jetson Nano for best speed/accuracy balance
         return "yolo11n.pt"
     elif is_raspberry_pi():
@@ -97,7 +97,7 @@ def should_use_tensorrt() -> bool:
     Returns:
         bool: True if TensorRT should be used, False otherwise
     """
-    return is_jetson_nano()
+    return is_jetson_orin()
 
 
 def get_optimal_input_size() -> int:
@@ -118,7 +118,7 @@ def get_optimal_thread_count() -> int:
     Returns:
         int: Number of threads to use
     """
-    if is_jetson_nano():
+    if is_jetson_orin():
         # ARM processors typically work well with 4 threads
         return 4
     elif is_raspberry_pi():

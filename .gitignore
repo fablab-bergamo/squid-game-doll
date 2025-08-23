@@ -185,3 +185,6 @@ config.yaml
 poetry.lock
 config-test.yaml
 .claude/settings.local.json
+yolo11l.engine
+yolo11l.onnx
+yolo11n.onnx

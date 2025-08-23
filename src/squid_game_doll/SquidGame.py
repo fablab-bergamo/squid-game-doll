@@ -14,7 +14,7 @@ from .LaserShooter import LaserShooter
 from .LaserTracker import LaserTracker
 from .GameSettings import GameSettings
 from .utils.platform import (
-    is_jetson_nano,
+    is_jetson_orin,
     is_raspberry_pi,
     should_use_hailo,
     get_platform_info

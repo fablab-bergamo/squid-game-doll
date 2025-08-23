@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Jetson Nano Optimization Script for Squid Game Doll
+Jetson Orin Optimization Script for Squid Game Doll
 
-This script optimizes YOLO models for Jetson Nano by:
+This script optimizes YOLO models for Jetson Orin by:
 1. Converting models to TensorRT format
 2. Setting optimal system performance settings
 3. Validating the optimized setup
@@ -19,8 +19,8 @@ import sys
 from pathlib import Path
 from loguru import logger
 
-def is_jetson_nano():
-    """Check if running on Jetson Nano"""
+def is_jetson_orin():
+    """Check if running on Jetson Orin"""
     try:
         return (platform.machine() == "aarch64" and 
                os.path.exists("/etc/nv_tegra_release"))
@@ -29,8 +29,8 @@ def is_jetson_nano():
 
 def set_jetson_max_performance():
     """Set Jetson to maximum performance mode"""
-    if not is_jetson_nano():
-        logger.warning("Not running on Jetson Nano, skipping performance settings")
+    if not is_jetson_orin():
+        logger.warning("Not running on Jetson Orin, skipping performance settings")
         return
     
     try:
@@ -52,10 +52,33 @@ def set_jetson_max_performance():
 def convert_to_tensorrt(model_path: str, imgsz: int = 640, half: bool = True, int8: bool = False):
     """Convert YOLO model to TensorRT format"""
     try:
+        # Add system paths to access TensorRT on Jetson
+        if is_jetson_orin():
+            import sys
+            sys.path.append('/usr/lib/python3/dist-packages')
+            sys.path.append('/usr/local/lib/python3.10/dist-packages')
+        
         from ultralytics import YOLO
         
         logger.info(f"Loading model: {model_path}")
         model = YOLO(model_path)
+        
+        # Check if TensorRT is available before attempting export
+        try:
+            import tensorrt
+            logger.info(f"TensorRT version: {tensorrt.__version__}")
+        except ImportError:
+            logger.warning("TensorRT not available - falling back to ONNX export")
+            # Export to ONNX instead as fallback
+            exported_path = model.export(
+                format="onnx",
+                imgsz=imgsz,
+                half=half,
+                dynamic=False,
+                verbose=True
+            )
+            logger.info(f"ONNX export completed: {exported_path}")
+            return exported_path
         
         # Export to TensorRT
         logger.info(f"Converting to TensorRT (imgsz={imgsz}, half={half}, int8={int8})")
@@ -72,11 +95,11 @@ def convert_to_tensorrt(model_path: str, imgsz: int = 640, half: bool = True, in
         logger.info(f"TensorRT conversion completed: {exported_path}")
         return exported_path
         
-    except ImportError:
-        logger.error("Ultralytics not installed. Install with: pip install ultralytics")
+    except ImportError as e:
+        logger.error(f"Required packages not available: {e}")
         return None
     except Exception as e:
-        logger.error(f"TensorRT conversion failed: {e}")
+        logger.error(f"Model conversion failed: {e}")
         return None
 
 def download_optimal_model():
@@ -87,8 +110,8 @@ def download_optimal_model():
         model_name = "yolo11n.pt"  # Nano model for best performance
         logger.info(f"Downloading optimal model: {model_name}")
         
-        model = YOLO(model_name)
-        model_path = Path(model.model_path).resolve()
+        model:YOLO = YOLO(model_name, verbose=True)
+        model_path = Path(model_name).resolve()
         
         logger.info(f"Model downloaded to: {model_path}")
         return str(model_path)
@@ -103,10 +126,19 @@ def validate_setup():
     
     # Check if TensorRT is available
     try:
+        # Add system paths for Jetson
+        if is_jetson_orin():
+            import sys
+            sys.path.append('/usr/lib/python3/dist-packages')
+            sys.path.append('/usr/local/lib/python3.10/dist-packages')
+        
         import tensorrt
         logger.info(f"TensorRT version: {tensorrt.__version__}")
     except ImportError:
-        logger.warning("TensorRT not available - models will run on PyTorch")
+        if is_jetson_orin():
+            logger.warning("TensorRT not accessible in virtual environment - will fall back to ONNX")
+        else:
+            logger.warning("TensorRT not available - models will run on PyTorch")
     
     # Check if CUDA is available
     try:
@@ -119,8 +151,8 @@ def validate_setup():
         logger.error("PyTorch not installed")
     
     # Check if running on Jetson
-    if is_jetson_nano():
-        logger.info("Running on Jetson Nano - optimizations will be applied")
+    if is_jetson_orin():
+        logger.info("Running on Jetson Orin - optimizations will be applied")
         
         # Check Jetson stats if available
         try:
@@ -129,10 +161,10 @@ def validate_setup():
         except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
             logger.info("Install jetson-stats for monitoring: sudo pip install jetson-stats")
     else:
-        logger.info("Not running on Jetson Nano")
+        logger.info("Not running on Jetson Orin")
 
 def main():
-    parser = argparse.ArgumentParser(description="Optimize YOLO models for Jetson Nano")
+    parser = argparse.ArgumentParser(description="Optimize YOLO models for Jetson Orin")
     parser.add_argument("--model", type=str, default="", 
                        help="Path to YOLO model (default: download yolo11n.pt)")
     parser.add_argument("--imgsz", type=int, default=640,
@@ -147,14 +179,14 @@ def main():
     args = parser.parse_args()
     
     logger.add("jetson_optimization.log", rotation="1 MB")
-    logger.info("Starting Jetson Nano optimization for Squid Game Doll")
+    logger.info("Starting Jetson Orin optimization for Squid Game Doll")
     
     if args.validate_only:
         validate_setup()
         return
     
     # Set Jetson performance if requested and available
-    if not args.no_performance and is_jetson_nano():
+    if not args.no_performance and is_jetson_orin():
         set_jetson_max_performance()
     
     # Download model if not specified
@@ -181,7 +213,7 @@ def main():
     if tensorrt_path:
         logger.info("Optimization completed successfully!")
         logger.info(f"Optimized model: {tensorrt_path}")
-        logger.info("The game will automatically use the TensorRT model when running on Jetson Nano")
+        logger.info("The game will automatically use the TensorRT model when running on Jetson Orin")
     else:
         logger.error("Optimization failed")
         sys.exit(1)
