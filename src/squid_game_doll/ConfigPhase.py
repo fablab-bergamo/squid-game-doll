@@ -613,9 +613,16 @@ class GameConfigPhase:
                         new_height += 100
                         new_width = int(nn_surf.get_width() * new_height / nn_surf.get_height())
 
-                logger.debug(
-                    f"read_nn: original dimensions {webcam_frame.shape[1]} x {webcam_frame.shape[0]}, Resized dimensions {(nn_frame.shape[1], nn_frame.shape[0])}, rect: {rect}, size on screen {new_width} x {new_height}"
-                )
+                # Only log occasionally to avoid spam
+                if hasattr(self, '_frame_log_count'):
+                    self._frame_log_count += 1
+                else:
+                    self._frame_log_count = 1
+                    
+                if self._frame_log_count % 60 == 0:  # Log every 60 frames
+                    logger.debug(
+                        f"Frame info: {webcam_frame.shape[1]}x{webcam_frame.shape[0]} → {nn_frame.shape[1]}x{nn_frame.shape[0]}, screen: {new_width}x{new_height}"
+                    )
                 nn_surf_resized = pygame.transform.scale(nn_surf, (new_width, new_height))
                 # Center the resized surface
                 x_offset = (self.screen_width - new_width) // 2
@@ -639,7 +646,9 @@ class GameConfigPhase:
                         h = int(bbox[3] * new_height / rect.height * rect.height / nn_frame.shape[0])
                         # Flip the x coordinate to match pygame orientation
                         x = new_width - x - w
-                        logger.debug(f"Player ID: {p.get_id()} bbox: {bbox} scaled:{(x, y, w, h)} conf: {p.get_confidence():.2f}")
+                        # Only log player bbox occasionally to reduce spam
+                        if self._frame_log_count % 60 == 0:
+                            logger.debug(f"Player ID: {p.get_id()} bbox: {bbox} scaled:{(x, y, w, h)} conf: {p.get_confidence():.2f}")
 
                         # Get confidence for color coding
                         confidence = p.get_confidence()

@@ -374,8 +374,4 @@ class GameCamera:
         w = int(rect.width * nn_to_webcam_ratio_w * webcam_to_screen_ratio)
         h = int(rect.height * nn_to_webcam_ratio_h * webcam_to_screen_ratio)
 
-        logger.debug(
-            f"Converting NN rect {rect} to screen coordinates: {x}, {y}, {w}, {h} (crop_info: {crop_info}, nn_frame (HxW): {nn_frame.shape[:2]}, webcam_to_screen_ratio: {webcam_to_screen_ratio})"
-        )
-
         return Rect(x, y, w, h)

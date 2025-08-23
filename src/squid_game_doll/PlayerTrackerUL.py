@@ -272,7 +272,7 @@ class PlayerTrackerUL(BasePlayerTracker):
                 # Core detection parameters
                 "persist": True,
                 "classes": [0],         # Only detect persons
-                "verbose": True,
+                "verbose": False,
                 "stream": False,        # Direct results
                 
                 # Detection optimization parameters
@@ -311,7 +311,9 @@ class PlayerTrackerUL(BasePlayerTracker):
             results = self.yolo.track(nn_frame, **inference_kwargs)
             tracking_end = cv2.getTickCount()
             tracking_ms = ((tracking_end - tracking_start) / cv2.getTickFrequency()) * 1000
-            logger.info(f"🎯 Optimized Full Tracking: {tracking_ms:.1f}ms [{self.model_format}]")
+            # Only log tracking time if it's unusually slow or occasionally
+            if tracking_ms > 80.0 or self.frame_count % 60 == 0:
+                logger.debug(f"🎯 Tracking: {tracking_ms:.1f}ms [{self.model_format}]")
             
         except Exception as e:
             logger.exception(f"process_nn_frame: error: {type(e).__name__}: {str(e)}")
@@ -331,18 +333,23 @@ class PlayerTrackerUL(BasePlayerTracker):
         players = self.supervision_to_players(detections)
         supervision_time = ((cv2.getTickCount() - supervision_start) / cv2.getTickFrequency()) * 1000
         
-        # Log post-processing timing breakdown
-        logger.info(f"📊 Post-processing: YOLO→Supervision {yolo_conv_time:.1f}ms | Supervision→Players {supervision_time:.1f}ms")
-        for p in players:
-            logger.debug(p)
+        # Only log post-processing if there are issues
+        if yolo_conv_time > 5.0 or supervision_time > 5.0:
+            logger.info(f"📊 Slow post-processing: YOLO→Supervision {yolo_conv_time:.1f}ms | Supervision→Players {supervision_time:.1f}ms")
+        # Only log individual players occasionally
+        if self.frame_count % 60 == 0 and players:
+            logger.debug(f"Players: {[f'ID:{p.get_id()} pos:({p.get_bbox()[0]},{p.get_bbox()[1]})' for p in players]}")
         self.previous_result = players
         end_time = cv2.getTickCount()
         time_taken = (end_time - start_time) / cv2.getTickFrequency()
         total_time_ms = time_taken * 1000
         self.fps = 1 / time_taken if time_taken > 0 else 0
         
-        # Log total processing time
-        logger.info(f"🎯 Total Processing: {total_time_ms:.1f}ms ({self.fps:.1f} FPS) | Players detected: {len(players)}")
+        # Log total processing time (very reduced frequency)
+        if self.frame_count % 30 == 0:  # Log every 30 frames (~2 seconds at 15 FPS)
+            logger.info(f"🎯 Performance: {total_time_ms:.1f}ms ({self.fps:.1f} FPS) | Players: {len(players)} | Frame: {self.frame_count}")
+        elif total_time_ms > 100.0:  # Only log individual frames if they're really slow
+            logger.warning(f"🐌 Slow frame: {total_time_ms:.1f}ms ({self.fps:.1f} FPS) | Players: {len(players)}")
         return players
 
     def get_max_size(self) -> int:

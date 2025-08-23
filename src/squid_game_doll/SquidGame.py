@@ -509,10 +509,10 @@ class SquidGame:
             pygame.display.flip()
             # Limit the frame rate
             clock.tick(frame_rate)
-            logger.debug(f"Play FPS={round(clock.get_fps(),1)}")
 
-            if random.randint(0, 100) == 0:
+            if random.randint(0, 150) == 0:
                 self.save_screen_to_disk(screen, "game.png")
+                logger.debug(f"Play FPS={round(clock.get_fps(),1)}")
 
     def start_game(self) -> None:
         """Start the Squid Game (Green Light Red Light)"""
