@@ -31,7 +31,10 @@ jobs:
 
     # Install dependencies
     - name: Install dependencies
-      run: poetry install
+      run: |
+        poetry install --extras standard
+        poetry run pip install ultralytics --no-deps
+        poetry run pip install tqdm seaborn psutil py-cpuinfo thop requests PyYAML
 
     # Run tests
     - name: Run tests

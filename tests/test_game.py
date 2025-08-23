@@ -1,7 +1,7 @@
 import pytest
-from squid_game_doll.SquidGame import SquidGame
-from squid_game_doll.Player import Player
-from squid_game_doll.GameSettings import GameSettings
+from squid_game_doll.squid_game import SquidGame
+from squid_game_doll.player import Player
+from squid_game_doll.game_settings import GameSettings
 import pygame
 import os
 import time
