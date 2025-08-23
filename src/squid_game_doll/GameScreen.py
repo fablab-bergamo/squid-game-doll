@@ -309,8 +309,15 @@ class GameScreen:
         surface.blit(text, (surface.get_width() // 2 + 20, 20))
 
     def draw_finish_area(self, webcam_surface: pygame.Surface, settings: GameSettings):
+        """Draw finish area rectangles on the webcam surface.
+        
+        Uses transformed coordinates that work with the horizontally flipped display.
+        """
+        # Get gameplay coordinates (transformed from setup coordinates)
+        gameplay_areas = settings.get_gameplay_areas()
+        
         # Draw the rectangles of finish area
-        for rect in settings.areas["finish"]:
+        for rect in gameplay_areas["finish"]:
             # Scale the rectangle to the webcam surface size
             scaled_rect = pygame.Rect(
                 rect.x * webcam_surface.get_width() / settings.get_reference_frame().width,

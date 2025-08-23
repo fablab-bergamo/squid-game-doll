@@ -66,6 +66,7 @@ class GameConfigPhase:
         self.face_detection_enabled = False  # Toggle for face detection mode
         self.cached_faces = []  # Cache face detections to avoid duplicate detectMultiScale calls
         self.cached_vision_offset = (0, 0)  # Cache vision area offset for coordinate conversion
+        self.cached_vision_mask = None  # Cache vision area mask for consistent processing
         
         # FPS tracking for face detection
         self.face_detection_fps = 0.0
@@ -126,12 +127,20 @@ class GameConfigPhase:
         self.game_settings.areas = GameSettings.default_areas(self.webcam_rect.width, self.webcam_rect.height)
 
     def convert_cv2_to_pygame(self, cv_image):
-        """Convert an OpenCV image to a pygame surface."""
+        """Convert an OpenCV image to a pygame surface.
+        
+        COORDINATE SYSTEM NOTE:
+        This method applies a horizontal flip for better user experience during setup.
+        Users see a "mirror" view which feels more natural when drawing areas.
+        However, coordinates drawn on this flipped display must be transformed
+        before saving to match the gameplay coordinate system.
+        """
         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
         cv_image = cv2.transpose(cv_image)  # transpose to match pygame orientation if needed
         surface = pygame.surfarray.make_surface(cv_image)
-        surface = pygame.transform.flip(surface, True, False)
+        surface = pygame.transform.flip(surface, True, False)  # Horizontal flip for setup UI
         return surface
+
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -167,6 +176,7 @@ class GameConfigPhase:
                             self.face_detection_enabled = False
                             self.cached_faces = []  # Clear cached faces when disabling
                             self.cached_vision_offset = (0, 0)
+                            self.cached_vision_mask = None  # Clear cached mask when disabling
                         return
 
                 if self.current_mode in self.reset_buttons:
@@ -177,10 +187,11 @@ class GameConfigPhase:
 
                 now = time.time()
                 if now - self.last_click_time < 0.3 and self.current_mode != "settings":
+                    # Double-click to delete: check collision directly with saved coordinates
                     rects = self.game_settings.areas[self.current_mode].copy()
                     rects.reverse()  # Check from the last rectangle to the first
                     for rect in rects:
-                        # Adjust rectangle position to screen coordinates for collision check
+                        # Scale saved coordinates to screen coordinates for collision check
                         saved_rec = GameConfigPhase.scale_rect(rect, self.webcam_to_screen_ratio)
                         saved_rec.topleft = (self.webcam_rect.x + saved_rec.x, self.webcam_rect.y + saved_rec.y)
                         if saved_rec.collidepoint(pos):
@@ -221,9 +232,9 @@ class GameConfigPhase:
             if event.type == pygame.MOUSEBUTTONUP:
                 if self.drawing and self.current_mode != "settings":
                     if self.current_rect and self.current_rect.width > 0 and self.current_rect.height > 0:
-                        original_rect = self.current_rect.copy()
-                        self.game_settings.areas[self.current_mode].append(original_rect)
-                        logger.debug(f"Added rectangle {original_rect} to {self.current_mode}.")
+                        # Save coordinates directly as drawn on flipped display
+                        self.game_settings.areas[self.current_mode].append(self.current_rect)
+                        logger.debug(f"Added rectangle {self.current_rect} to {self.current_mode}.")
                         self.game_settings.areas[self.current_mode] = self.minimize_rectangles(
                             self.game_settings.areas[self.current_mode]
                         )
@@ -414,18 +425,53 @@ class GameConfigPhase:
         self.current_faces = []
             
         # Get vision area for face detection (use full frame if no vision area defined)
+        # Use original setup areas directly since setup mode works in setup coordinate system
         vision_rects = self.game_settings.areas.get("vision", [])
-        if not vision_rects:
-            # Use full webcam frame
-            roi_frame = webcam_frame
-        else:
-            # Use the first vision area as ROI
-            vision_rect = vision_rects[0]
-            roi_frame = webcam_frame[vision_rect.y:vision_rect.y + vision_rect.height, 
-                                   vision_rect.x:vision_rect.x + vision_rect.width]
+        reference_surface = self.game_settings.get_reference_frame()
         
-        # Detect faces directly in the full play area using OpenCV (optimized parameters)
-        gray = cuda_cvt_color(roi_frame, cv2.COLOR_BGR2GRAY)
+        # Create masked frame using vision area masking
+        masked_frame = webcam_frame.copy()
+        if vision_rects:
+            # Create a mask for the vision area - zero out areas outside vision zones
+            mask = cv2.cvtColor(webcam_frame, cv2.COLOR_BGR2GRAY)
+            mask[:] = 0  # Initialize mask to zero
+            
+            for rect in vision_rects:
+                # Skip invalid rectangles to prevent division by zero
+                if reference_surface.w == 0 or reference_surface.h == 0 or rect.width == 0 or rect.height == 0:
+                    continue
+                    
+                # Convert rect coordinates from setup space to frame coordinates
+                # Setup coordinates are already in the correct orientation for setup mode
+                x = int(rect.x / reference_surface.w * webcam_frame.shape[1])
+                y = int(rect.y / reference_surface.h * webcam_frame.shape[0])
+                w = int(rect.width / reference_surface.w * webcam_frame.shape[1])
+                h = int(rect.height / reference_surface.h * webcam_frame.shape[0])
+                
+                # Ensure coordinates are within bounds
+                x = max(0, min(x, webcam_frame.shape[1]))
+                y = max(0, min(y, webcam_frame.shape[0]))
+                w = max(0, min(w, webcam_frame.shape[1] - x))
+                h = max(0, min(h, webcam_frame.shape[0] - y))
+                
+                if w > 0 and h > 0:
+                    # The webcam display is horizontally flipped in setup mode (see convert_cv2_to_pygame)
+                    # So we need to flip the x coordinate to match what the user sees
+                    flipped_x = webcam_frame.shape[1] - (x + w)
+                    flipped_x = max(0, flipped_x)  # Ensure x is not negative
+                    # Draw the rectangle on the mask (white = allowed area)
+                    cv2.rectangle(mask, (flipped_x, y), (flipped_x + w, y + h), 255, -1)
+            
+            # Apply the mask to the frame
+            masked_frame = cv2.bitwise_and(webcam_frame, webcam_frame, mask=mask)
+            
+            # Store mask info for overlay drawing
+            self.cached_vision_mask = mask
+        else:
+            self.cached_vision_mask = None
+        
+        # Detect faces in the masked frame using OpenCV (optimized parameters)
+        gray = cuda_cvt_color(masked_frame, cv2.COLOR_BGR2GRAY)
         faces = self.face_extractor.face_detector.detectMultiScale(
             gray,
             scaleFactor=1.3,  # Faster detection (was 1.1)
@@ -434,23 +480,14 @@ class GameConfigPhase:
             flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING  # Additional optimization
         )
         
-        # Cache faces and vision offset for reuse in draw_face_detection_overlay
+        # Cache faces for reuse in draw_face_detection_overlay
         self.cached_faces = faces
-        if vision_rects:
-            vision_rect = vision_rects[0]
-            self.cached_vision_offset = (vision_rect.x, vision_rect.y)
-        else:
-            self.cached_vision_offset = (0, 0)
+        self.cached_vision_offset = (0, 0)  # No offset needed since we work on full frame
         
         # Extract and store only currently detected faces
         for idx, (fx, fy, fw, fh) in enumerate(faces):
-            # Create bbox in original frame coordinates if using vision area
-            if vision_rects:
-                vision_rect = vision_rects[0]
-                bbox = (vision_rect.x + fx, vision_rect.y + fy, 
-                       vision_rect.x + fx + fw, vision_rect.y + fy + fh)
-            else:
-                bbox = (fx, fy, fx + fw, fy + fh)
+            # Create bbox in original frame coordinates
+            bbox = (fx, fy, fx + fw, fy + fh)
             
             # Extract face using the existing FaceExtractor method
             face_crop = self.face_extractor.extract_face(webcam_frame, bbox, idx)
@@ -536,7 +573,27 @@ class GameConfigPhase:
 
         if self.current_mode == "nn_preview":
             # Apply the vision frame to the webcam surface
-            nn_frame, webcam_frame, rect = self.camera.read_nn(self.game_settings, self.neural_net.get_max_size())
+            # Create temporary settings with coordinates transformed for camera processing
+            temp_settings = GameSettings()
+            temp_settings.params = self.game_settings.params
+            temp_settings.reference_frame = self.game_settings.reference_frame
+            
+            # Transform CURRENT setup coordinates to gameplay coordinates for camera cropping
+            # This ensures NN preview uses current (unsaved) settings, not cached saved settings
+            temp_settings.areas = {}
+            frame_width = self.game_settings.reference_frame[0]
+            
+            for area_name, rect_list in self.game_settings.areas.items():
+                gameplay_rects = []
+                for rect in rect_list:
+                    # Transform x-coordinate from setup space to gameplay space (same as GameSettings.get_gameplay_areas)
+                    gameplay_x = frame_width - (rect.x + rect.width)
+                    # Y-coordinate and dimensions remain the same
+                    gameplay_rect = pygame.Rect(gameplay_x, rect.y, rect.width, rect.height)
+                    gameplay_rects.append(gameplay_rect)
+                temp_settings.areas[area_name] = gameplay_rects
+            
+            nn_frame, webcam_frame, rect = self.camera.read_nn(temp_settings, self.neural_net.get_max_size())
 
             if nn_frame is not None:
                 # Convert the frame to a pygame surface and display it
@@ -564,7 +621,7 @@ class GameConfigPhase:
                 x_offset = (self.screen_width - new_width) // 2
                 y_offset = (self.screen_height - new_height) // 2
 
-                # Run the model and highlight detections
+                # Run the model and highlight detections - use same settings format as game mode  
                 for p in self.neural_net.process_nn_frame(nn_frame, self.game_settings):
                     if p is not None:
                         bbox = p.get_bbox()
@@ -632,6 +689,7 @@ class GameConfigPhase:
                 # Create a transparent overlay surface
                 overlay = pygame.Surface((self.webcam_rect.width, self.webcam_rect.height), pygame.SRCALPHA)
                 color = area_colors.get(area_name, (200, 200, 200, 100))
+                # Draw rectangles directly as saved
                 for rect in GameConfigPhase.scale(rect_list, self.webcam_to_screen_ratio):
                     pygame.draw.rect(overlay, color, rect)
                     color_outline = (color[0], color[1], color[2], 255)  # Opaque outline color

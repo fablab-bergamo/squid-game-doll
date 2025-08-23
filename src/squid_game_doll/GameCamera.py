@@ -241,8 +241,9 @@ class GameCamera:
             logger.error("Error: Unable to capture frame.")
             return (None, None, Rect(0, 0, 0, 0))
 
-        # Get the bounding rectangle of the vision area
-        rectangles = settings.areas["vision"]
+        # Get the bounding rectangle of the vision area (use gameplay coordinates)
+        gameplay_areas = settings.get_gameplay_areas()
+        rectangles = gameplay_areas["vision"]
         reference_surface = settings.get_reference_frame()
         bounding_rect = GameCamera.bounding_rectangle(rectangles)
 

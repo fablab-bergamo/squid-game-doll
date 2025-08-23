@@ -175,7 +175,7 @@ class SquidGame:
                 # If player has reached the finish area,
                 # mark the player as a winner. At least two seconds after last transition.
                 if (
-                    GameCamera.intersect(player_rect, self.settings.areas["finish"])
+                    GameCamera.intersect(player_rect, self.settings.get_gameplay_areas()["finish"])
                     and time.time() - self.last_switch_time > 2
                 ):
                     player.set_winner()
@@ -234,61 +234,16 @@ class SquidGame:
                     if allow_faceless or face is not None:
                         # Check if the player bounding box intersects with the starting area
                         player_rect = GameCamera.convert_nn_to_screen_coord(new_p.get_rect(), webcam_frame, crop_info)
-                        if GameCamera.intersect(player_rect, settings.areas["start"]):
+                        if GameCamera.intersect(player_rect, settings.get_gameplay_areas()["start"]):
                             players.append(new_p)
         return players
 
     def load_model(self):
-        # Use platform utilities for hardware detection
-        platform_info = get_platform_info()
+        # Use the same shared neural network loading logic as setup mode
+        from .run import load_neural_network
         
-        # Only try Hailo on Raspberry Pi, use Ultralytics elsewhere
-        if should_use_hailo():
-            try:
-                from .PlayerTrackerHailo import PlayerTrackerHailo
-                logger.info(f"Loading HAILO model ({platform_info}) - {self.model}...")
-                if self.model != "":
-                    self.tracker = PlayerTrackerHailo(self.model)
-                else:
-                    self.tracker = PlayerTrackerHailo()
-                logger.info("Successfully loaded Hailo tracker")
-            except (ImportError, ModuleNotFoundError) as import_error:
-                logger.warning(f"Hailo dependencies not available ({import_error}), falling back to Ultralytics")
-                try:
-                    logger.info(f"Loading Ultralytics model ({platform_info}) - {self.model}...")
-                    if self.model != "":
-                        self.tracker = PlayerTrackerUL(self.model)
-                    else:
-                        self.tracker = PlayerTrackerUL()
-                    logger.info("Successfully loaded Ultralytics tracker")
-                except Exception as ul_error:
-                    logger.error(f"Failed to load Ultralytics tracker: {ul_error}")
-                    self.tracker = None
-            except Exception as hailo_error:
-                logger.error(f"Failed to initialize Hailo tracker: {hailo_error}")
-                try:
-                    logger.info(f"Attempting Ultralytics fallback ({platform_info})...")
-                    if self.model != "":
-                        self.tracker = PlayerTrackerUL(self.model)
-                    else:
-                        self.tracker = PlayerTrackerUL()
-                    logger.info("Successfully loaded Ultralytics tracker")
-                except Exception as ul_error:
-                    logger.error(f"Failed to load Ultralytics tracker: {ul_error}")
-                    self.tracker = None
-        else:
-            # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
-            try:
-                logger.info(f"Loading Ultralytics model ({platform_info}) - {self.model}...")
-                if self.model != "":
-                    self.tracker = PlayerTrackerUL(self.model)
-                else:
-                    self.tracker = PlayerTrackerUL()
-                logger.info("Successfully loaded Ultralytics tracker")
-            except Exception as e:
-                logger.error(f"Failed to load Ultralytics tracker: {e}")
-                self.tracker = None
-
+        self.tracker = load_neural_network(self.model)
+        
         if self.tracker is None:
             logger.error("No tracker could be loaded - application cannot continue")
             self._init_done = False

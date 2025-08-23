@@ -15,6 +15,65 @@ from .utils.platform import (
 )
 
 
+def load_neural_network(model: str):
+    """Load neural network using the same logic as SquidGame.load_model()"""
+    # Use platform utilities for hardware detection
+    platform_info = get_platform_info()
+    tracker = None
+    
+    # Only try Hailo on Raspberry Pi, use Ultralytics elsewhere
+    if should_use_hailo():
+        try:
+            from .PlayerTrackerHailo import PlayerTrackerHailo
+            logger.info(f"Loading HAILO model ({platform_info}) - {model}...")
+            if model != "":
+                tracker = PlayerTrackerHailo(model)
+            else:
+                tracker = PlayerTrackerHailo()
+            logger.info("Successfully loaded Hailo tracker")
+        except (ImportError, ModuleNotFoundError) as import_error:
+            logger.warning(f"Hailo dependencies not available ({import_error}), falling back to Ultralytics")
+            try:
+                from .PlayerTrackerUL import PlayerTrackerUL
+                logger.info(f"Loading Ultralytics model ({platform_info}) - {model}...")
+                if model != "":
+                    tracker = PlayerTrackerUL(model)
+                else:
+                    tracker = PlayerTrackerUL()
+                logger.info("Successfully loaded Ultralytics tracker")
+            except Exception as ul_error:
+                logger.error(f"Failed to load Ultralytics tracker: {ul_error}")
+                tracker = None
+        except Exception as hailo_error:
+            logger.error(f"Failed to initialize Hailo tracker: {hailo_error}")
+            try:
+                from .PlayerTrackerUL import PlayerTrackerUL
+                logger.info(f"Attempting Ultralytics fallback ({platform_info})...")
+                if model != "":
+                    tracker = PlayerTrackerUL(model)
+                else:
+                    tracker = PlayerTrackerUL()
+                logger.info("Successfully loaded Ultralytics tracker")
+            except Exception as ul_error:
+                logger.error(f"Failed to load Ultralytics tracker: {ul_error}")
+                tracker = None
+    else:
+        # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
+        try:
+            from .PlayerTrackerUL import PlayerTrackerUL
+            logger.info(f"Loading Ultralytics model ({platform_info}) - {model}...")
+            if model != "":
+                tracker = PlayerTrackerUL(model)
+            else:
+                tracker = PlayerTrackerUL()
+            logger.info("Successfully loaded Ultralytics tracker")
+        except Exception as e:
+            logger.error(f"Failed to load Ultralytics tracker: {e}")
+            tracker = None
+
+    return tracker
+
+
 def command_line_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("run.py")
     parser.add_argument(
@@ -137,46 +196,8 @@ def run():
         # Create window 
         screen = pygame.display.set_mode(size)
         
-        # Use platform utilities for hardware detection
-        platform_info = get_platform_info()
-        
-        # Use the same robust tracker loading as in SquidGame
-        nn = None
-        if should_use_hailo():
-            try:
-                from .PlayerTrackerHailo import PlayerTrackerHailo
-                logger.info(f"Loading HAILO model ({platform_info}) - {args.model}...")
-                if args.model != "":
-                    nn = PlayerTrackerHailo(args.model)
-                else:
-                    nn = PlayerTrackerHailo()
-                logger.info("Successfully loaded Hailo tracker for setup")
-            except (ImportError, ModuleNotFoundError) as e:
-                logger.warning(f"Hailo not available ({e}), falling back to Ultralytics for setup")
-                try:
-                    from .PlayerTrackerUL import PlayerTrackerUL
-                    logger.info(f"Loading Ultralytics model ({platform_info}) - {args.model}...")
-                    if args.model != "":
-                        nn = PlayerTrackerUL(args.model)
-                    else:
-                        nn = PlayerTrackerUL()
-                    logger.info("Successfully loaded Ultralytics tracker for setup")
-                except Exception as e2:
-                    logger.error(f"Failed to load any tracker for setup: {e2}")
-                    return
-        else:
-            # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
-            try:
-                from .PlayerTrackerUL import PlayerTrackerUL
-                logger.info(f"Loading Ultralytics model ({platform_info}) - {args.model}...")
-                if args.model != "":
-                    nn = PlayerTrackerUL(args.model)
-                else:
-                    nn = PlayerTrackerUL()
-                logger.info("Successfully loaded Ultralytics tracker for setup")
-            except Exception as e:
-                logger.error(f"Failed to load Ultralytics tracker for setup: {e}")
-                return
+        # Use the EXACT same neural network loading logic as game mode
+        nn = load_neural_network(args.model)
         
         if nn is None:
             logger.error("No tracker could be loaded for setup mode")
