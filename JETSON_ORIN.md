@@ -55,7 +55,7 @@ The PlayerTrackerUL class includes specific optimizations for Jetson Orin:
 **Automatic Model Format Detection**: 
 - Automatically detects Jetson Orin hardware (aarch64 + /etc/nv_tegra_release)
 - **Model Priority**: TensorRT (.engine) > PyTorch (.pt) for maximum performance
-- Uses yolo11n.pt (nano model) by default for optimal speed vs accuracy balance
+- Uses yolo11l.pt (large model) by default for optimal accuracy vs speed balance
 
 **Performance Optimizations**:
 - TensorRT execution with system TensorRT libraries
@@ -94,7 +94,7 @@ The PlayerTrackerUL class includes specific optimizations for Jetson Orin:
 
 ### Performance Optimization Recommendations
 - ✅ **Use TensorRT**: Provides significant inference speed improvement
-- ✅ **Choose model size**: yolo11n for speed, yolo11l for accuracy
+- ✅ **Recommended model**: yolo11l.pt for best accuracy, yolo11n for maximum speed if needed
 - ⚠️ **Tracking limitation**: ByteTrack algorithm limits overall FPS
 - 💡 **For higher FPS**: Consider detection-only mode without tracking
 - 🎯 **Balanced approach**: Current performance is suitable for Squid Game mechanics

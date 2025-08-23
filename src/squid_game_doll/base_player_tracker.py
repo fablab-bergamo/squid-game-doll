@@ -4,8 +4,8 @@ import cv2
 import pygame
 
 from abc import ABC, abstractmethod
-from .GameSettings import GameSettings
-from .Player import Player
+from .game_settings import GameSettings
+from .player import Player
 
 
 class BasePlayerTracker:

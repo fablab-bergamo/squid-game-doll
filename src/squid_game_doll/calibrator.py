@@ -1,5 +1,5 @@
-from LaserFinder import LaserFinder
-from LaserShooter import LaserShooter
+from .laser_finder import LaserFinder
+from .laser_shooter import LaserShooter
 from Camera import Camera
 import cv2
 from time import sleep

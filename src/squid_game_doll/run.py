@@ -9,11 +9,11 @@ warnings.filterwarnings("ignore", message="The value of the smallest subnormal.*
 
 import pygame
 from loguru import logger
-from .GameCamera import GameCamera
-from .GameScreen import GameScreen
-from .GameSettings import GameSettings
-from .SquidGame import SquidGame
-from .ConfigPhase import GameConfigPhase
+from .game_camera import GameCamera
+from .game_screen import GameScreen
+from .game_settings import GameSettings
+from .squid_game import SquidGame
+from .config_phase import GameConfigPhase
 from .utils.platform import (
     should_use_hailo,
     get_platform_info
@@ -36,7 +36,7 @@ def load_neural_network(model: str):
     # Only try Hailo on Raspberry Pi, use Ultralytics elsewhere
     if should_use_hailo():
         try:
-            from .PlayerTrackerHailo import PlayerTrackerHailo
+            from .player_tracker_hailo import PlayerTrackerHailo
             logger.info(f"🤖 Loading HAILO model '{model_name}' ({platform_info})")
             if model != "":
                 tracker = PlayerTrackerHailo(model)
@@ -46,7 +46,7 @@ def load_neural_network(model: str):
         except (ImportError, ModuleNotFoundError) as import_error:
             logger.warning(f"⚠️  HAILO dependencies not available ({import_error}), falling back to Ultralytics")
             try:
-                from .PlayerTrackerUL import PlayerTrackerUL
+                from .player_tracker_ul import PlayerTrackerUL
                 logger.info(f"🤖 Loading Ultralytics model '{model_name}' ({platform_info})")
                 if model != "":
                     tracker = PlayerTrackerUL(model)
@@ -59,7 +59,7 @@ def load_neural_network(model: str):
         except Exception as hailo_error:
             logger.error(f"❌ Failed to initialize HAILO tracker: {hailo_error}")
             try:
-                from .PlayerTrackerUL import PlayerTrackerUL
+                from .player_tracker_ul import PlayerTrackerUL
                 logger.info(f"🤖 Attempting Ultralytics fallback with model '{model_name}' ({platform_info})")
                 if model != "":
                     tracker = PlayerTrackerUL(model)
@@ -72,7 +72,7 @@ def load_neural_network(model: str):
     else:
         # Use Ultralytics for Jetson, Windows, macOS, and other Linux systems
         try:
-            from .PlayerTrackerUL import PlayerTrackerUL
+            from .player_tracker_ul import PlayerTrackerUL
             logger.info(f"🤖 Loading Ultralytics model '{model_name}' ({platform_info})")
             if model != "":
                 tracker = PlayerTrackerUL(model)

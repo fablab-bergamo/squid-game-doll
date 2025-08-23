@@ -3,11 +3,11 @@ import cv2
 import sys
 import time
 from loguru import logger
-from .GameCamera import GameCamera
+from .game_camera import GameCamera
 from .constants import PINK
-from .BasePlayerTracker import BasePlayerTracker
-from .GameSettings import GameSettings
-from .FaceExtractor import FaceExtractor
+from .base_player_tracker import BasePlayerTracker
+from .game_settings import GameSettings
+from .face_extractor import FaceExtractor
 from .cuda_utils import cuda_cvt_color
 
 

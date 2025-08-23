@@ -5,10 +5,10 @@ import threading
 import queue
 from pygame import Rect
 from loguru import logger
-from .Player import Player
+from .player import Player
 from .utils import HailoAsyncInference  # Make sure this is available in your project
-from .BasePlayerTracker import BasePlayerTracker
-from .GameSettings import GameSettings
+from .base_player_tracker import BasePlayerTracker
+from .game_settings import GameSettings
 
 
 class PlayerTrackerHailo(BasePlayerTracker):

@@ -3,16 +3,16 @@ import pygame
 import cv2
 import random
 import time
-from .GameScreen import GameScreen
-from .BasePlayerTracker import BasePlayerTracker
-from .PlayerTrackerUL import PlayerTrackerUL
-from .Player import Player
-from .FaceExtractor import FaceExtractor
-from .GameCamera import GameCamera
+from .game_screen import GameScreen
+from .base_player_tracker import BasePlayerTracker
+from .player_tracker_ul import PlayerTrackerUL
+from .player import Player
+from .face_extractor import FaceExtractor
+from .game_camera import GameCamera
 from .cuda_utils import is_cuda_opencv_available
-from .LaserShooter import LaserShooter
-from .LaserTracker import LaserTracker
-from .GameSettings import GameSettings
+from .laser_shooter import LaserShooter
+from .laser_tracker import LaserTracker
+from .game_settings import GameSettings
 from .utils.platform import (
     is_jetson_orin,
     is_raspberry_pi,

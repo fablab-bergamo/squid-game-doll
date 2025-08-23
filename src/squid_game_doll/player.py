@@ -2,7 +2,7 @@ import cv2
 import pygame
 import numpy as np
 import time
-from .GameSettings import GameSettings
+from .game_settings import GameSettings
 
 
 class Player:

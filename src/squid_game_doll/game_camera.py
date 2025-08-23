@@ -8,7 +8,7 @@ from cv2_enumerate_cameras import enumerate_cameras
 from pygame import Rect
 from loguru import logger
 
-from .GameSettings import GameSettings
+from .game_settings import GameSettings
 
 
 class GameCamera:

@@ -5,9 +5,9 @@ from ultralytics import YOLO
 from pygame import Rect
 from loguru import logger
 
-from .BasePlayerTracker import BasePlayerTracker
-from .GameSettings import GameSettings
-from .Player import Player
+from .base_player_tracker import BasePlayerTracker
+from .game_settings import GameSettings
+from .player import Player
 from .utils.platform import (
     is_jetson_orin,
     get_optimal_model_for_platform,

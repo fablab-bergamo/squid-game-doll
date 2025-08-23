@@ -4,9 +4,9 @@ from collections.abc import Callable
 from PIL import Image
 
 from .img_processing import opencv_to_pygame
-from .Player import Player
-from .LaserShooter import LaserShooter
-from .GameSettings import GameSettings
+from .player import Player
+from .laser_shooter import LaserShooter
+from .game_settings import GameSettings
 from .constants import (
     RED,
     ROOT,
