@@ -40,11 +40,11 @@ def brightness(img: cv2.UMat) -> cv2.UMat:
 
 
 def opencv_to_pygame(frame: np.ndarray, view_port: tuple[int, int]) -> pygame.Surface:
-    """Converts an OpenCV frame to a PyGame surface.
+    """Converts an OpenCV frame to a PyGame surface using optimized numpy operations.
     
     COORDINATE SYSTEM FOR GAMEPLAY:
     This function is used during gameplay to display the camera feed.
-    The horizontal flip (cv2.flip with flag 1) creates a mirror effect that users expect.
+    The horizontal flip creates a mirror effect that users expect.
     Game areas (start, finish, vision) are stored in original camera frame coordinates
     and are drawn BEFORE this flip is applied, so they appear in the correct positions
     after the flip.
@@ -55,10 +55,17 @@ def opencv_to_pygame(frame: np.ndarray, view_port: tuple[int, int]) -> pygame.Su
     Returns:
     pygame.Surface: The PyGame surface.
     """
-    pygame_frame: np.ndarray = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    # Flip along x-axis (1) - Creates mirror effect for natural user experience
-    pygame_frame = cv2.flip(pygame_frame, 1)
-    pygame_frame = cv2.resize(pygame_frame, view_port)
-    # Rotate to match PyGame coordinates
-    pygame_frame = cv2.rotate(pygame_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    return pygame.surfarray.make_surface(pygame_frame)
+    # Step 1: Resize using cv2.resize (optimized for images, much faster than scipy zoom)
+    resized = cv2.resize(frame, view_port)
+    
+    # Step 2: Horizontal flip using numpy (faster than cv2.flip)
+    flipped = resized[:, ::-1]
+    
+    # Step 3: 90° counterclockwise rotation using numpy (faster than cv2.rotate)
+    rotated = np.rot90(flipped, k=1)
+    
+    # Step 4: BGR to RGB conversion using numpy slice
+    rgb_frame = rotated[:, :, ::-1]
+    
+    # Step 5: Use make_surface (it's already optimized for this use case)
+    return pygame.surfarray.make_surface(rgb_frame)

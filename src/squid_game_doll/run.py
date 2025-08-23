@@ -251,6 +251,7 @@ def run():
                 game.start_game()
             except Exception as e:
                 logger.exception("run")
+                game.async_screen_saver.shutdown()
                 pygame.quit()
                 raise e
 

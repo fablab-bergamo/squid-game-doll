@@ -13,6 +13,7 @@ from .cuda_utils import is_cuda_opencv_available
 from .laser_shooter import LaserShooter
 from .laser_tracker import LaserTracker
 from .game_settings import GameSettings
+from .async_screen_saver import AsyncScreenSaver
 from .utils.platform import (
     is_jetson_orin,
     is_raspberry_pi,
@@ -76,6 +77,7 @@ class SquidGame:
         self.cam: GameCamera = cam
         self.settings: GameSettings = settings
         self.model: str = model
+        self.async_screen_saver = AsyncScreenSaver()
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
             self.laser_tracker = LaserTracker(self.shooter)
@@ -262,11 +264,8 @@ class SquidGame:
         self._init_done = True
 
     def save_screen_to_disk(self, screen: pygame.Surface, filename: str) -> None:
-        try:
-            pygame.image.save(screen, "pictures/screenshot_" + filename, "PNG")
-            logger.info(f"Screenshot saved as {filename}")
-        except pygame.error as e:
-            logger.exception("Error saving screenshot")
+        """Save screen asynchronously to avoid game slowdowns."""
+        self.async_screen_saver.save_async(screen, filename)
 
     def loading_screen(self, screen: pygame.Surface) -> None:
         clock = pygame.time.Clock()
@@ -343,6 +342,7 @@ class SquidGame:
                 logger.debug(f"Key pressed: {event.key}")
                 if event.key == pygame.K_q:
                     logger.info("Game exit requested by user (Q key)")
+                    self.async_screen_saver.shutdown()
                     pygame.quit()
                     from sys import exit
                     exit()
