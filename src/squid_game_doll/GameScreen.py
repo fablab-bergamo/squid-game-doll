@@ -201,7 +201,7 @@ class GameScreen:
 
         players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), PLAYER_SIZE))
 
-        self.display_players(players_surface, self._convert_player_list(players), None, game_state == VICTORY)
+        self.display_players(players_surface, self._convert_player_list(players), game_state == VICTORY)
 
         fullscreen.blit(players_surface, (0, self.get_desktop_height() - PLAYER_SIZE))
 
@@ -234,7 +234,7 @@ class GameScreen:
             img = pygame.image.load(ROOT + "/media/shooter.png")
 
         # Add shooter icon depending on ESP32 status
-        fullscreen.blit(img, (self.get_desktop_width() - img.get_width(), 0))
+        fullscreen.blit(img, (self.get_desktop_width() - img.get_width() - 20, 20))
 
         self.draw_active_buttons(fullscreen)
 
@@ -242,7 +242,7 @@ class GameScreen:
         # Draw the light in the bottom part of the screen
         radius: int = min(self.get_desktop_width() // 20, self.get_desktop_height() // 20) - 4
         position: tuple[int, int] = (
-            self.get_desktop_width() - radius,
+            self.get_desktop_width() - radius - 20,
             min(radius * 5, self.get_desktop_height() - radius - 4),
         )
         if green_light:
@@ -476,7 +476,7 @@ class GameScreen:
 
         return (w3, h3), (x, y)
 
-    def _enhance_face_basic(self, face_surface: pygame.Surface) -> pygame.Surface:
+    def _enhance_face_basic(self, face_surface: pygame.Surface, is_active:bool, is_winner:bool) -> pygame.Surface:
         """
         Apply basic face enhancement: light contrast boost and normalization
         """
@@ -495,24 +495,52 @@ class GameScreen:
         result_rgb = result_rgb.swapaxes(0, 1)  # Fix orientation back
         enhanced_surface = pygame.surfarray.make_surface(result_rgb)
         
+        # Apply color tint only for game end state (winners/losers)
+        if is_winner:  # Winners
+            # Create DIAMOND-shaped overlay instead of rectangle
+            green_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+            pygame.draw.polygon(
+                green_overlay,
+                (*GREEN, 80),  # Semi-transparent green
+                [
+                    (PLAYER_SIZE // 2, 0),
+                    (PLAYER_SIZE, PLAYER_SIZE // 2),
+                    (PLAYER_SIZE // 2, PLAYER_SIZE),
+                    (0, PLAYER_SIZE // 2),
+                ]
+            )
+            enhanced_surface.blit(green_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
+        elif not is_active:  # Eliminated players
+            # Create DIAMOND-shaped overlay instead of rectangle  
+            red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+            pygame.draw.polygon(
+                red_overlay,
+                (*RED, 80),  # Semi-transparent red
+                [
+                    (PLAYER_SIZE // 2, 0),
+                    (PLAYER_SIZE, PLAYER_SIZE // 2),
+                    (PLAYER_SIZE // 2, PLAYER_SIZE),
+                    (0, PLAYER_SIZE // 2),
+                ]
+            )
+            enhanced_surface.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
+
         return enhanced_surface
+
 
     def display_players(
         self,
         screen: pygame.Surface,
         players: list[dict] = None,
-        background: tuple[int, int, int] = (0, 0, 0),
         game_ended: bool = False,
     ) -> None:
 
         player_positions = self.get_player_positions(players, screen.get_width())
-        if background is None:
-            # Use a portion of the background image for the player area
-            bottom_rect = pygame.Rect(0, self.get_desktop_height() - PLAYER_SIZE, self.get_desktop_width(), PLAYER_SIZE)
-            background_portion = self._background_image.subsurface(bottom_rect)
-            screen.blit(background_portion, (0, 0))
-        else:
-            screen.fill(background)
+        
+        # Use a portion of the background image for the player area
+        bottom_rect = pygame.Rect(0, self.get_desktop_height() - PLAYER_SIZE, self.get_desktop_width(), PLAYER_SIZE)
+        background_portion = self._background_image.subsurface(bottom_rect)
+        screen.blit(background_portion, (0, 0))
 
         num = sum(1 for player in players if player["active"])
 
@@ -529,19 +557,21 @@ class GameScreen:
 
             # Draw player image with basic enhancement
             img = player["image"]
-            img = self._enhance_face_basic(img)
-            img = self.mask_diamond(img)
+            img = self._enhance_face_basic(img, player["active"], player["winner"])
+            img = self.mask_diamond(img)     
 
-            # Apply color tint only for game end state (winners/losers)
-            if not player["active"]:  # Eliminated players
-                red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
-                red_overlay.fill((*RED, 80))  # Semi-transparent red
-                img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
-                img.fill(FADE_COLOR, special_flags=pygame.BLEND_MULT)
-            elif player["winner"]:  # Winners
-                green_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
-                green_overlay.fill((*GREEN, 80))  # Semi-transparent green
-                img.blit(green_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
+            # ADD SALMON BORDER HERE
+            pygame.draw.polygon(
+                screen,
+                SALMON,  # Using your existing SALMON color
+                [
+                    (x + PLAYER_SIZE // 2, y),                    # Top
+                    (x + PLAYER_SIZE, y + PLAYER_SIZE // 2),      # Right  
+                    (x + PLAYER_SIZE // 2, y + PLAYER_SIZE),      # Bottom
+                    (x, y + PLAYER_SIZE // 2),                    # Left
+                ],
+                width=8  # Border thickness - adjust as needed
+            )       
 
             # Color number according to player status
             screen.blit(img, (x, y))
