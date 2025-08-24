@@ -171,13 +171,12 @@ def export_to_tensorrt(model_path: str, engine_path: str = None, imgsz: int = 64
         logger.error(f"❌ Export failed: {e}")
         return None
 
-def download_optimal_model():
-    """Download optimal YOLO model for Jetson Orin"""
+def download_model(model_name):
+    """Download YOLO model"""
     try:
         from ultralytics import YOLO
         
-        model_name = "yolo11l.pt"  # Large model for best accuracy by default
-        logger.info(f"Downloading optimal model: {model_name}")
+        logger.info(f"Downloading model: {model_name}")
         
         model = YOLO(model_name, verbose=True)
         model_path = Path(model_name).resolve()
@@ -297,10 +296,25 @@ def main():
     # Download model if not specified
     model_path = args.model
     if not model_path:
-        model_path = download_optimal_model()
-        if not model_path:
-            logger.error("Failed to get model")
+        try:
+            model_path = input("Enter model path or name (e.g., yolo11l.pt): ").strip()
+            if not model_path:
+                logger.error("No model path provided")
+                sys.exit(1)
+        except KeyboardInterrupt:
+            logger.info("Interrupted by user")
             sys.exit(1)
+        except EOFError:
+            logger.error("No input available. Please specify a model path as argument.")
+            sys.exit(1)
+        
+        # If it's just a model name, download it
+        if not os.path.exists(model_path) and model_path.endswith('.pt'):
+            logger.info(f"Downloading model: {model_path}")
+            model_path = download_model(model_path)
+            if not model_path:
+                logger.error("Failed to download model")
+                sys.exit(1)
     
     # Validate model path
     if not os.path.exists(model_path):
