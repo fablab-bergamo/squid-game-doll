@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-YOLOE-11L-PF Laser Dot Detection Test Script
+YOLO Laser Dot Detection Test Script
 
-This script tests the YOLOE-11L-PF model for detecting red laser dots
+This script tests YOLO models for detecting red laser dots
 in images from the pictures folder. It processes all laser*.* files
 and saves annotated outputs with detection results.
 
@@ -29,9 +29,9 @@ except ImportError as e:
 
 
 def main():
-    """Main function to run YOLOE laser dot detection test."""
-    print("YOLOE-11L Text-Prompted Red Dot Detection Test")
-    print("=" * 55)
+    """Main function to run YOLO laser dot detection test."""
+    print("YOLO Text-Prompted Red Dot Detection Test")
+    print("=" * 45)
     
     # Initialize paths and settings
     pictures_dir = Path("pictures")
@@ -51,10 +51,10 @@ def main():
     print()
     
     # Initialize model
-    print("Initializing YOLOE-11L-PF model...")
+    print("Initializing YOLO model...")
     model = initialize_yoloe_model()
     if model is None:
-        print("Failed to initialize YOLOE model. Exiting.")
+        print("Failed to initialize YOLO model. Exiting.")
         return
     
     # Process each image
@@ -74,23 +74,31 @@ def main():
 
 
 def initialize_yoloe_model():
-    """Initialize YOLOE-11L model with text prompting capability."""
+    """Initialize YOLO model with text prompting capability."""
     if not YOLO_AVAILABLE:
         print("Error: Ultralytics not available. Please install with:")
         print("  poetry run pip install ultralytics")
         return None
+    
+    model_name = input("Enter model name [yoloe-v8l-seg.pt]: ").strip()
+    if not model_name:
+        model_name = "yoloe-v8l-seg.pt"
         
     try:
-        # Try to load YOLOE-11L model (supports text prompts)
-        # The model will be automatically downloaded if not present
-        print("Loading YOLOE-11L model with text prompting capability...")
-        model = YOLO("yoloe-v8l-seg.pt")  # Text-promptable model (not prompt-free)
+        print(f"Loading {model_name}...")
+        model = YOLO(model_name)
         print(f"Model loaded successfully!")
-        print("This model supports text prompts for specific object detection")
+        import torch
+        if torch.cuda.is_available():
+            model.to("cuda")
+            print("Using CUDA for inference")
+        else:
+            print("Not using CUDA for inference")
+        print("Model will run on", str(model.device))
         return model
         
     except Exception as e:
-        print(f"Error loading YOLOE model: {e}")
+        print(f"Error loading YOLO model: {e}")
         return None
 
 
@@ -108,7 +116,6 @@ def find_laser_images(pictures_dir: Path) -> List[Path]:
 
 def process_image(image_path: Path, model) -> Dict[str, Any]:
     """Process a single image with YOLOE model."""
-    start_time = time.time()
     
     # Load image
     image = cv2.imread(str(image_path))
@@ -123,83 +130,87 @@ def process_image(image_path: Path, model) -> Dict[str, Any]:
     original_shape = image.shape[:2]  # (height, width)
     
     try:
-        # Run YOLOE inference with text prompts for red dots
-        print(f"    Running YOLOE inference on {original_shape[1]}x{original_shape[0]} image...")
+        # Run YOLO inference with text prompts for red dots
+        print(f"    Running YOLO inference on {original_shape[1]}x{original_shape[0]} image...")
         
         # Try different text prompts for red dots/laser detection
-        text_prompts = [
-            "red dot",
-            "human",
-            "red cross"
+        list_text_prompts = [
+            ["red dot", "bright red point", "red laser", "red spot"],
+            #["human"]
         ]
-        model.set_classes(text_prompts, model.get_text_pe(text_prompts))
-        all_detections = []
-        
-        # Try each prompt and collect results
-        for prompt in text_prompts:
-            try:
-                results = model.predict(
-                    source=str(image_path),
-                    conf=0.03,    # Very low confidence to catch small/dim objects
-                    iou=0.4,      # Lower IoU for overlapping detections
-                    verbose=True
-                )
-                
-                if results and len(results) > 0 and results[0].boxes is not None:
-                    boxes = results[0].boxes.cpu().numpy()
-                    if len(boxes.data) > 0:
-                        print(f"      Found {len(boxes.data)} detections with prompt: '{prompt}'")
-                        for box in boxes.data:
-                            x1, y1, x2, y2, conf, class_id = box
-                            # Get actual class name from model
-                            actual_class_name = results[0].names[int(class_id)]
-                            detection = {
-                                'bbox': [float(x1), float(y1), float(x2), float(y2)],
-                                'confidence': float(conf),
-                                'class_id': int(class_id),
-                                'class_name': actual_class_name,  # Use actual class name from model
-                                'center': [float((x1 + x2) / 2), float((y1 + y2) / 2)],
-                                'prompt': prompt
-                            }
-                            all_detections.append(detection)
-                            
-            except Exception as prompt_error:
-                print(f"      Prompt '{prompt}' failed: {prompt_error}")
-                continue
-        
-        # Process detection results
-        detections = all_detections.copy() if all_detections else []
+
         output_image = image.copy()
+
+        start_time = time.time()
+
+        for text_prompts in list_text_prompts:
+            model.set_classes(text_prompts, model.get_text_pe(text_prompts))
+            all_detections = []
+            
+            # Try each prompt and collect results
+            for prompt in text_prompts:
+                try:
+                    results = model.predict(
+                        source=str(image_path),
+                        conf=0.03,    # Very low confidence to catch small/dim objects
+                        iou=0.4,      # Lower IoU for overlapping detections
+                        verbose=True
+                    )
+                    
+                    if results and len(results) > 0 and results[0].boxes is not None:
+                        boxes = results[0].boxes.cpu().numpy()
+                        if len(boxes.data) > 0:
+                            print(f"      Found {len(boxes.data)} detections with prompt: '{prompt}'")
+                            for box in boxes.data:
+                                x1, y1, x2, y2, conf, class_id = box
+                                # Get actual class name from model
+                                actual_class_name = results[0].names[int(class_id)]
+                                detection = {
+                                    'bbox': [float(x1), float(y1), float(x2), float(y2)],
+                                    'confidence': float(conf),
+                                    'class_id': int(class_id),
+                                    'class_name': actual_class_name,  # Use actual class name from model
+                                    'center': [float((x1 + x2) / 2), float((y1 + y2) / 2)],
+                                    'prompt': prompt
+                                }
+                                all_detections.append(detection)
+                                
+                except Exception as prompt_error:
+                    print(f"      Prompt '{prompt}' failed: {prompt_error}")
+                    continue
+            
+            # Process detection results
+            detections = all_detections.copy() if all_detections else []
+            
+            # If we used text prompts and got results, use those
+            if all_detections:
+                print(f"      Total detections from text prompts: {len(all_detections)}")
+                sorted_detections = sorted(all_detections, key=lambda d: d['confidence'])
+                for detection in sorted_detections:
+                    x1, y1, x2, y2 = detection['bbox']
+                    conf = detection['confidence']
+                    class_name = detection['class_name']
+                    
+                    # Draw bounding box (use red color for laser dot detections)
+                    cv2.rectangle(output_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                    
+                    # Draw label
+                    label = f"{class_name}: {conf:.2f}"
+                    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+                    cv2.rectangle(output_image, (int(x1), int(y1) - label_size[1] - 10), 
+                                (int(x1) + label_size[0], int(y1)), (0, 255, 0), -1)
+                    cv2.putText(output_image, label, (int(x1), int(y1) - 5), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    
+                    print(f"      Detected: {class_name} (conf: {conf:.3f}) at ({x1:.0f},{y1:.0f},{x2:.0f},{y2:.0f})")
         
-        # If we used text prompts and got results, use those
-        if all_detections:
-            print(f"      Total detections from text prompts: {len(all_detections)}")
-            sorted_detections = sorted(all_detections, key=lambda d: d['confidence'])
-            for detection in sorted_detections:
-                x1, y1, x2, y2 = detection['bbox']
-                conf = detection['confidence']
-                class_name = detection['class_name']
-                
-                # Draw bounding box (use red color for laser dot detections)
-                cv2.rectangle(output_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-                
-                # Draw label
-                label = f"{class_name}: {conf:.2f}"
-                label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
-                cv2.rectangle(output_image, (int(x1), int(y1) - label_size[1] - 10), 
-                            (int(x1) + label_size[0], int(y1)), (0, 255, 0), -1)
-                cv2.putText(output_image, label, (int(x1), int(y1) - 5), 
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                
-                print(f"      Detected: {class_name} (conf: {conf:.3f}) at ({x1:.0f},{y1:.0f},{x2:.0f},{y2:.0f})")
-                
+        processing_time = time.time() - start_time
+
         # Generate output filename (use different suffix for prompted version)
         output_path = image_path.parent / f"prompted-output-{image_path.stem}.jpg"
         
         # Save output image
         cv2.imwrite(str(output_path), output_image)
-        
-        processing_time = time.time() - start_time
         
         return {
             'image_path': image_path,
@@ -215,7 +226,7 @@ def process_image(image_path: Path, model) -> Dict[str, Any]:
         return {
             'image_path': image_path,
             'success': False,
-            'error': f'YOLOE inference failed: {str(e)}',
+            'error': f'YOLO inference failed: {str(e)}',
             'processing_time': processing_time
         }
 
@@ -284,26 +295,6 @@ def print_summary(results: List[Dict[str, Any]]) -> None:
             for class_name, count in sorted(class_counts.items(), key=lambda x: x[1], reverse=True):
                 print(f"  {class_name}: {count} detections")
         print()
-        
-        # Per-image details
-        print("DETAILED RESULTS:")
-        for result in successful:
-            detections = result['detections']
-            img_name = result['image_path'].name
-            output_name = result['output_path'].name
-            time_taken = result['processing_time']
-            shape = result['original_shape']
-            
-            print(f"  {img_name} ({shape[1]}x{shape[0]}) -> {output_name}")
-            print(f"    Processing time: {time_taken:.3f}s")
-            print(f"    Detections: {len(detections)}")
-            
-            for i, detection in enumerate(detections):
-                bbox = detection['bbox']
-                center = detection['center']
-                print(f"      #{i+1}: {detection['class_name']} (conf: {detection['confidence']:.3f})")
-                print(f"           BBox: ({bbox[0]:.0f}, {bbox[1]:.0f}, {bbox[2]:.0f}, {bbox[3]:.0f})")
-                print(f"           Center: ({center[0]:.0f}, {center[1]:.0f})")
         
     if failed:
         print("\nFAILED IMAGES:")
