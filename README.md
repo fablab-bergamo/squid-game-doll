@@ -290,6 +290,7 @@ poetry run python -m squid_game_doll -f pictures/test_image.jpg
 ### Model Resources
 - [Hailo Model Zoo](https://github.com/hailo-ai/hailo_model_zoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst)
 - [Neural Network Implementation Details](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
+- [Laser Spot Detection Models](https://zenodo.org/records/10471835) - Pre-trained YOLOv5l6 models for laser tracking
 
 ## 🛠️ Development & Testing
 
@@ -384,6 +385,52 @@ circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
 - **ESP32 Development**: Use [Thonny IDE](https://thonny.org/) for MicroPython
 - **Neural Networks**: [Hailo AI implementation details](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
 - **Camera Optimization**: [OpenCV camera performance tips](https://forum.opencv.org/t/opencv-camera-low-fps/567/4)
+
+## 📖 Citations and Attribution
+
+### Laser Spot Detection Neural Network
+
+This project uses pre-trained laser spot detection models from the ADVRHumanoids research group. The YOLOv5l6 laser detection model (`yolov5l6_e200_b8_tvt302010_laser_v5.pt`) is automatically downloaded during setup from:
+
+- **Model Repository**: [https://zenodo.org/records/10471835](https://zenodo.org/records/10471835)
+- **Source Project**: [nn_laser_spot_tracking](https://github.com/ADVRHumanoids/nn_laser_spot_tracking)
+
+### Academic Citations
+
+If you use this project's laser detection capabilities in academic research, please cite the following papers:
+
+**Robotics and Autonomous Systems (2025):**
+```bibtex
+@article{TORIELLI2025105054,
+    title = {An intuitive tele-collaboration interface exploring laser-based interaction and behavior trees},
+    journal = {Robotics and Autonomous Systems},
+    volume = {185},
+    pages = {105054},
+    year = {2025},
+    issn = {0921-8890},
+    doi = {https://doi.org/10.1016/j.robot.2025.105054},
+    url = {https://www.sciencedirect.com/science/article/pii/S092188902500140X},
+    author = {Davide Torielli and Edoardo Lamon and Luca Muratore and Arash Ajoudani and Nikos G. Tsagarakis},
+}
+```
+
+**IEEE Robotics and Automation Letters (2024):**
+```bibtex
+@ARTICLE{10602529,
+    title={A Laser-Guided Interaction Interface for Providing Effective Robot Assistance to People With Upper Limbs Impairments}, 
+    author={Torielli, Davide and Lamon, Edoardo and Muratore, Luca and Ajoudani, Arash and Tsagarakis, Nikos G.},
+    journal={IEEE Robotics and Automation Letters}, 
+    year={2024},
+    volume={9},
+    number={9},
+    pages={8170-8177},
+    doi={10.1109/LRA.2024.3439528}
+}
+```
+
+### Acknowledgments
+
+We thank the ADVRHumanoids research group at the Italian Institute of Technology for their excellent work on neural network-based laser spot tracking and for making their pre-trained models publicly available.
 
 ## 📄 License
 

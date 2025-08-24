@@ -290,6 +290,7 @@ poetry run python -m squid_game_doll -f pictures/test_image.jpg
 ### Risorse Modelli
 - [Hailo Model Zoo](https://github.com/hailo-ai/hailo_model_zoo/blob/master/docs/public_models/HAILO8L/HAILO8L_object_detection.rst)
 - [Dettagli Implementazione Rete Neurale](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
+- [Modelli Rilevamento Punti Laser](https://zenodo.org/records/10471835) - Modelli YOLOv5l6 pre-addestrati per tracciamento laser
 
 ## 🛠️ Sviluppo & Test
 
@@ -384,6 +385,52 @@ circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
 - **Sviluppo ESP32**: Usa [Thonny IDE](https://thonny.org/) per MicroPython
 - **Reti Neurali**: [Dettagli implementazione Hailo AI](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
 - **Ottimizzazione Telecamera**: [Consigli prestazioni telecamera OpenCV](https://forum.opencv.org/t/opencv-camera-low-fps/567/4)
+
+## 📖 Citazioni e Attribuzioni
+
+### Rete Neurale per Rilevamento Punti Laser
+
+Questo progetto utilizza modelli pre-addestrati per il rilevamento di punti laser dal gruppo di ricerca ADVRHumanoids. Il modello di rilevamento laser YOLOv5l6 (`yolov5l6_e200_b8_tvt302010_laser_v5.pt`) viene scaricato automaticamente durante l'installazione da:
+
+- **Repository Modello**: [https://zenodo.org/records/10471835](https://zenodo.org/records/10471835)
+- **Progetto Sorgente**: [nn_laser_spot_tracking](https://github.com/ADVRHumanoids/nn_laser_spot_tracking)
+
+### Citazioni Accademiche
+
+Se utilizzi le capacità di rilevamento laser di questo progetto nella ricerca accademica, ti preghiamo di citare i seguenti articoli:
+
+**Robotics and Autonomous Systems (2025):**
+```bibtex
+@article{TORIELLI2025105054,
+    title = {An intuitive tele-collaboration interface exploring laser-based interaction and behavior trees},
+    journal = {Robotics and Autonomous Systems},
+    volume = {185},
+    pages = {105054},
+    year = {2025},
+    issn = {0921-8890},
+    doi = {https://doi.org/10.1016/j.robot.2025.105054},
+    url = {https://www.sciencedirect.com/science/article/pii/S092188902500140X},
+    author = {Davide Torielli and Edoardo Lamon and Luca Muratore and Arash Ajoudani and Nikos G. Tsagarakis},
+}
+```
+
+**IEEE Robotics and Automation Letters (2024):**
+```bibtex
+@ARTICLE{10602529,
+    title={A Laser-Guided Interaction Interface for Providing Effective Robot Assistance to People With Upper Limbs Impairments}, 
+    author={Torielli, Davide and Lamon, Edoardo and Muratore, Luca and Ajoudani, Arash and Tsagarakis, Nikos G.},
+    journal={IEEE Robotics and Automation Letters}, 
+    year={2024},
+    volume={9},
+    number={9},
+    pages={8170-8177},
+    doi={10.1109/LRA.2024.3439528}
+}
+```
+
+### Riconoscimenti
+
+Ringraziamo il gruppo di ricerca ADVRHumanoids dell'Istituto Italiano di Tecnologia per il loro eccellente lavoro sul tracciamento di punti laser basato su reti neurali e per aver reso pubblicamente disponibili i loro modelli pre-addestrati.
 
 ## 📄 Licenza
 
