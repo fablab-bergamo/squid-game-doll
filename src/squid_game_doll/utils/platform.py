@@ -70,14 +70,12 @@ def get_optimal_model_for_platform() -> str:
         str: Model filename optimized for current hardware
     """
     if is_jetson_orin():
-        # Use nano model for Jetson Nano for best speed/accuracy balance
-        return "yolo11n.pt"
+        return "yolov8l.pt"
     elif is_raspberry_pi():
         # Raspberry Pi will use Hailo models, but fallback to nano for Ultralytics
-        return "yolo11n.pt"
+        return "yolov8n.pt"
     else:
-        # Use small model for PC/other platforms (good balance)
-        return "yolo11s.pt"
+        return "yolov8l.pt"
 
 
 def should_use_hailo() -> bool:

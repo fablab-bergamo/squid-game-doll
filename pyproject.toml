@@ -42,6 +42,7 @@ dependencies = [
 standard = [
     "torch",
     "torchvision",
+    "ultralytics"
 ]
 
 # Jetson Orin optimized dependencies

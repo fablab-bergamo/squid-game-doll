@@ -188,3 +188,5 @@ config-test.yaml
 *.onnx
 screenshot*.jpg
 screenshot*.png
+mobileclip_blt.ts
+pictures/prompted-output-*.*
