@@ -12,7 +12,7 @@ SALMON: tuple[int, int, int] = (244, 71, 134)
 PINK: tuple[int, int, int] = (237, 27, 118)
 
 # Size of each player tile in pixels
-PLAYER_SIZE: int = 200
+PLAYER_SIZE: int = 150
 FADE_COLOR = (80, 80, 80, 80)
 
 # Game States

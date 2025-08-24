@@ -26,6 +26,39 @@ class GameSettings:
                 return param["value"]
         return default_value
 
+    def get_gameplay_areas(self):
+        """
+        Get areas transformed from setup coordinates to gameplay coordinates.
+        
+        Setup coordinates are saved as drawn on horizontally flipped display.
+        Gameplay coordinates need to be transformed to work with the camera frame.
+        
+        Transform: x_gameplay = frame_width - (x_setup + width_setup)
+        
+        Returns:
+            dict: Areas with coordinates transformed for gameplay
+        """
+        if not hasattr(self, '_gameplay_areas_cache'):
+            self._gameplay_areas_cache = {}
+            frame_width = self.reference_frame[0]
+            
+            for area_name, rect_list in self.areas.items():
+                gameplay_rects = []
+                for rect in rect_list:
+                    # Transform x-coordinate from setup space to gameplay space
+                    gameplay_x = frame_width - (rect.x + rect.width)
+                    # Y-coordinate and dimensions remain the same
+                    gameplay_rect = pygame.Rect(gameplay_x, rect.y, rect.width, rect.height)
+                    gameplay_rects.append(gameplay_rect)
+                self._gameplay_areas_cache[area_name] = gameplay_rects
+        
+        return self._gameplay_areas_cache
+    
+    def invalidate_gameplay_cache(self):
+        """Invalidate the gameplay areas cache when areas are modified."""
+        if hasattr(self, '_gameplay_areas_cache'):
+            delattr(self, '_gameplay_areas_cache')
+
     @staticmethod
     def load_settings(path: str):
         """
@@ -62,6 +95,9 @@ class GameSettings:
 
     def save(self, path: str) -> bool:
         """Save the configuration to a YAML file."""
+        # Invalidate gameplay cache when saving (areas may have changed)
+        self.invalidate_gameplay_cache()
+        
         config_data = {
             "areas": {key: [self.rect_to_list(r) for r in rects] for key, rects in self.areas.items()},
             "params": self.params,

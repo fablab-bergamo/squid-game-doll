@@ -180,8 +180,13 @@ yolov8m.onnx
 yolov11m.hef
 *.pt
 *.hef
-screenshot_*.png
 config.yaml
 poetry.lock
 config-test.yaml
 .claude/settings.local.json
+*.engine
+*.onnx
+screenshot*.jpg
+screenshot*.png
+mobileclip_blt.ts
+pictures/prompted-output-*.*

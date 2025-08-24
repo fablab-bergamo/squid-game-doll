@@ -1,35 +1,10 @@
 [project]
 name = "squid-game-doll"
-version = "0.1.0"
+version = "0.2.0"
 description = "A game using AI for player tracking inspired by Squid Game TV series, featuring an animated doll with laser."
 authors = [ { name = "Pascal Brunot", email="pascal.brunot@fablabbergamo.it"}]
 license = "MIT"
 requires-python = ">=3.9"
-dependencies = [
-    "Camera==1.3.0",
-    "cv2_enumerate_cameras==1.1.18.2",
-    "imutils==0.5.4",
-    "lmfit==1.3.2",
-    "matplotlib",
-    "mediapipe",
-    "numpy",
-    "opencv-contrib-python==4.11.0.86",
-    "opencv-python==4.11.0.86",
-    "pandas==2.2.3",
-    "perlin-numpy==0.0.1",
-    "Pillow==11.1.0",
-    "pygame==2.6.1",
-    "scikit-learn==1.6.1",
-    "scipy",
-    "simple-pid==2.0.1",
-    "scikit-image",
-    "torch",
-    "ultralytics==8.3.59",
-    "supervision",
-    "lap>=0.5.12",
-    "loguru==0.7.2"
-]
-include = ["LICENSE", "src/squid_game_doll", "INSTALL.md", "INSTALL_IT.md", "README-it.md", "src/squid_game_doll/media"]
 readme = { file = "README.md", content-type = "text/markdown" }
 keywords = [
     "squid game",
@@ -41,6 +16,54 @@ keywords = [
     "robotics",
     "computer vision"
 ]
+dependencies = [
+    "Camera==1.3.0",
+    "cv2_enumerate_cameras==1.1.18.2",
+    "imutils==0.5.4",
+    "lmfit==1.3.2",
+    "matplotlib",
+    "numpy (<2)",
+    "pandas==2.2.3",
+    "perlin-numpy==0.0.1",
+    "Pillow==11.1.0",
+    "pygame==2.6.1",
+    "scikit-learn==1.6.1",
+    "scipy",
+    "simple-pid==2.0.1",
+    "scikit-image",
+    "supervision",
+    "lap>=0.5.12",
+    "loguru==0.7.2",
+    "psutil",
+]
+
+[project.optional-dependencies]
+# Standard PyTorch for non-Jetson systems
+standard = [
+    "torch",
+    "torchvision",
+    "ultralytics"
+]
+
+# Jetson Orin optimized dependencies
+jetson = [
+    # These will be installed manually via optimize_for_jetson.py
+    # due to special wheel requirements for Jetson platform
+    # Note: ultralytics will be installed with --no-deps to avoid torch conflicts
+]
+
+# Raspberry Pi with Hailo acceleration
+hailo = [
+    # Hailo apps infra installed via git+https://github.com/hailo-ai/hailo-apps-infra.git
+]
+
+# PC with CUDA support  
+cuda = [
+    # PyTorch CUDA installed via --index-url https://download.pytorch.org/whl/cu121
+]
+
+[project.scripts]
+squid-game-doll = "squid_game_doll.__main__:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
@@ -51,3 +74,6 @@ snakeviz = "^2.2.2"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+# Package data
+include = ["LICENSE", "src/squid_game_doll", "INSTALL.md", "INSTALL_IT.md", "JETSON_ORIN.md", "JETSON_ORIN_IT.md", "src/squid_game_doll/media", "esp32", "hardware", "optimize_for_jetson.py"]

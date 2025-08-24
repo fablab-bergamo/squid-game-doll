@@ -5,14 +5,24 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll": "explicit"
+    },
+    "python.defaultFormatter": "ms-python.black-formatter",
     "black-formatter.args": [
         "--line-length",
         "119"
     ],
-    "git.autofetch": true,
-    "python.defaultInterpreterPath": "{workspaceFolder}\\.venv\\Scripts\\python.exe",
     "python.linting.enabled": true,
+    "python.linting.lintOnSave": true,
+    "python.linting.flake8Enabled": true,
+    "python.linting.flake8Args": [
+        "--max-line-length=119",
+        "--ignore=E203,W503"
+    ],
+    "git.autofetch": true,
+    "python.defaultInterpreterPath": "./venv/bin/python",
     "[jsonc]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     }

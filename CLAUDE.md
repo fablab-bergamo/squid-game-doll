@@ -4,25 +4,48 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking with an animated doll and optional laser targeting system. Players register via face detection, move during green light phases, and are eliminated if they move during red light phases. The system runs on either PC (with CUDA support recommended) or Raspberry Pi 5 with Hailo AI KIT.
+A "Red Light, Green Light" robot inspired by Squid Game TV series, using AI for player recognition and tracking with an animated doll and optional laser targeting system. Players register via face detection, move during green light phases, and are eliminated if they move during red light phases. The system runs on either PC (with CUDA support recommended), Jetson Orin (with CUDA acceleration), or Raspberry Pi 5 with Hailo AI KIT.
 
 ## Development Commands
 
 ### Setup and Installation
 ```bash
-# Install poetry and dependencies
+# Install poetry
 pip install poetry
-poetry install
 
-# For CUDA support on PC (optional)
+# === PC Installation (Windows/Linux) ===
+# Install base dependencies + PyTorch
+poetry install --extras standard
+# Install Ultralytics
+poetry run pip install ultralytics --no-deps
+poetry run pip install tqdm seaborn psutil py-cpuinfo thop requests PyYAML
+# Optional: CUDA support for NVIDIA GPU
 poetry run pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
 
-# For Raspberry Pi with Hailo support
+# === Jetson Orin Installation ===
+# Install base dependencies (WITHOUT PyTorch)  
 poetry install
-poetry run pip install git+https://github.com/hailo-ai/hailo-apps-infra.git
+# Install Jetson-optimized PyTorch
+poetry run pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.5.0a0+872d972e41.nv24.08-cp310-cp310-linux_aarch64.whl
+poetry run pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.20.0a0+afc54f7-cp310-cp310-linux_aarch64.whl
+# Install Ultralytics without dependencies
+poetry run pip install ultralytics --no-deps
+poetry run pip install tqdm seaborn psutil py-cpuinfo thop requests PyYAML
+# Install ONNX Runtime GPU
+poetry run pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
 
-# Download Hailo models for Raspberry Pi
+# === Raspberry Pi Installation ===
+# Install base dependencies
+poetry install
+# Install Hailo AI infrastructure
+poetry run pip install git+https://github.com/hailo-ai/hailo-apps-infra.git
+# Download Hailo models
 wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.0/hailo8l/yolov11m.hef
+# Install PyTorch for Raspberry Pi
+poetry install --extras standard
+
+# For detailed Jetson Orin setup and performance optimization, see:
+# 📖 JETSON_ORIN.md / JETSON_ORIN_IT.md - Complete Jetson Orin installation and performance guide
 ```
 
 ### ESP32 Development
@@ -40,13 +63,13 @@ wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.
 ### Running the Application
 ```bash
 # Configure vision areas (generates config.yaml)
-poetry run python -m src.squid_game_doll.run --setup
+poetry run python -m squid_game_doll --setup
 
 # Run with default configuration
-poetry run python -m src.squid_game_doll.run
+poetry run python -m squid_game_doll
 
 # Run with specific hardware configuration
-poetry run python -m src.squid_game_doll.run -m 0 -w 0 -k -i 192.168.45.50
+poetry run python -m squid_game_doll -m 0 -w 0 -k -i 192.168.45.50
 
 # All CLI options:
 # -m/--monitor: 0-based monitor index
@@ -57,6 +80,14 @@ poetry run python -m src.squid_game_doll.run -m 0 -w 0 -k -i 192.168.45.50
 # -n/--neural_net: custom neural network model file
 # -c/--config: config file (default: config.yaml)
 # -s/--setup: setup mode for area configuration
+
+### Game Controls
+```bash
+# During gameplay or setup:
+# Q key: Exit the game/setup immediately
+# ESC key: Exit setup mode (setup only)
+# Mouse: Click buttons and interact with UI
+# Close window: Standard window close button
 ```
 
 ### Testing and Quality
@@ -87,7 +118,7 @@ poetry run snakeviz ./game.prof
 - **PlayerTrackerUL**: Ultralytics YOLO implementation for PC (supports CUDA)
 - **PlayerTrackerHailo**: Hailo AI accelerated tracking for Raspberry Pi 5
 - **Player**: Player state management (position, face, elimination status, movement detection)
-- **FaceExtractor**: Mediapipe-based face detection for player registration
+- **FaceExtractor**: OpenCV Haar cascade face detection for player registration (improved Jetson compatibility)
 
 ### Laser Targeting System (Work in Progress)
 - **LaserShooter**: ESP32 communication for servo control and laser activation
@@ -103,8 +134,25 @@ poetry run snakeviz ./game.prof
 
 ### Neural Network Model Selection
 - **Linux (Raspberry Pi)**: Automatically uses Hailo models (.hef files) via PlayerTrackerHailo
+- **Linux (Jetson Orin)**: Uses TensorRT-optimized YOLO models via PlayerTrackerUL for maximum performance with CUDA acceleration
 - **Windows/PC**: Uses Ultralytics YOLO models via PlayerTrackerUL
 - Models are loaded dynamically based on platform detection
+
+### Jetson Orin Performance Optimization
+
+For detailed performance analysis, optimization guides, and troubleshooting:
+**📖 See [JETSON_ORIN.md](JETSON_ORIN.md) / [JETSON_ORIN_IT.md](JETSON_ORIN_IT.md) - Complete performance guide and optimization instructions**
+
+**Quick Summary**:
+- **TensorRT Engine**: Maximum performance with hardware acceleration
+- **Model Priority**: TensorRT (.engine) > PyTorch (.pt) for best speed
+- **Real Performance**: 14-40 FPS depending on model choice (nano vs large)
+- **Automatic Detection**: System automatically selects optimal model format
+
+### Troubleshooting
+
+For CUDA issues, installation problems, and performance troubleshooting:
+**📖 See [JETSON_ORIN.md](JETSON_ORIN.md#troubleshooting-jetson-orin-issues) / [JETSON_ORIN_IT.md](JETSON_ORIN_IT.md#risoluzione-problemi-jetson-orin) - Complete troubleshooting guide**
 
 ### Hardware Integration
 - **ESP32 Controller**: MicroPython-based servo and LED control (see esp32/ folder)
@@ -197,7 +245,10 @@ The ESP32 exposes these commands via TCP:
 - Webcam exposure must be manually controlled for reliable laser detection
 - Frame rate typically 10 FPS for game loop, 30 FPS possible with CUDA acceleration
 - Vision areas must be properly configured for game mechanics to work
-- Face detection runs on CPU and can be performance bottleneck
+- Face detection uses OpenCV Haar cascades for better cross-platform compatibility
+- Enhanced face processing includes background removal and contour enhancement for dramatic visual effects
 - Laser targeting requires careful calibration of threshold parameters (Work in Progress)
 - ESP32 communication uses simple TCP protocol for reliability
 - Servo angle limits are configurable in tracker.py constants
+- update the italian versions when you update any MD file in English
+- dont commit without being asked to

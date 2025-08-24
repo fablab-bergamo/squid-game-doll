@@ -3,15 +3,23 @@ import pygame
 import cv2
 import random
 import time
-from .GameScreen import GameScreen
-from .BasePlayerTracker import BasePlayerTracker
-from .PlayerTrackerUL import PlayerTrackerUL
-from .Player import Player
-from .FaceExtractor import FaceExtractor
-from .GameCamera import GameCamera
-from .LaserShooter import LaserShooter
-from .LaserTracker import LaserTracker
-from .GameSettings import GameSettings
+from .game_screen import GameScreen
+from .base_player_tracker import BasePlayerTracker
+from .player_tracker_ul import PlayerTrackerUL
+from .player import Player
+from .face_extractor import FaceExtractor
+from .game_camera import GameCamera
+from .cuda_utils import is_cuda_opencv_available
+from .laser_shooter import LaserShooter
+from .laser_tracker import LaserTracker
+from .game_settings import GameSettings
+from .async_screen_saver import AsyncScreenSaver
+from .utils.platform import (
+    is_jetson_orin,
+    is_raspberry_pi,
+    should_use_hailo,
+    get_platform_info
+)
 from .constants import (
     ROOT,
     DARK_GREEN,
@@ -69,6 +77,7 @@ class SquidGame:
         self.cam: GameCamera = cam
         self.settings: GameSettings = settings
         self.model: str = model
+        self.async_screen_saver = AsyncScreenSaver()
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
             self.laser_tracker = LaserTracker(self.shooter)
@@ -168,7 +177,7 @@ class SquidGame:
                 # If player has reached the finish area,
                 # mark the player as a winner. At least two seconds after last transition.
                 if (
-                    GameCamera.intersect(player_rect, self.settings.areas["finish"])
+                    GameCamera.intersect(player_rect, self.settings.get_gameplay_areas()["finish"])
                     and time.time() - self.last_switch_time > 2
                 ):
                     player.set_winner()
@@ -227,41 +236,36 @@ class SquidGame:
                     if allow_faceless or face is not None:
                         # Check if the player bounding box intersects with the starting area
                         player_rect = GameCamera.convert_nn_to_screen_coord(new_p.get_rect(), webcam_frame, crop_info)
-                        if GameCamera.intersect(player_rect, settings.areas["start"]):
+                        if GameCamera.intersect(player_rect, settings.get_gameplay_areas()["start"]):
                             players.append(new_p)
         return players
 
     def load_model(self):
-
-        if platform.system() == "Linux":
-            from .PlayerTrackerHailo import PlayerTrackerHailo
-
-            logger.info(f"Loading HAILO model ({self.model})...")
-            # self.tracker = PlayerTrackerHailo("yolov11m.hef")
-            if self.model != "":
-                self.tracker = PlayerTrackerHailo(self.model)
-            else:
-                self.tracker = PlayerTrackerHailo()
-        else:
-            logger.info(f"Loading Ultralytics model ({self.model})...")
-            if self.model != "":
-                self.tracker = PlayerTrackerUL(self.model)
-            else:
-                self.tracker = PlayerTrackerUL()
+        # Use the same shared neural network loading logic as setup mode
+        from .run import load_neural_network
+        
+        self.tracker = load_neural_network(self.model)
+        
+        if self.tracker is None:
+            logger.error("No tracker could be loaded - application cannot continue")
+            self._init_done = False
+            return
 
         logger.debug("Loading face extractor")
         self.face_extractor = FaceExtractor()
+        
+        # Log CUDA status
+        if is_cuda_opencv_available():
+            logger.info("🚀 CUDA OpenCV enabled - GPU acceleration active")
+        else:
+            logger.info("ℹ️ Using CPU-only OpenCV processing")
 
-        logger.info("load_model complete")
-
+        logger.info("Model loading complete")
         self._init_done = True
 
     def save_screen_to_disk(self, screen: pygame.Surface, filename: str) -> None:
-        try:
-            pygame.image.save(screen, "pictures/screenshot_" + filename, "PNG")
-            logger.info(f"Screenshot saved as {filename}")
-        except pygame.error as e:
-            logger.exception("Error saving screenshot")
+        """Save screen asynchronously to avoid game slowdowns."""
+        self.async_screen_saver.save_async(screen, filename)
 
     def loading_screen(self, screen: pygame.Surface) -> None:
         clock = pygame.time.Clock()
@@ -334,10 +338,24 @@ class SquidGame:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+            elif event.type == pygame.KEYDOWN:
+                logger.debug(f"Key pressed: {event.key}")
+                if event.key == pygame.K_q:
+                    logger.info("Game exit requested by user (Q key)")
+                    self.async_screen_saver.shutdown()
+                    pygame.quit()
+                    from sys import exit
+                    exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 return self.game_screen.handle_buttons_click(screen, event)
             elif event.type == pygame.JOYBUTTONDOWN:
                 return self.game_screen.handle_buttons(self.joystick)
+
+        # Also check if Q key is currently pressed (alternative method)
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_q]:
+            logger.info("Game exit requested by user (Q key held)")
+            return False
 
         return True
 
@@ -348,13 +366,26 @@ class SquidGame:
         """
         # Game Loop
         running: bool = True
-        frame_rate: float = 10.0
+        frame_rate: float = 15.0  # Increased from 10.0 for better responsiveness
         # Create a clock object to manage the frame rate
         clock: pygame.time.Clock = pygame.time.Clock()
 
         self.switch_to_init()
 
         while running:
+            # Wait for model loading to complete
+            if not self._init_done:
+                self.loading_screen(screen)
+                clock.tick(frame_rate)
+                # Handle events even during loading to allow Q key exit
+                running = self.handle_events(screen)
+                continue
+                
+            # Check if tracker is available before proceeding
+            if self.tracker is None:
+                logger.error("Tracker not initialized, cannot continue")
+                break
+                
             nn_frame, webcam_frame, crop_info = self.cam.read_nn(self.settings, self.tracker.get_max_size())
             if nn_frame is None:
                 break
@@ -478,10 +509,10 @@ class SquidGame:
             pygame.display.flip()
             # Limit the frame rate
             clock.tick(frame_rate)
-            logger.debug(f"Play FPS={round(clock.get_fps(),1)}")
 
-            if random.randint(0, 100) == 0:
+            if random.randint(0, 150) == 0:
                 self.save_screen_to_disk(screen, "game.png")
+                logger.debug(f"Play FPS={round(clock.get_fps(),1)}")
 
     def start_game(self) -> None:
         """Start the Squid Game (Green Light Red Light)"""

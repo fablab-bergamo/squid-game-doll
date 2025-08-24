@@ -9,7 +9,7 @@ An AI-powered "Red Light, Green Light" robot inspired by the Squid Game TV serie
 - Face recognition for player registration
 - Interactive animated doll with LED eyes and servo-controlled head
 - Optional laser targeting system for eliminated players *(work in progress)*
-- Support for both PC (with CUDA) and Raspberry Pi 5 (with Hailo AI Kit)
+- Support for PC (with CUDA), NVIDIA Jetson Nano (with CUDA), and Raspberry Pi 5 (with Hailo AI Kit)
 - Configurable play areas and game parameters
 
 **🏆 Status:** First working version demonstrated at Arduino Days 2025 in FabLab Bergamo, Italy.
@@ -23,42 +23,98 @@ An AI-powered "Red Light, Green Light" robot inspired by the Squid Game TV serie
 
 ### Installation
 
-**For PC (Windows/Linux):**
+#### **Method 1: PC (Windows/Linux)**
 ```bash
-# Install Poetry
+# 1. Install Poetry
 pip install poetry
 
-# Install dependencies
-poetry install
+# 2. Install base dependencies + PyTorch for PC
+poetry install --extras standard
 
-# Optional: CUDA support for NVIDIA GPU
+# 3. Optional: CUDA support for NVIDIA GPU (better performance)
 poetry run pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --force-reinstall
+
+# 4. Install Ultralytics (required for AI detection)
+poetry run pip install ultralytics --no-deps
+poetry run pip install tqdm seaborn psutil py-cpuinfo thop requests PyYAML
 ```
 
-**For Raspberry Pi 5 with Hailo AI Kit:**
+#### **Method 2: NVIDIA Jetson Orin**
 ```bash
+# 1. Install Poetry
+pip install poetry
+
+# 2. Install base dependencies (WITHOUT PyTorch)
 poetry install
+
+# 3. Install Jetson-optimized PyTorch manually
+poetry run pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torch-2.5.0a0+872d972e41.nv24.08-cp310-cp310-linux_aarch64.whl
+poetry run pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/torchvision-0.20.0a0+afc54f7-cp310-cp310-linux_aarch64.whl
+
+# 4. Install Ultralytics without dependencies (prevents PyTorch overwrite)
+poetry run pip install ultralytics --no-deps
+poetry run pip install tqdm seaborn psutil py-cpuinfo thop requests PyYAML
+
+# 5. Install ONNX Runtime GPU for Jetson
+poetry run pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
+
+# 6. Optional: CUDA OpenCV for maximum performance (see JETSON_ORIN.md)
+# After building CUDA OpenCV system-wide:
+VENV_PATH=$(poetry env info --path)
+cp -r /usr/lib/python3/dist-packages/cv2* "$VENV_PATH/lib/python3.10/site-packages/"
+```
+
+#### **Method 3: Raspberry Pi 5 with Hailo AI Kit**
+```bash
+# 1. Install Poetry
+pip install poetry
+
+# 2. Install base dependencies
+poetry install
+
+# 3. Install Hailo AI infrastructure
 poetry run pip install git+https://github.com/hailo-ai/hailo-apps-infra.git
 
-# Download pre-compiled Hailo models
+# 4. Download pre-compiled Hailo models
 wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.0/hailo8l/yolov11m.hef
+
+# 5. Install PyTorch for Raspberry Pi (if not automatically installed)
+poetry install --extras standard
 ```
+
+#### **Platform Detection**
+The application automatically detects your platform and uses the appropriate AI backend:
+- **PC**: Uses Ultralytics YOLO with PyTorch
+- **Jetson Orin**: Uses TensorRT-optimized YOLO with CUDA acceleration  
+- **Raspberry Pi**: Uses Hailo AI accelerated models (.hef files)
 
 ### Setup and Run
 
 1. **Configure play areas** (first-time setup):
 ```bash
-poetry run python -m src.squid_game_doll.run --setup
+# Using Python module
+poetry run python -m squid_game_doll --setup
+
+# Or using console script (after installation)
+squid-game-doll --setup
 ```
 
 2. **Run the game**:
 ```bash
-poetry run python -m src.squid_game_doll.run
+# Using Python module
+poetry run python -m squid_game_doll
+
+# Or using console script (after installation)
+squid-game-doll
 ```
 
 3. **Run with laser targeting** (requires ESP32 setup):
 ```bash
-poetry run python -m src.squid_game_doll.run -k -i 192.168.45.50
+# Using Python module
+poetry run python -m squid_game_doll -k -i 192.168.45.50
+
+# Or using console script
+squid-game-doll -k -i 192.168.45.50
 ```
 
 ## 🎯 How It Works
@@ -94,7 +150,7 @@ You need to define three critical areas:
 ![Configuration Interface](https://github.com/fablab-bergamo/squid-game-doll/blob/main/doc/config.png?raw=true)
 
 ### Configuration Steps
-1. Run setup mode: `poetry run python -m src.squid_game_doll.run --setup`
+1. Run setup mode: `poetry run python -m squid_game_doll --setup`
 2. Draw rectangles to define play areas (vision area must intersect with start/finish areas)
 3. Adjust settings in the SETTINGS menu (confidence levels, contrast)
 4. Test performance using "Neural network preview"
@@ -110,14 +166,15 @@ You need to define three critical areas:
 ### Supported Platforms
 | Platform | AI Acceleration | Performance | Best For |
 |----------|----------------|-------------|----------|
-| **PC with NVIDIA GPU** | CUDA | 30 FPS | Development, High Performance |
-| **PC (CPU only)** | None | 3 FPS | Basic Testing |
-| **Raspberry Pi 5 + Hailo AI Kit** | Hailo 8L | 10 FPS | Production Deployment |
+| **PC with NVIDIA GPU** | CUDA | 30+ FPS | Development, High Performance |
+| **NVIDIA Jetson Nano** | CUDA | 15-25 FPS | Mobile Deployment, Edge Computing |
+| **Raspberry Pi 5 + Hailo AI Kit** | Hailo 8L | 10-15 FPS | Production Deployment |
+| **PC (CPU only)** | None | 3-5 FPS | Basic Testing |
 
 ### Required Components
 
 #### Core System
-- **Computer**: PC (Windows/Linux) or Raspberry Pi 5
+- **Computer**: PC (Windows/Linux), NVIDIA Jetson Nano, or Raspberry Pi 5
 - **Webcam**: Logitech C920 HD Pro (recommended) or compatible USB webcam
 - **Display**: Monitor or projector for game interface
 
@@ -153,7 +210,9 @@ You need to define three critical areas:
 ## 🎲 Command Line Options
 
 ```bash
-poetry run python -m src.squid_game_doll.run [OPTIONS]
+poetry run python -m squid_game_doll [OPTIONS]
+# or
+squid-game-doll [OPTIONS]
 ```
 
 ### Available Options
@@ -161,6 +220,7 @@ poetry run python -m src.squid_game_doll.run [OPTIONS]
 |--------|-------------|---------|
 | `-m, --monitor` | Monitor index (0-based) | `-m 0` |
 | `-w, --webcam` | Webcam index (0-based) | `-w 0` |
+| `-f, --fixed-image` | Fixed image for testing (instead of webcam) | `-f test_image.jpg` |
 | `-k, --killer` | Enable ESP32 laser shooter | `-k` |
 | `-i, --tracker-ip` | ESP32 IP address | `-i 192.168.45.50` |
 | `-j, --joystick` | Joystick index | `-j 0` |
@@ -173,31 +233,58 @@ poetry run python -m src.squid_game_doll.run [OPTIONS]
 **Basic setup:**
 ```bash
 # First-time configuration
-poetry run python -m src.squid_game_doll.run --setup -w 0
+poetry run python -m squid_game_doll --setup -w 0
 
 # Run game with default settings
-poetry run python -m src.squid_game_doll.run
+poetry run python -m squid_game_doll
 ```
 
 **Advanced configuration:**
 ```bash
 # Full setup with laser targeting
-poetry run python -m src.squid_game_doll.run -m 0 -w 0 -k -i 192.168.45.50
+poetry run python -m squid_game_doll -m 0 -w 0 -k -i 192.168.45.50
 
 # Custom model and config
-poetry run python -m src.squid_game_doll.run -n custom_model.hef -c custom_config.yaml
+poetry run python -m squid_game_doll -n custom_model.hef -c custom_config.yaml
+
+# Testing with fixed image instead of webcam
+poetry run python -m squid_game_doll -f pictures/test_image.jpg
 ```
 
 ## 🤖 AI & Computer Vision
 
 ### Neural Network Models
 - **PC (Ultralytics)**: YOLOv8/v11 models for object detection and tracking
+- **NVIDIA Jetson Nano**: CUDA-optimized YOLOv11 models with automatic platform detection
 - **Raspberry Pi (Hailo)**: Pre-compiled Hailo models optimized for edge AI
-- **Face Detection**: MediaPipe for player registration and identification
+- **Face Detection**: OpenCV Haar cascades for player registration and identification
 
 ### Performance Optimization
-- **Object Detection**: ~10-30 FPS depending on hardware
-- **Face Extraction**: CPU-bound, runs during registration and elimination
+
+#### Platform-Specific Optimizations
+**NVIDIA Jetson Nano:**
+- **Automatic CUDA acceleration** with optimized PyTorch wheels
+- **CUDA OpenCV support** for GPU-accelerated image processing (optional)
+- **Reduced input size** (416px vs 640px) for faster inference  
+- **FP16 precision** for 2x speed improvement
+- **Optimized thread count** for ARM processors
+- **Jetson-specific model selection** (yolo11n.pt for optimal speed/accuracy balance)
+- **TensorRT optimization** available via `optimize_for_jetson.py` script
+
+**Raspberry Pi 5 + Hailo:**
+- **Hardware-accelerated inference** using Hailo 8L AI processor
+- **Optimized .hef models** compiled specifically for Hailo architecture
+- **Parallel processing** between ARM CPU and Hailo AI accelerator
+
+**PC with NVIDIA GPU:**
+- **Full CUDA acceleration** with maximum input resolution
+- **High-precision models** for best accuracy
+- **Multi-threaded processing** for real-time performance
+
+#### General Performance
+- **Object Detection**: 3-30+ FPS depending on hardware and optimization
+- **Face Extraction**: CPU-bound with OpenCV Haar cascades (GPU-accelerated with CUDA OpenCV)
+- **Image Processing**: 2-5x speedup with CUDA OpenCV for color conversions and resizing
 - **Laser Detection**: Computer vision pipeline using threshold + dilate + Hough circles
 
 ### Model Resources
@@ -224,7 +311,7 @@ poetry run pytest
 ### Performance Profiling
 ```bash
 # Profile the application
-poetry run python -m cProfile -o game.prof -m src.squid_game_doll.run
+poetry run python -m cProfile -o game.prof -m squid_game_doll
 
 # Visualize profiling results
 poetry run snakeviz ./game.prof
@@ -293,6 +380,7 @@ circles = cv2.HoughCircles(masked_channel, cv2.HOUGH_GRADIENT, 1, minDist=50,
 ## 📚 Additional Resources
 
 - **Installation Guide**: [INSTALL.md](INSTALL.md) ([Italiano](INSTALL_IT.md)) for Raspberry Pi setup
+- **CUDA OpenCV Setup**: [OPENCV_JETSON.md](OPENCV_JETSON.md) for Jetson Nano GPU acceleration
 - **ESP32 Development**: Use [Thonny IDE](https://thonny.org/) for MicroPython
 - **Neural Networks**: [Hailo AI implementation details](https://www.fablabbergamo.it/2025/03/30/primi-passi-con-lai-raspberry-pi-5-hailo/)
 - **Camera Optimization**: [OpenCV camera performance tips](https://forum.opencv.org/t/opencv-camera-low-fps/567/4)

@@ -2,14 +2,14 @@ import cv2
 import pygame
 import numpy as np
 import time
-from .GameSettings import GameSettings
+from .game_settings import GameSettings
 
 
 class Player:
     MOVEMENT_THRESHOLD_PX = 15
     MAX_AGE_SECONDS = 60
 
-    def __init__(self, id: int, coords: tuple):
+    def __init__(self, id: int, coords: tuple, confidence: float = 0.0):
         self._id = id
         self._coords = coords
         self._face = None
@@ -18,6 +18,7 @@ class Player:
         self._visible = False
         self._winner = False
         self._last_seen = time.time()
+        self._confidence = confidence
 
     def set_last_seen(self, last_seen: float) -> None:
         """Sets the last seen time of the player"""
@@ -36,6 +37,14 @@ class Player:
 
     def set_winner(self):
         self._winner = True
+
+    def get_confidence(self) -> float:
+        """Returns the detection confidence (0.0 to 1.0)"""
+        return self._confidence
+
+    def set_confidence(self, confidence: float) -> None:
+        """Sets the detection confidence (0.0 to 1.0)"""
+        self._confidence = confidence
 
     def get_id(self) -> int:
         return self._id

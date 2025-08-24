@@ -8,7 +8,7 @@ from cv2_enumerate_cameras import enumerate_cameras
 from pygame import Rect
 from loguru import logger
 
-from .GameSettings import GameSettings
+from .game_settings import GameSettings
 
 
 class GameCamera:
@@ -28,13 +28,18 @@ class GameCamera:
                 return preferred_idx
         return index
 
-    def __init__(self, index: int = -1):
+    def __init__(self, index: int = -1, fixed_image:str = ""):
         """
         Initializes the Camera object with the given webcam index.
 
         Parameters:
         index (int): The index of the webcam to use.
         """
+        if fixed_image != "":
+            self.fixed_image = cv2.imread(fixed_image)
+        else:
+            self.fixed_image = None
+
         if index == -1:
             # Try to find
             index = GameCamera.getCameraIndex(index)
@@ -51,6 +56,8 @@ class GameCamera:
 
         self.exposure = -1
         self.index = index
+    
+        
         self.lock = threading.Lock()
 
     def __del__(self):
@@ -109,8 +116,10 @@ class GameCamera:
         logger.info(f"Exposure adjusted: 1/{ int(2**(-1*current_exposure))}")
         self.exposure = current_exposure
 
-    @staticmethod
-    def get_native_resolution(idx: int) -> tuple[int, int]:
+    def get_native_resolution(self, idx: int) -> tuple[int, int]:
+        if self.fixed_image is not None:
+            return (self.fixed_image.shape[1], self.fixed_image.shape[0])
+
         for camera_info in enumerate_cameras(GameCamera.get_cv2_cap()):
             if idx == camera_info.index:
                 if "HD Pro Webcam C920" in camera_info.name:
@@ -162,7 +171,7 @@ class GameCamera:
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc("M", "J", "P", "G"))
 
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        resolution = GameCamera.get_native_resolution(index)
+        resolution = self.get_native_resolution(index)
         if resolution is None:
             raise ValueError("Invalid camera index", index)
         else:
@@ -190,6 +199,8 @@ class GameCamera:
     def read(self) -> tuple[bool, cv2.UMat]:
         self.lock.acquire()
         try:
+            if self.fixed_image is not None:
+                return (True, self.fixed_image)
             return self.cap.read()
         finally:
             self.lock.release()
@@ -241,8 +252,9 @@ class GameCamera:
             logger.error("Error: Unable to capture frame.")
             return (None, None, Rect(0, 0, 0, 0))
 
-        # Get the bounding rectangle of the vision area
-        rectangles = settings.areas["vision"]
+        # Get the bounding rectangle of the vision area (use gameplay coordinates)
+        gameplay_areas = settings.get_gameplay_areas()
+        rectangles = gameplay_areas["vision"]
         reference_surface = settings.get_reference_frame()
         bounding_rect = GameCamera.bounding_rectangle(rectangles)
 
@@ -257,15 +269,28 @@ class GameCamera:
         mask = cv2.cvtColor(nn_frame, cv2.COLOR_BGR2GRAY)
         mask[:] = 0  # Initialize mask to zero
         for rect in rectangles:
+            # Skip invalid rectangles to prevent division by zero
+            if reference_surface.w == 0 or reference_surface.h == 0 or rect.width == 0 or rect.height == 0:
+                continue
+                
             # Convert rect coordinates to frame coordinates
             x = int(rect.x / reference_surface.w * nn_frame.shape[1])
             y = int(rect.y / reference_surface.h * nn_frame.shape[0])
             w = int(rect.width / reference_surface.w * nn_frame.shape[1])
             h = int(rect.height / reference_surface.h * nn_frame.shape[0])
-            # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
-            x = nn_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
-            # Draw the rectangle on the mask
-            cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
+            
+            # Ensure coordinates are within bounds
+            x = max(0, min(x, nn_frame.shape[1]))
+            y = max(0, min(y, nn_frame.shape[0]))
+            w = max(0, min(w, nn_frame.shape[1] - x))
+            h = max(0, min(h, nn_frame.shape[0] - y))
+            
+            if w > 0 and h > 0:
+                # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
+                x = nn_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
+                x = max(0, x)  # Ensure x is not negative
+                # Draw the rectangle on the mask
+                cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
 
         # Apply the mask to the frame
         nn_frame = cv2.bitwise_and(nn_frame, nn_frame, mask=mask)
@@ -360,8 +385,32 @@ class GameCamera:
         w = int(rect.width * nn_to_webcam_ratio_w * webcam_to_screen_ratio)
         h = int(rect.height * nn_to_webcam_ratio_h * webcam_to_screen_ratio)
 
-        logger.debug(
-            f"Converting NN rect {rect} to screen coordinates: {x}, {y}, {w}, {h} (crop_info: {crop_info}, nn_frame (HxW): {nn_frame.shape[:2]}, webcam_to_screen_ratio: {webcam_to_screen_ratio})"
-        )
+        return Rect(x, y, w, h)
+
+    @staticmethod
+    def convert_camera_to_screen_coord(
+        rect: Rect, webcam_to_screen_ratio: float = 1.0
+    ) -> Rect:
+
+        x = int(rect.x * webcam_to_screen_ratio)
+        y = int(rect.y * webcam_to_screen_ratio)
+        w = int(rect.width * webcam_to_screen_ratio)
+        h = int(rect.height * webcam_to_screen_ratio)
 
         return Rect(x, y, w, h)
+
+
+    @staticmethod
+    def convert_list_camera_to_screen_coord(
+        rect_list: list[Rect], webcam_to_screen_ratio: float = 1.0
+    ) -> list[Rect]:
+
+        result = []
+        for r in rect_list:
+            x = int(rect.x * webcam_to_screen_ratio)
+            y = int(rect.y * webcam_to_screen_ratio)
+            w = int(rect.width * webcam_to_screen_ratio)
+            h = int(rect.height * webcam_to_screen_ratio)
+            result.append(Rect(x, y, w, h))
+        
+        return result

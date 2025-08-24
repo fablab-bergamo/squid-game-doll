@@ -4,9 +4,9 @@ from collections.abc import Callable
 from PIL import Image
 
 from .img_processing import opencv_to_pygame
-from .Player import Player
-from .LaserShooter import LaserShooter
-from .GameSettings import GameSettings
+from .player import Player
+from .laser_shooter import LaserShooter
+from .game_settings import GameSettings
 from .constants import (
     RED,
     ROOT,
@@ -41,6 +41,10 @@ class GameScreen:
         self._font_smaller: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Regular.ttf", 24)
         self._font_big: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Regular.ttf", 90)
         self._font_bigger: pygame.font.FontType = pygame.font.Font(ROOT + "/media/SpaceGrotesk-Bold.ttf", 128)
+        
+        # Load and cache background image
+        self._background_image = pygame.image.load(ROOT + "/media/background-2.png")
+        self._background_image = pygame.transform.scale(self._background_image, desktop_size)
 
         # Position and size of reinit button
         self._reset_button: pygame.Rect = pygame.Rect(desktop_size[0] - 210, desktop_size[1] - 60, 200, 50)
@@ -170,7 +174,7 @@ class GameScreen:
         settings: GameSettings,
     ) -> None:
 
-        fullscreen.fill(SALMON)
+        fullscreen.blit(self._background_image, (0, 0))
 
         (w, h), (x_web, y_web) = self.compute_webcam_feed(nn_frame)
 
@@ -183,16 +187,23 @@ class GameScreen:
         self.draw_bounding_boxes(video_surface, players, settings, game_state != INIT)
 
         video_surface = pygame.transform.flip(video_surface, True, False)
+        
+        # Draw solid salmon border around webcam viewport
+        border_width = 5
+        pygame.draw.rect(fullscreen, SALMON, 
+                       (x_web - border_width, y_web - border_width, 
+                        w + 2 * border_width, h + 2 * border_width), border_width)
+        
         fullscreen.blit(video_surface, (x_web, y_web))
 
         if game_state in [GREEN_LIGHT, RED_LIGHT]:
             self.draw_traffic_light(fullscreen, game_state == GREEN_LIGHT)
 
-        players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), PLAYER_SIZE))
+        players_surface: pygame.Surface = pygame.Surface((self.get_desktop_width(), (PLAYER_SIZE * 1.4 + 20)))
 
-        self.display_players(players_surface, self._convert_player_list(players), SALMON, game_state == VICTORY)
+        self.display_players(players_surface, self._convert_player_list(players), game_state == VICTORY)
 
-        fullscreen.blit(players_surface, (0, self.get_desktop_height() - PLAYER_SIZE))
+        fullscreen.blit(players_surface, (0, self.get_desktop_height() - players_surface.get_height()))
 
         if game_state not in [INIT]:
             won = sum([100_000_000 for p in players if p.is_eliminated()])
@@ -223,7 +234,7 @@ class GameScreen:
             img = pygame.image.load(ROOT + "/media/shooter.png")
 
         # Add shooter icon depending on ESP32 status
-        fullscreen.blit(img, (self.get_desktop_width() - img.get_width(), 0))
+        fullscreen.blit(img, (self.get_desktop_width() - img.get_width() - 20, 20))
 
         self.draw_active_buttons(fullscreen)
 
@@ -231,7 +242,7 @@ class GameScreen:
         # Draw the light in the bottom part of the screen
         radius: int = min(self.get_desktop_width() // 20, self.get_desktop_height() // 20) - 4
         position: tuple[int, int] = (
-            self.get_desktop_width() - radius,
+            self.get_desktop_width() - radius - 20,
             min(radius * 5, self.get_desktop_height() - radius - 4),
         )
         if green_light:
@@ -298,8 +309,15 @@ class GameScreen:
         surface.blit(text, (surface.get_width() // 2 + 20, 20))
 
     def draw_finish_area(self, webcam_surface: pygame.Surface, settings: GameSettings):
+        """Draw finish area rectangles on the webcam surface.
+        
+        Uses transformed coordinates that work with the horizontally flipped display.
+        """
+        # Get gameplay coordinates (transformed from setup coordinates)
+        gameplay_areas = settings.get_gameplay_areas()
+        
         # Draw the rectangles of finish area
-        for rect in settings.areas["finish"]:
+        for rect in gameplay_areas["finish"]:
             # Scale the rectangle to the webcam surface size
             scaled_rect = pygame.Rect(
                 rect.x * webcam_surface.get_width() / settings.get_reference_frame().width,
@@ -351,14 +369,50 @@ class GameScreen:
     # Arrange players in a triangle
     def get_player_positions(self, players: list, screen_width: int) -> list:
         positions = []
-        start_x, start_y = 0, 0
-        for cpt, _ in enumerate(players):
-            x = start_x + (cpt * PLAYER_SIZE + 20)
-            y = start_y
-            if x > self._desktop_size[0]:
-                logger.warning("Too many players")
-                break
-            positions.append((x, y))
+        player_count = len(players)
+        
+        if player_count == 0:
+            return positions
+        
+        # Diamond spacing parameters
+        horizontal_spacing = PLAYER_SIZE + 8  # Space between diamonds horizontally
+        vertical_spacing = PLAYER_SIZE // 2 + 8  # Space between rows vertically
+        
+
+        # Multi-row staggered layout for 4+ players
+        # Top row: even indices (0, 2, 4, ...)
+        # Bottom row: odd indices (1, 3, 5, ...)
+        
+        top_row_count = (player_count + 1) // 2  # Ceiling division
+        bottom_row_count = player_count // 2     # Floor division
+        
+        start_x = 5
+        
+        # Calculate total height needed for both rows
+        total_formation_height = PLAYER_SIZE + vertical_spacing
+        # Center the formation vertically within the available space
+        vertical_offset = max(0, (PLAYER_SIZE - total_formation_height) // 2)
+        
+        top_y = vertical_offset
+        bottom_y = vertical_offset + vertical_spacing
+        
+        top_index = 0
+        bottom_index = 0
+        
+        for i in range(player_count):
+            if i % 2 == 0:  # Even indices go to top row
+                x = start_x + (top_index * horizontal_spacing)
+                y = top_y
+                positions.append((x, y))
+                top_index += 1
+            else:  # Odd indices go to bottom row
+                # Offset bottom row by half spacing to create stagger effect
+                bottom_start_x = start_x + horizontal_spacing // 2
+                x = bottom_start_x + (bottom_index * horizontal_spacing)
+                y = bottom_y
+                positions.append((x, y))
+                bottom_index += 1
+    
         return positions
 
     # Function to draw blurred diamond
@@ -432,8 +486,9 @@ class GameScreen:
         w1, h1 = self.get_desktop_width(), self.get_desktop_height()
         h2, w2, _ = frame.shape
 
-        # Available height after reserving the PLAYER_SIZE band
-        available_height = h1 - PLAYER_SIZE
+        # Available height after reserving the PLAYER_SIZE band and border space
+        border_width = 20
+        available_height = h1 - PLAYER_SIZE - border_width
 
         # Compute the scaling factor to fit within the screen while maintaining aspect ratio
         scale_x = w1 / w2
@@ -444,9 +499,9 @@ class GameScreen:
         w3 = int(w2 * scale)
         h3 = int(h2 * scale)
 
-        # Center the webcam feed on the screen
+        # Center the webcam feed on the screen and move down by 10 pixels
         x = (w1 - w3) // 2
-        y = (available_height - h3) // 2
+        y = (available_height - h3) // 2 + 10
 
         self._ratio = w2 / w3
         if self._first_run:
@@ -457,16 +512,71 @@ class GameScreen:
 
         return (w3, h3), (x, y)
 
+    def _enhance_face_basic(self, face_surface: pygame.Surface, is_active:bool, is_winner:bool) -> pygame.Surface:
+        """
+        Apply basic face enhancement: light contrast boost and normalization
+        """
+        # Convert pygame surface to opencv array
+        face_array = pygame.surfarray.array3d(face_surface)
+        face_array = face_array.swapaxes(0, 1)  # Fix orientation
+        face_cv = cv2.cvtColor(face_array, cv2.COLOR_RGB2BGR)
+        
+        # Apply light contrast and brightness boost
+        alpha = 1.1  # Light contrast multiplier
+        beta = 5     # Small brightness offset
+        enhanced = cv2.convertScaleAbs(face_cv, alpha=alpha, beta=beta)
+        
+        # Convert back to pygame surface
+        result_rgb = cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB)
+        result_rgb = result_rgb.swapaxes(0, 1)  # Fix orientation back
+        enhanced_surface = pygame.surfarray.make_surface(result_rgb)
+        
+        # Apply color tint only for game end state (winners/losers)
+        if is_winner:  # Winners
+            # Create DIAMOND-shaped overlay instead of rectangle
+            green_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+            pygame.draw.polygon(
+                green_overlay,
+                (*GREEN, 80),  # Semi-transparent green
+                [
+                    (PLAYER_SIZE // 2, 0),
+                    (PLAYER_SIZE, PLAYER_SIZE // 2),
+                    (PLAYER_SIZE // 2, PLAYER_SIZE),
+                    (0, PLAYER_SIZE // 2),
+                ]
+            )
+            enhanced_surface.blit(green_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
+        elif not is_active:  # Eliminated players
+            # Create DIAMOND-shaped overlay instead of rectangle  
+            red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
+            pygame.draw.polygon(
+                red_overlay,
+                (*RED, 80),  # Semi-transparent red
+                [
+                    (PLAYER_SIZE // 2, 0),
+                    (PLAYER_SIZE, PLAYER_SIZE // 2),
+                    (PLAYER_SIZE // 2, PLAYER_SIZE),
+                    (0, PLAYER_SIZE // 2),
+                ]
+            )
+            enhanced_surface.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_ALPHA_SDL2)
+
+        return enhanced_surface
+
+
     def display_players(
         self,
         screen: pygame.Surface,
         players: list[dict] = None,
-        background: tuple[int, int, int] = (0, 0, 0),
         game_ended: bool = False,
     ) -> None:
 
         player_positions = self.get_player_positions(players, screen.get_width())
-        screen.fill(background)
+        
+        # Use a portion of the background image for the player area
+        bottom_rect = pygame.Rect(0, self.get_desktop_height() - screen.get_height(), self.get_desktop_width(), screen.get_height())
+        background_portion = self._background_image.subsurface(bottom_rect)
+        screen.blit(background_portion, (0, 0))
 
         num = sum(1 for player in players if player["active"])
 
@@ -481,17 +591,23 @@ class GameScreen:
             # Draw blurred diamond
             self.draw_blurred_diamond(screen, x, y, PLAYER_SIZE)
 
-            # Draw player image
+            # Draw player image with basic enhancement
             img = player["image"]
-            img = self.mask_diamond(img)
+            img = self._enhance_face_basic(img, player["active"], player["winner"])
+            img = self.mask_diamond(img)     
 
-            # Apply red tint
-            red_overlay = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE), pygame.SRCALPHA)
-            red_overlay.fill(GREEN if player["winner"] else RED)
-            img.blit(red_overlay, (0, 0), special_flags=pygame.BLEND_MULT)
-
-            if not player["active"]:
-                img.fill(FADE_COLOR, special_flags=pygame.BLEND_MULT)
+            # ADD SALMON BORDER HERE
+            pygame.draw.polygon(
+                screen,
+                SALMON,  # Using your existing SALMON color
+                [
+                    (x + PLAYER_SIZE // 2, y),                    # Top
+                    (x + PLAYER_SIZE, y + PLAYER_SIZE // 2),      # Right  
+                    (x + PLAYER_SIZE // 2, y + PLAYER_SIZE),      # Bottom
+                    (x, y + PLAYER_SIZE // 2),                    # Left
+                ],
+                width=8  # Border thickness - adjust as needed
+            )       
 
             # Color number according to player status
             screen.blit(img, (x, y))
