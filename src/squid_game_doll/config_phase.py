@@ -240,8 +240,9 @@ class GameConfigPhase:
                         return
 
                 now = time.time()
-                if now - self.last_click_time < 0.3 and self.current_mode != "settings":
+                if now - self.last_click_time < 0.3 and self.current_mode != "settings" and self.current_mode in self.game_settings.areas:
                     # Double-click to delete: check collision directly with saved coordinates
+                    # Only for modes that have area rectangles (not laser_test, face_test, nn_preview)
                     rects = self.game_settings.areas[self.current_mode].copy()
                     rects.reverse()  # Check from the last rectangle to the first
                     for rect in rects:
@@ -258,14 +259,14 @@ class GameConfigPhase:
                 if self.current_mode == "settings":
                     # The settings buttons are handled later below.
                     pass
-                # For area modes, start drawing a new rectangle.
-                elif self.current_mode != "settings":
+                # For area configuration modes, start drawing a new rectangle.
+                elif self.current_mode in self.game_settings.areas:
                     self.drawing = True
                     # Convert global mouse position to feed-relative coordinates.
                     self.start_pos = (pos[0] - self.webcam_rect.x, pos[1] - self.webcam_rect.y)
 
             if event.type == pygame.MOUSEMOTION:
-                if self.drawing and self.current_mode != "settings":
+                if self.drawing and self.current_mode in self.game_settings.areas:
                     # Convert current position to feed-relative coordinates.
                     current_pos = (event.pos[0] - self.webcam_rect.x, event.pos[1] - self.webcam_rect.y)
                     x = min(self.start_pos[0], current_pos[0])
@@ -284,7 +285,8 @@ class GameConfigPhase:
                     )
 
             if event.type == pygame.MOUSEBUTTONUP:
-                if self.drawing and self.current_mode != "settings":
+                # Only allow drawing rectangles for area configuration modes, not test modes
+                if self.drawing and self.current_mode in self.game_settings.areas:
                     if self.current_rect and self.current_rect.width > 0 and self.current_rect.height > 0:
                         # Save coordinates directly as drawn on flipped display
                         self.game_settings.areas[self.current_mode].append(self.current_rect)
