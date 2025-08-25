@@ -14,53 +14,61 @@ This document provides detailed wiring instructions for connecting SG90 servos a
 
 | Component | GPIO Pin | Board Pin | Function | Notes |
 |-----------|----------|-----------|----------|-------|
-| H-Servo (Pan) | GPIO 13 | Pin 33 | Software PWM | Horizontal laser targeting |
-| V-Servo (Tilt) | GPIO 22 | Pin 15 | Software PWM | Vertical laser targeting |
+| H-Servo (Pan) | GPIO 13 | Pin 33 | Software PWM | Horizontal laser pointer targeting |
+| V-Servo (Tilt) | GPIO 22 | Pin 15 | Software PWM | Vertical laser pointer targeting |
 | Head Servo | GPIO 12 | Pin 32 | Software PWM | Doll head rotation |
-| Laser Module | GPIO 5 | Pin 29 | Digital Out | Laser on/off control |
-| Eyes Control | GPIO 23 | Pin 16 | Digital Out | Doll eyes on/off |
+| Laser Module | GPIO 5 | Pin 29 | Digital Out | Laser pointer on/off control |
+| Eyes PWM | GPIO 23 | Pin 16 | Software PWM | Red LED brightness in doll eyes |
 | **5V Power** | 5V | Pin 2, 4 | Power Supply | Servo power rail |
 | **Ground** | GND | Pin 6, 9, 14, 20, 25, 30, 34, 39 | Ground | Common ground |
 
 ## 40-Pin Header Layout Reference
 
 ```
-    3.3V  [ 1] [ 2]  5V      ← Power for servos
-   GPIO2  [ 3] [ 4]  5V      ← Power for servos  
-   GPIO3  [ 5] [ 6]  GND     ← Ground
+    3.3V  [ 1] [ 2]  5V      ← Power for servos & laser system
+   GPIO2  [ 3] [ 4]  5V      ← Power for servos & laser system  
+   GPIO3  [ 5] [ 6]  GND     ← Common ground
    GPIO4  [ 7] [ 8]  GPIO14
-     GND  [ 9] [10]  GPIO15  ← Ground
+     GND  [ 9] [10]  GPIO15  ← Common ground
   GPIO17  [11] [12]  GPIO18
-  GPIO27  [13] [14]  GND     ← Ground
-  GPIO22  [15] [16]  GPIO23  ← V-servo, Eyes control
+  GPIO27  [13] [14]  GND     ← Common ground
+  GPIO22  [15] [16]  GPIO23  ← Laser V-servo, Eyes PWM LEDs
     3.3V  [17] [18]  GPIO24
-  GPIO10  [19] [20]  GND     ← Ground
+  GPIO10  [19] [20]  GND     ← Common ground
    GPIO9  [21] [22]  GPIO25
   GPIO11  [23] [24]  GPIO8
-     GND  [25] [26]  GPIO7   ← Ground
+     GND  [25] [26]  GPIO7   ← Common ground
    GPIO0  [27] [28]  GPIO1
-   GPIO5  [29] [30]  GND     ← Laser control, Ground
-   GPIO6  [31] [32]  GPIO12  ← Head servo
-  GPIO13  [33] [34]  GND     ← H-servo, Ground
+   GPIO5  [29] [30]  GND     ← Laser pointer control, Common ground
+   GPIO6  [31] [32]  GPIO12  ← Doll head servo
+  GPIO13  [33] [34]  GND     ← Laser H-servo, Common ground
   GPIO19  [35] [36]  GPIO16
   GPIO26  [37] [38]  GPIO20
-     GND  [39] [40]  GPIO21  ← Ground
+     GND  [39] [40]  GPIO21  ← Common ground
 ```
 
 ## Wiring Connections
 
-### SG90 Servo Connections (All 3 Servos)
+### SG90 Servo Connections (3 Servos Total)
+
+**Laser Pointer Pan/Tilt Platform (2 servos):**
+- H-Servo: Horizontal movement of laser pointer
+- V-Servo: Vertical movement of laser pointer
+
+**Doll Head Servo (1 servo):**
+- Head Servo: Rotates the doll's head for red/green light phases
+
 Each SG90 servo has 3 wires:
 - **Brown/Black**: Ground (GND)
 - **Red**: Power (+5V)
 - **Orange/Yellow**: PWM Signal
 
-#### H-Axis Servo (Pan) - Horizontal Laser Movement
+#### H-Axis Servo (Pan) - Horizontal Laser Pointer Movement
 - **Signal Wire** → Pin 33 (GPIO 13)
 - **Power Wire** → Pin 2 or 4 (5V)
 - **Ground Wire** → Pin 6, 9, 14, 20, 25, 30, 34, or 39 (GND)
 
-#### V-Axis Servo (Tilt) - Vertical Laser Movement
+#### V-Axis Servo (Tilt) - Vertical Laser Pointer Movement  
 - **Signal Wire** → Pin 15 (GPIO 22)
 - **Power Wire** → Pin 2 or 4 (5V)
 - **Ground Wire** → Pin 6, 9, 14, 20, 25, 30, 34, or 39 (GND)
@@ -70,37 +78,37 @@ Each SG90 servo has 3 wires:
 - **Power Wire** → Pin 2 or 4 (5V)
 - **Ground Wire** → Pin 6, 9, 14, 20, 25, 30, 34, or 39 (GND)
 
-### Laser Module Connection
+### Laser Pointer Module Connection
 - **Control Signal** → Pin 29 (GPIO 5)
 - **Power (+)** → Pin 2 or 4 (5V)
 - **Ground (-)** → Pin 6, 9, 14, 20, 25, 30, 34, or 39 (GND)
 
 *Note: Laser control is active LOW (GPIO LOW = laser ON)*
 
-### Eyes Control Connection
-- **Control Signal** → Pin 16 (GPIO 23)
+### Eyes PWM Connection (Red LEDs in Doll Eyes)
+- **PWM Signal** → Pin 16 (GPIO 23)
 - **Power (+)** → Pin 2 or 4 (5V) or 3.3V depending on LED requirements
 - **Ground (-)** → Pin 6, 9, 14, 20, 25, 30, 34, or 39 (GND)
 
-*Note: Simplified to digital on/off control. For PWM brightness control, use a PWM-capable pin or external PWM controller.*
+*Note: Software PWM for brightness control of red LEDs inside the doll's eyes.*
 
 ## Power Distribution
 
 ### Recommended Power Setup
 ```
 Jetson 5V Rail (Pin 2/4)
-    ├── H-Servo Power (Red wire)
-    ├── V-Servo Power (Red wire) 
-    ├── Head Servo Power (Red wire)
-    ├── Laser Module Power
-    └── Eyes LEDs Power (if 5V rated)
+    ├── Laser H-Servo Power (Red wire)
+    ├── Laser V-Servo Power (Red wire) 
+    ├── Doll Head Servo Power (Red wire)
+    ├── Laser Pointer Module Power
+    └── Eyes Red LEDs Power (if 5V rated)
 
 Jetson GND (Multiple pins)
-    ├── H-Servo Ground (Brown/Black wire)
-    ├── V-Servo Ground (Brown/Black wire)
-    ├── Head Servo Ground (Brown/Black wire)
-    ├── Laser Module Ground
-    └── Eyes LEDs Ground
+    ├── Laser H-Servo Ground (Brown/Black wire)
+    ├── Laser V-Servo Ground (Brown/Black wire)
+    ├── Doll Head Servo Ground (Brown/Black wire)
+    ├── Laser Pointer Module Ground
+    └── Eyes Red LEDs Ground
 ```
 
 ### Power Considerations

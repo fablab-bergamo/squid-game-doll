@@ -3,6 +3,7 @@ import time
 import numpy as np
 from numpy.linalg import norm
 from .jetson_servo_simple import JetsonServoSimple
+from .jetson_eyes_pwm import JetsonEyesPWM
 from .jetson_gpio_manager import gpio_manager, GPIO
 
 
@@ -24,11 +25,11 @@ class JetsonLaserController:
         
         # Initialize hardware
         gpio_manager.setup_pin(self.LASER_PIN, GPIO.OUT, initial=GPIO.HIGH)
-        gpio_manager.setup_pin(self.EYES_PIN, GPIO.OUT, initial=GPIO.LOW)
         
         self.motor_h = JetsonServoSimple(self.H_SERVO_PIN)
         self.motor_v = JetsonServoSimple(self.V_SERVO_PIN)
         self.motor_head = JetsonServoSimple(self.HEAD_SERVO_PIN)
+        self.eyes_pwm = JetsonEyesPWM(self.EYES_PIN)
         
         self.motor_h.update_settings(self.H_MIN, self.H_MAX)
         self.motor_v.update_settings(self.V_MIN, self.V_MAX)
@@ -68,7 +69,10 @@ class JetsonLaserController:
         return True
     
     def set_eyes(self, eyes_on):
-        gpio_manager.output(self.EYES_PIN, GPIO.HIGH if eyes_on else GPIO.LOW)
+        if eyes_on:
+            self.eyes_pwm.set_brightness(50)  # 50% brightness when on
+        else:
+            self.eyes_pwm.set_brightness(0)   # Off
         return True
     
     def track_target(self, laser, target):
@@ -108,8 +112,8 @@ class JetsonLaserController:
         self.motor_h.cleanup()
         self.motor_v.cleanup()
         self.motor_head.cleanup()
+        self.eyes_pwm.cleanup()
         gpio_manager.cleanup_pin(self.LASER_PIN)
-        gpio_manager.cleanup_pin(self.EYES_PIN)
         self._is_online = False
     
     def __del__(self):

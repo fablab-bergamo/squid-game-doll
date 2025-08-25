@@ -206,29 +206,30 @@ class ServoTester:
         print("Laser control test complete")
     
     def test_eyes_control(self):
-        """Test doll eyes control."""
+        """Test doll eyes PWM control."""
         if not self.controller:
             if not self.init_controller():
                 return
         
-        print("Testing eyes control...")
+        print("Testing eyes PWM control...")
         
-        print("Eyes ON for 3 seconds...")
-        self.controller.set_eyes(True)
-        time.sleep(3)
+        print("Eyes brightness test - 25% for 2 seconds...")
+        self.controller.eyes_pwm.set_brightness(25)
+        time.sleep(2)
+        
+        print("Eyes brightness test - 75% for 2 seconds...")
+        self.controller.eyes_pwm.set_brightness(75)
+        time.sleep(2)
         
         print("Eyes OFF")
         self.controller.set_eyes(False)
         time.sleep(1)
         
-        print("Blinking test...")
-        for i in range(3):
-            self.controller.set_eyes(True)
-            time.sleep(0.5)
-            self.controller.set_eyes(False)
-            time.sleep(0.5)
+        print("Pulsing test...")
+        for i in range(2):
+            self.controller.eyes_pwm.pulse(min_brightness=10, max_brightness=80, steps=10, delay=0.1)
         
-        print("Eyes control test complete")
+        print("Eyes PWM control test complete")
     
     def test_head_rotation(self):
         """Test head rotation for red/green light."""
