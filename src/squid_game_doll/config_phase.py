@@ -80,6 +80,8 @@ class GameConfigPhase:
         self.laser_detection_enabled = False
         self.laser_detection_error = None  # Store initialization error for user display
         self.laser_coordinate = None
+        self.raw_laser_coordinate = None
+        self.smoothed_laser_coordinate = None
         self.laser_confidence = 0.0  # Store laser detection confidence
         self.laser_detection_fps = 0.0
         self.laser_frame_times = []
@@ -189,6 +191,8 @@ class GameConfigPhase:
                         elif self.current_mode == "laser_test":
                             self.laser_detection_enabled = True
                             self.laser_coordinate = None
+                            self.raw_laser_coordinate = None
+                            self.smoothed_laser_coordinate = None
                             self.laser_confidence = 0.0
                             self.targeted_players = []
                             self.laser_frame_times = []  # Reset FPS tracking
@@ -221,6 +225,8 @@ class GameConfigPhase:
                             self.cached_faces = []  # Clear cached faces when disabling
                             self.cached_vision_mask = None  # Clear cached mask when disabling
                             self.laser_coordinate = None
+                            self.raw_laser_coordinate = None
+                            self.smoothed_laser_coordinate = None
                             self.laser_confidence = 0.0
                             self.targeted_players = []
                             self.cached_player_details = []
@@ -590,6 +596,8 @@ class GameConfigPhase:
         # Clear previous targeting
         self.targeted_players = []
         self.laser_coordinate = None
+        self.raw_laser_coordinate = None
+        self.smoothed_laser_coordinate = None
         self.laser_confidence = 0.0
         self.cached_player_details = []
         
@@ -659,18 +667,29 @@ class GameConfigPhase:
         
         # Run laser detection using LaserFinderNN with full-resolution masked frame
         try:
-            laser_coord, output_image = self.laser_finder.find_laser(masked_webcam_frame)
+            laser_coord, output_image = self.laser_finder.find_laser(masked_webcam_frame, [], nn_frame)
             
             if self.laser_finder.laser_found() and laser_coord is not None:
-                self.laser_coordinate = laser_coord
+                # Get both raw and smoothed coordinates directly from filter
+                self.raw_laser_coordinate = self.laser_finder.get_raw_coord()
+                self.smoothed_laser_coordinate = self.laser_finder.get_smoothed_coord()
+                
+                
+                # Use smoothed coordinate as primary (for compatibility with targeting logic)
+                self.laser_coordinate = self.smoothed_laser_coordinate or self.raw_laser_coordinate
                 
                 # Get confidence from the best detection
-                all_detections = self.laser_finder.get_all_detections()
-                if all_detections:
-                    best_detection = max(all_detections, key=lambda d: d['confidence'])
-                    self.laser_confidence = best_detection['confidence']
+                if hasattr(self.laser_finder, 'get_all_detections'):
+                    # Neural network laser finder has confidence
+                    all_detections = self.laser_finder.get_all_detections()
+                    if all_detections:
+                        best_detection = max(all_detections, key=lambda d: d['confidence'])
+                        self.laser_confidence = best_detection['confidence']
+                    else:
+                        self.laser_confidence = 0.0
                 else:
-                    self.laser_confidence = 0.0
+                    # Traditional laser finder doesn't have confidence
+                    self.laser_confidence = 1.0
                 
                 # Check for player-laser intersection (same criteria as shooting control loop)
                 for idx, (px, py, pw, ph) in enumerate(cached_player_boxes):
@@ -682,6 +701,8 @@ class GameConfigPhase:
         except Exception as e:
             logger.error(f"Laser detection error: {e}")
             self.laser_coordinate = None
+            self.raw_laser_coordinate = None
+            self.smoothed_laser_coordinate = None
 
     def draw_detected_faces(self):
         """Draw currently detected faces at the bottom of the screen"""
@@ -906,54 +927,160 @@ class GameConfigPhase:
             display_mode="laser_test"
         )
         
-        # Draw laser dot if detected
-        if self.laser_coordinate is not None:
-            laser_x, laser_y = self.laser_coordinate
-            
-            # Convert laser coordinates to screen coordinates (no offset needed)
-            screen_laser_x = int(laser_x * self.webcam_to_screen_ratio)
-            screen_laser_y = int(laser_y * self.webcam_to_screen_ratio)
-            
+        # Draw laser dots if detected (both raw and smoothed)
+        def convert_coord_to_screen(coord):
+            """Helper to convert laser coordinate to screen position"""
+            if coord is None:
+                return None
+            x, y = coord
+            screen_x = int(x * self.webcam_to_screen_ratio)
+            screen_y = int(y * self.webcam_to_screen_ratio)
             # Flip the x coordinate to match pygame orientation
-            screen_laser_x = self.webcam_rect.width - screen_laser_x
-            
+            screen_x = self.webcam_rect.width - screen_x
             # Apply webcam rect offset
-            final_x = screen_laser_x + self.webcam_rect.x
-            final_y = screen_laser_y + self.webcam_rect.y
-            
-            # Draw laser dot with crosshairs
-            # Main laser dot (bright green)
-            pygame.draw.circle(self.screen, (0, 255, 0), (final_x, final_y), 8)
-            pygame.draw.circle(self.screen, (255, 255, 255), (final_x, final_y), 8, 2)
-            
-            # Crosshairs
-            crosshair_size = 15
-            pygame.draw.line(self.screen, (0, 255, 0), 
-                           (final_x - crosshair_size, final_y), 
-                           (final_x + crosshair_size, final_y), 3)
-            pygame.draw.line(self.screen, (0, 255, 0), 
-                           (final_x, final_y - crosshair_size), 
-                           (final_x, final_y + crosshair_size), 3)
+            final_x = screen_x + self.webcam_rect.x
+            final_y = screen_y + self.webcam_rect.y
+            return (final_x, final_y)
+        
+        # Draw raw coordinate (smaller, cyan) - only when actively detecting
+        if self.raw_laser_coordinate is not None:
+            raw_screen_pos = convert_coord_to_screen(self.raw_laser_coordinate)
+            if raw_screen_pos:
+                final_x, final_y = raw_screen_pos
+                # Raw laser dot (cyan, smaller)
+                pygame.draw.circle(self.screen, (0, 255, 255), (final_x, final_y), 5)
+                pygame.draw.circle(self.screen, (255, 255, 255), (final_x, final_y), 5, 1)
+                
+                # Small crosshairs for raw
+                crosshair_size = 10
+                pygame.draw.line(self.screen, (0, 255, 255), 
+                               (final_x - crosshair_size, final_y), 
+                               (final_x + crosshair_size, final_y), 2)
+                pygame.draw.line(self.screen, (0, 255, 255), 
+                               (final_x, final_y - crosshair_size), 
+                               (final_x, final_y + crosshair_size), 2)
+        
+        # Draw smoothed coordinate (larger, yellow) - persists in memory even without current detection
+        if self.smoothed_laser_coordinate is not None:
+            smooth_screen_pos = convert_coord_to_screen(self.smoothed_laser_coordinate)
+            if smooth_screen_pos:
+                final_x, final_y = smooth_screen_pos
+                
+                # Determine if this is a memory position (no current raw detection)
+                is_memory = self.raw_laser_coordinate is None
+                
+                if is_memory:
+                    # Memory position - dimmed yellow with dashed crosshairs
+                    color = (180, 180, 0)  # Dimmed yellow
+                    pygame.draw.circle(self.screen, color, (final_x, final_y), 8)
+                    pygame.draw.circle(self.screen, (150, 150, 150), (final_x, final_y), 8, 2)  # Dimmed white border
+                    
+                    # Dashed crosshairs for memory position
+                    crosshair_size = 15
+                    dash_length = 4
+                    for i in range(0, crosshair_size, dash_length * 2):
+                        # Horizontal dashes
+                        dash_start_x = final_x - crosshair_size + i
+                        dash_end_x = min(final_x + crosshair_size, dash_start_x + dash_length)
+                        if dash_start_x < final_x + crosshair_size:
+                            pygame.draw.line(self.screen, color, 
+                                           (dash_start_x, final_y), (dash_end_x, final_y), 3)
+                        # Vertical dashes
+                        dash_start_y = final_y - crosshair_size + i
+                        dash_end_y = min(final_y + crosshair_size, dash_start_y + dash_length)
+                        if dash_start_y < final_y + crosshair_size:
+                            pygame.draw.line(self.screen, color, 
+                                           (final_x, dash_start_y), (final_x, dash_end_y), 3)
+                else:
+                    # Active smoothed position - bright yellow
+                    pygame.draw.circle(self.screen, (255, 255, 0), (final_x, final_y), 8)
+                    pygame.draw.circle(self.screen, (255, 255, 255), (final_x, final_y), 8, 2)
+                    
+                    # Solid crosshairs for active position
+                    crosshair_size = 15
+                    pygame.draw.line(self.screen, (255, 255, 0), 
+                                   (final_x - crosshair_size, final_y), 
+                                   (final_x + crosshair_size, final_y), 3)
+                    pygame.draw.line(self.screen, (255, 255, 0), 
+                                   (final_x, final_y - crosshair_size), 
+                                   (final_x, final_y + crosshair_size), 3)
+        
+        # Use smoothed coordinate for text display (or raw if smoothed not available)
+        text_coord = self.smoothed_laser_coordinate or self.raw_laser_coordinate
+        if text_coord is not None:
+            text_screen_pos = convert_coord_to_screen(text_coord)
+            if text_screen_pos:
+                final_x, final_y = text_screen_pos
             
             # Draw laser coordinates and confidence text
-            coord_text = f"Laser: ({laser_x}, {laser_y})"
-            confidence_text = f"Conf: {self.laser_confidence:.3f}"
-            coord_surf = self.font.render(coord_text, True, (255, 255, 255))
-            conf_surf = self.font.render(confidence_text, True, (0, 255, 0))
+            # Show both raw and smoothed coordinates
+            raw_text = ""
+            smooth_text = ""
             
-            # Create background for both texts
-            max_width = max(coord_surf.get_width(), conf_surf.get_width())
-            total_height = coord_surf.get_height() + conf_surf.get_height() + 4
+            if self.raw_laser_coordinate:
+                try:
+                    raw_x, raw_y = self.raw_laser_coordinate
+                    raw_text = f"Raw: ({int(raw_x)}, {int(raw_y)})"
+                except (ValueError, TypeError, IndexError):
+                    raw_text = f"Raw: {self.raw_laser_coordinate}"
+            
+            if self.smoothed_laser_coordinate:
+                try:
+                    smooth_x, smooth_y = self.smoothed_laser_coordinate
+                    smooth_text = f"Smooth: ({int(smooth_x)}, {int(smooth_y)})"
+                except (ValueError, TypeError, IndexError):
+                    smooth_text = f"Smooth: {self.smoothed_laser_coordinate}"
+            
+            # Safely format confidence - handle potential string values
+            try:
+                confidence_value = float(self.laser_confidence) if self.laser_confidence is not None else 0.0
+                confidence_text = f"Conf: {confidence_value:.3f}"
+            except (ValueError, TypeError):
+                confidence_text = f"Conf: {self.laser_confidence}"
+            
+            # Create surfaces for all texts
+            surfaces = []
+            colors = []
+            
+            if raw_text:
+                raw_surf = self.font.render(raw_text, True, (0, 255, 255))  # Cyan for raw
+                surfaces.append(raw_surf)
+                colors.append((0, 255, 255))
+            
+            if smooth_text:
+                # Check if smoothed coordinate is from memory (no current raw detection)
+                is_memory = self.raw_laser_coordinate is None
+                if is_memory:
+                    smooth_text += " (memory)"
+                    smooth_surf = self.font.render(smooth_text, True, (180, 180, 0))  # Dimmed yellow for memory
+                    surfaces.append(smooth_surf)
+                    colors.append((180, 180, 0))
+                else:
+                    smooth_surf = self.font.render(smooth_text, True, (255, 255, 0))  # Yellow for active smoothed
+                    surfaces.append(smooth_surf)
+                    colors.append((255, 255, 0))
+            
+            conf_surf = self.font.render(confidence_text, True, (0, 255, 0))  # Green for confidence
+            surfaces.append(conf_surf)
+            colors.append((0, 255, 0))
+            
+            # Calculate background size
+            max_width = max(surf.get_width() for surf in surfaces) if surfaces else 0
+            total_height = sum(surf.get_height() + 2 for surf in surfaces) if surfaces else 0
             text_bg = pygame.Surface((max_width + 8, total_height), pygame.SRCALPHA)
             text_bg.fill((0, 0, 0, 180))  # Semi-transparent black background
             
             coord_x = final_x + 15
-            coord_y = final_y - 45
+            coord_y = final_y - 60  # Move up to accommodate more text
             
-            # Draw background and texts
+            # Draw background
             self.screen.blit(text_bg, (coord_x - 2, coord_y - 1))
-            self.screen.blit(coord_surf, (coord_x, coord_y))
-            self.screen.blit(conf_surf, (coord_x, coord_y + coord_surf.get_height() + 2))
+            
+            # Draw all text lines
+            current_y = coord_y
+            for surf in surfaces:
+                self.screen.blit(surf, (coord_x, current_y))
+                current_y += surf.get_height() + 2
 
     def draw_ui(self, webcam_surf: pygame.Surface, webcam_frame: cv2.UMat):
 

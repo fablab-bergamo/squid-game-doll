@@ -1,10 +1,11 @@
-from typing import Callable
+from typing import Callable, Tuple, Optional
 import cv2
 
 # from drafts.gradient_search import test_gradient
 # from drafts.motion_pattern import motion_pattern_analysis
 from .display import add_exclusion_rectangles
 from .img_processing import brightness
+from .laser_coordinate_filter import LaserCoordinateFilter
 
 DEBUG_LASER_FIND = False
 
@@ -22,28 +23,48 @@ class LaserFinder:
         self.laser_coord = None
         self.prev_img = None
         self.prev_candidates = []
+        
+        # Initialize coordinate smoothing filter
+        self.coordinate_filter = LaserCoordinateFilter(
+            smoothing_factor=0.7,  # Moderate smoothing
+            max_history_size=10,
+            outlier_threshold=100.0,  # Increased threshold to reduce rejections
+            min_confidence_for_update=0.05  # Lower threshold
+        )
 
     def laser_found(self) -> bool:
         return self.laser_coord is not None
 
-    def get_laser_coord(self) -> tuple[int, int]:
-        return self.laser_coord
+    def get_laser_coord(self) -> Optional[Tuple[int, int]]:
+        """Get the smoothed laser coordinate (default behavior for compatibility)."""
+        return self.get_smoothed_coord()
+
+    def get_raw_coord(self) -> Optional[Tuple[int, int]]:
+        """Get the raw (unsmoothed) laser coordinate."""
+        return self.coordinate_filter.get_raw_coordinate()
+
+    def get_smoothed_coord(self) -> Optional[Tuple[int, int]]:
+        """Get the smoothed laser coordinate."""
+        return self.coordinate_filter.get_smoothed_coordinate()
 
     def get_winning_strategy(self) -> str:
         if self.laser_found():
             return f"{self.prev_strategy}(THR={self.prev_threshold})"
         return ""
 
-    def find_laser(self, img: cv2.UMat, rects: list) -> (tuple, cv2.UMat):
+    def find_laser(self, img: cv2.UMat, rects: list, nn_frame: cv2.UMat = None) -> (tuple, cv2.UMat):
         """
         Finds the laser in the given image using different strategies.
 
         Parameters:
-        img (cv2.UMat): The input image.
+        img (cv2.UMat): The input image (full webcam frame).
+        rects: List of exclusion rectangles.
+        nn_frame (cv2.UMat): Optional preprocessed NN frame (ignored in traditional method).
 
         Returns:
-        tuple: The coordinates of the laser, the output image, the strategy used, and the threshold value.
+        tuple: The coordinates of the laser in full frame space, the output image.
         """
+        # Note: nn_frame parameter is ignored in traditional LaserFinder - always uses full frame
         add_exclusion_rectangles(img, rects, (0, 0, 0))
         strategies = [
             self.find_laser_by_red_color,
@@ -54,9 +75,27 @@ class LaserFinder:
             if DEBUG_LASER_FIND:
                 print(f"Trying strategy {strategy.__name__}")
 
-            (coord, output) = strategy(img.copy())
+            # Handle both cv2.UMat and numpy arrays
+            if isinstance(img, cv2.UMat):
+                # Convert to numpy, copy, then back to UMat
+                img_np = cv2.UMat.get(img)
+                img_copy = cv2.UMat(img_np.copy())
+            else:
+                img_copy = img.copy()
+            (coord, output) = strategy(img_copy)
             if coord is not None:
                 print(f"Found laser at {coord}")
+                
+                # Update the coordinate filter with raw detection
+                # Traditional laser finder doesn't have confidence, so use 1.0
+                self.coordinate_filter.update(coord, confidence=1.0)
+                
+                # Store raw coordinate for compatibility
+                self.laser_coord = coord
+                
+                # Get smoothed coordinate for display
+                smoothed_coord = self.coordinate_filter.get_smoothed_coordinate()
+                
                 cv2.putText(
                     output,
                     text=strategy.__name__,
@@ -73,10 +112,31 @@ class LaserFinder:
                     fontScale=0.5,
                     color=(0, 255, 0),
                 )
+                
+                # Show both raw and smoothed coordinates
+                cv2.putText(
+                    output,
+                    text=f"Raw: {coord}",
+                    org=(10, 80),
+                    fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                    fontScale=0.4,
+                    color=(0, 255, 255),  # Cyan for raw
+                )
+                if smoothed_coord:
+                    cv2.putText(
+                        output,
+                        text=f"Smooth: {smoothed_coord}",
+                        org=(10, 100),
+                        fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                        fontScale=0.4,
+                        color=(255, 255, 0),  # Yellow for smoothed
+                    )
+                
                 self.prev_strategy = strategy.__name__
-                self.laser_coord = coord
                 return (coord, output)
 
+        # No laser found - update filter with None
+        self.coordinate_filter.update(None, confidence=0.0)
         self.laser_coord = None
 
         if DEBUG_LASER_FIND:

@@ -5,6 +5,7 @@ import os
 import warnings
 from pathlib import Path
 from loguru import logger
+from .laser_coordinate_filter import LaserCoordinateFilter
 
 # Suppress the specific FutureWarning about torch.cuda.amp.autocast deprecation
 # This warning comes from YOLOv5 library usage of deprecated torch.cuda.amp API
@@ -46,6 +47,15 @@ class LaserFinderNN:
         self.confidence_threshold = 0.10
         self.iou_threshold = 0.01
         self.is_jetson = is_jetson_orin()
+        self.frame_count = 0
+        
+        # Initialize coordinate smoothing filter
+        self.coordinate_filter = LaserCoordinateFilter(
+            smoothing_factor=0.6,  # Less smoothing for NN since it's more accurate
+            max_history_size=15,
+            outlier_threshold=150.0,  # Even larger threshold to reduce rejections
+            min_confidence_for_update=0.03  # Lower threshold since NN provides confidence
+        )
         
         self._load_optimized_model()
 
@@ -116,7 +126,7 @@ class LaserFinderNN:
             logger.info(f"🎯 Laser detection running on: {device_info} ({get_platform_info()})")
             logger.info(f"⚡ Model format in use: {model_format}")
             logger.info(f"🔧 Model classes: {list(self.model.names.values())}")
-            
+            self.frame_count = 0
             return True
             
         except Exception as e:
@@ -143,8 +153,16 @@ class LaserFinderNN:
         return self.laser_coord is not None
 
     def get_laser_coord(self) -> Optional[Tuple[int, int]]:
-        """Get the laser coordinates from the last detection."""
-        return self.laser_coord
+        """Get the smoothed laser coordinates (default behavior for compatibility)."""
+        return self.get_smoothed_coord()
+
+    def get_raw_coord(self) -> Optional[Tuple[int, int]]:
+        """Get the raw (unsmoothed) laser coordinate."""
+        return self.coordinate_filter.get_raw_coordinate()
+
+    def get_smoothed_coord(self) -> Optional[Tuple[int, int]]:
+        """Get the smoothed laser coordinate."""
+        return self.coordinate_filter.get_smoothed_coordinate()
 
     def get_winning_strategy(self) -> str:
         """Get information about the detection strategy used."""
@@ -152,16 +170,18 @@ class LaserFinderNN:
             return f"YOLOv5_NN(conf={self.confidence_threshold}, iou={self.iou_threshold})"
         return ""
 
-    def find_laser(self, img: cv2.UMat, rects: list = None) -> Tuple[Optional[Tuple[int, int]], Optional[cv2.UMat]]:
+    def find_laser(self, img: cv2.UMat, rects: list = None, nn_frame: cv2.UMat = None) -> Tuple[Optional[Tuple[int, int]], Optional[cv2.UMat]]:
         """
         Find laser in the given image using YOLOv5 neural network.
         
         Args:
-            img: Input image as cv2.UMat
+            img: Input image as cv2.UMat (full webcam frame)
             rects: List of exclusion rectangles (not used in NN version)
+            nn_frame: Optional preprocessed NN frame to use instead of full frame
             
         Returns:
-            Tuple of (laser_coordinates, output_image)
+            Tuple of (laser_coordinates_in_full_frame, output_image)
+            Note: Coordinates are always returned in full frame space regardless of input
         """
         if self.model is None:
             if DEBUG_LASER_FIND_NN:
@@ -170,18 +190,38 @@ class LaserFinderNN:
             return (None, None)
         
         try:
+            start_time = cv2.getTickCount()
+
+            # Choose which frame to use for inference (prefer NN frame if available)
+            use_nn_frame = nn_frame is not None
+            inference_img = nn_frame if use_nn_frame else img
+            
             # Convert UMat to numpy array if needed
-            if isinstance(img, cv2.UMat):
-                img_np = cv2.UMat.get(img)
+            if isinstance(inference_img, cv2.UMat):
+                img_np = cv2.UMat.get(inference_img)
             else:
-                img_np = img
+                img_np = inference_img
+                
+            # Store frame dimensions for coordinate scaling
+            if use_nn_frame:
+                # Get full frame dimensions for coordinate scaling
+                full_frame_shape = img.get().shape if isinstance(img, cv2.UMat) else img.shape
+                nn_frame_shape = img_np.shape
+                scale_x = full_frame_shape[1] / nn_frame_shape[1]
+                scale_y = full_frame_shape[0] / nn_frame_shape[0]
+            else:
+                scale_x = scale_y = 1.0
                 
             if DEBUG_LASER_FIND_NN:
-                print(f"Running YOLOv5 inference on image shape: {img_np.shape}")
+                frame_type = "NN frame" if use_nn_frame else "full frame"
+                print(f"Running YOLOv5 inference on {frame_type} shape: {img_np.shape}")
+                if use_nn_frame:
+                    print(f"Scale factors for coordinate mapping: {scale_x:.3f}x{scale_y:.3f}")
             
             # Run inference
             results = self.model(img_np)
-            
+            self.frame_count += 1
+
             # Process results
             detections = []
             output_image = img_np.copy()
@@ -196,48 +236,85 @@ class LaserFinderNN:
                     x1, y1, x2, y2, conf, class_id = pred
                     class_name = self.model.names[int(class_id)]
                     
+                    # Calculate center in inference frame coordinates
                     center_x = int((x1 + x2) / 2)
                     center_y = int((y1 + y2) / 2)
                     
+                    # Scale coordinates to full frame if using NN frame
+                    if use_nn_frame:
+                        center_x = int(center_x * scale_x)
+                        center_y = int(center_y * scale_y)
+                        bbox = (int(x1 * scale_x), int(y1 * scale_y), int(x2 * scale_x), int(y2 * scale_y))
+                    else:
+                        bbox = (int(x1), int(y1), int(x2), int(y2))
+                    
                     detection = {
                         'center': (center_x, center_y),
-                        'bbox': (int(x1), int(y1), int(x2), int(y2)),
+                        'bbox': bbox,
                         'confidence': float(conf),
                         'class_name': class_name
                     }
                     detections.append(detection)
                     
-                    # Draw bounding box
+                    # Draw bounding box on inference image (not scaled)
                     cv2.rectangle(output_image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
                     
-                    # Draw center point
-                    cv2.circle(output_image, (center_x, center_y), 5, (0, 0, 255), -1)
+                    # Draw center point on inference image (not scaled)
+                    cv2.circle(output_image, (int((x1 + x2) / 2), int((y1 + y2) / 2)), 5, (0, 0, 255), -1)
                     
-                    # Draw label
+                    # Draw label on inference image
                     label = f"{class_name}: {conf:.2f}"
                     cv2.putText(output_image, label, (int(x1), int(y1) - 5), 
                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                     
                     if DEBUG_LASER_FIND_NN:
-                        print(f"Detected laser: {class_name} (conf: {conf:.3f}) at center ({center_x}, {center_y})")
+                        coord_info = f"(scaled to full frame)" if use_nn_frame else "(original coordinates)"
+                        print(f"Detected laser: {class_name} (conf: {conf:.3f}) at center ({center_x}, {center_y}) {coord_info}")
             
             # Select best detection (highest confidence)
             if detections:
                 best_detection = max(detections, key=lambda d: d['confidence'])
-                self.laser_coord = best_detection['center']
+                raw_coord = best_detection['center']
+                confidence = best_detection['confidence']
+                
+                # Update the coordinate filter with the best detection
+                self.coordinate_filter.update(raw_coord, confidence)
+                
+                # Store raw coordinate for compatibility
+                self.laser_coord = raw_coord
                 self.prev_detections = detections
                 
                 # Add strategy info to output image
-                cv2.putText(output_image, "YOLOv5 Neural Network", (10, 30), 
+                frame_info = "NN frame" if use_nn_frame else "full frame"
+                cv2.putText(output_image, f"YOLOv5 Neural Network ({frame_info})", (10, 30), 
                           cv2.FONT_HERSHEY_COMPLEX, 0.6, (0, 255, 0), 2)
-                cv2.putText(output_image, f"Best conf: {best_detection['confidence']:.3f}", (10, 60), 
+                cv2.putText(output_image, f"Best conf: {confidence:.3f}", (10, 60), 
                           cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
+                
+                # Show both raw and smoothed coordinates
+                smoothed_coord = self.coordinate_filter.get_smoothed_coordinate()
+                cv2.putText(output_image, f"Raw: {raw_coord}", (10, 90), 
+                          cv2.FONT_HERSHEY_COMPLEX, 0.4, (0, 255, 255), 1)  # Cyan for raw
+                if smoothed_coord:
+                    cv2.putText(output_image, f"Smooth: {smoothed_coord}", (10, 110), 
+                              cv2.FONT_HERSHEY_COMPLEX, 0.4, (255, 255, 0), 1)  # Yellow for smoothed
                 
                 if DEBUG_LASER_FIND_NN:
                     print(f"Selected best detection at {self.laser_coord} with confidence {best_detection['confidence']:.3f}")
                 
+                end_time = cv2.getTickCount()
+                time_taken = (end_time - start_time) / cv2.getTickFrequency()
+                total_time_ms = time_taken * 1000
+                self.fps = 1 / time_taken if time_taken > 0 else 0
+                
+                # Log total processing time (very reduced frequency)
+                if self.frame_count % 30 == 0:  # Log every 30 frames (~2 seconds at 15 FPS)
+                    logger.info(f"🎯 Laser detection performance: {total_time_ms:.1f}ms ({self.fps:.1f} FPS) | Detections: {len(detections)} | Frame: {self.frame_count}")
+                
                 return (self.laser_coord, output_image)
             else:
+                # No laser found - update filter with None
+                self.coordinate_filter.update(None, confidence=0.0)
                 self.laser_coord = None
                 self.prev_detections = []
                 
@@ -249,6 +326,8 @@ class LaserFinderNN:
         except Exception as e:
             if DEBUG_LASER_FIND_NN:
                 print(f"Error during YOLOv5 inference: {e}")
+            # Update filter with None on error
+            self.coordinate_filter.update(None, confidence=0.0)
             self.laser_coord = None
             return (None, None)
 
