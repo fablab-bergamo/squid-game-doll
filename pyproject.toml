@@ -22,6 +22,7 @@ dependencies = [
     "imutils==0.5.4",
     "lmfit==1.3.2",
     "matplotlib",
+    "mediapipe",
     "numpy (<2)",
     "pandas==2.2.3",
     "perlin-numpy==0.0.1",
