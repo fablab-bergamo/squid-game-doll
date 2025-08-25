@@ -9,6 +9,8 @@ from .base_player_tracker import BasePlayerTracker
 from .game_settings import GameSettings
 from .face_extractor import FaceExtractor
 from .cuda_utils import cuda_cvt_color
+from .laser_finder_nn import LaserFinderNN
+from .laser_shooter import LaserShooter
 
 
 class GameConfigPhase:
@@ -65,13 +67,25 @@ class GameConfigPhase:
         self.current_faces = []  # List to store currently detected faces (cleared each frame)
         self.face_detection_enabled = False  # Toggle for face detection mode
         self.cached_faces = []  # Cache face detections to avoid duplicate detectMultiScale calls
-        self.cached_vision_offset = (0, 0)  # Cache vision area offset for coordinate conversion
         self.cached_vision_mask = None  # Cache vision area mask for consistent processing
         
         # FPS tracking for face detection
         self.face_detection_fps = 0.0
         self.frame_times = []
         self.last_fps_update = time.time()
+
+        # Laser detection components
+        self.laser_finder = None
+        self.laser_shooter = None
+        self.laser_detection_enabled = False
+        self.laser_detection_error = None  # Store initialization error for user display
+        self.laser_coordinate = None
+        self.laser_confidence = 0.0  # Store laser detection confidence
+        self.laser_detection_fps = 0.0
+        self.laser_frame_times = []
+        self.last_laser_fps_update = time.time()
+        self.targeted_players = []  # List of player indices that are being targeted by laser
+        self.cached_player_details = []  # Cache player ID and confidence for display
 
         if len(self.game_settings.areas) == 0:
             self.__setup_defaults()
@@ -107,6 +121,7 @@ class GameConfigPhase:
             {"label": "Settings", "mode": "settings"},
             {"label": "Neural net preview", "mode": "nn_preview"},
             {"label": "Face detection test", "mode": "face_test"},
+            {"label": "Laser detection test", "mode": "laser_test"},
             {"label": "Exit without saving", "mode": "dont_save"},
             {"label": "Exit saving changes", "mode": "save"},
         ]
@@ -168,15 +183,48 @@ class GameConfigPhase:
                             self.face_detection_enabled = True
                             self.current_faces = []
                             self.cached_faces = []  # Reset cached faces
-                            self.cached_vision_offset = (0, 0)  # Reset cached offset
                             self.face_extractor.reset_memory()
                             self.frame_times = []  # Reset FPS tracking
                             self.last_fps_update = time.time()
+                        elif self.current_mode == "laser_test":
+                            self.laser_detection_enabled = True
+                            self.laser_coordinate = None
+                            self.laser_confidence = 0.0
+                            self.targeted_players = []
+                            self.laser_frame_times = []  # Reset FPS tracking
+                            self.last_laser_fps_update = time.time()
+                            self.laser_detection_error = None  # Reset error state
+                            # Initialize laser detection components
+                            if self.laser_finder is None:
+                                try:
+                                    logger.info("Initializing LaserFinderNN for setup mode...")
+                                    self.laser_finder = LaserFinderNN()
+                                    if self.laser_finder.model is None:
+                                        raise Exception("LaserFinderNN model failed to load")
+                                    logger.info("LaserFinderNN initialized successfully")
+                                except Exception as e:
+                                    error_msg = f"Failed to initialize LaserFinderNN: {e}"
+                                    logger.error(error_msg)
+                                    self.laser_finder = None
+                                    self.laser_detection_error = str(e)
+                                    self.laser_detection_enabled = False  # Disable if failed to initialize
+                            # Optional: Initialize laser shooter for testing (if IP provided)
+                            # This can be uncommented if laser control is needed in setup mode
+                            # if self.laser_shooter is None:
+                            #     try:
+                            #         self.laser_shooter = LaserShooter("192.168.45.50")
+                            #     except Exception as e:
+                            #         logger.warning(f"Failed to initialize LaserShooter: {e}")
                         else:
                             self.face_detection_enabled = False
+                            self.laser_detection_enabled = False
                             self.cached_faces = []  # Clear cached faces when disabling
-                            self.cached_vision_offset = (0, 0)
                             self.cached_vision_mask = None  # Clear cached mask when disabling
+                            self.laser_coordinate = None
+                            self.laser_confidence = 0.0
+                            self.targeted_players = []
+                            self.cached_player_details = []
+                            self.laser_detection_error = None  # Clear error when switching modes
                         return
 
                 if self.current_mode in self.reset_buttons:
@@ -479,6 +527,7 @@ class GameConfigPhase:
         
         # Cache both player and face bounding boxes for overlay drawing
         cached_player_boxes = []
+        cached_player_details = []
         cached_face_boxes = []
         
         # Extract faces from detected players using FaceExtractor (same as main game)
@@ -492,43 +541,147 @@ class GameConfigPhase:
                 x1, y1, x2, y2 = player_coords
                 cached_player_boxes.append((x1, y1, x2 - x1, y2 - y1))
                 
-                # Use FaceExtractor.extract_face() - exact same method as main game
-                face_crop = self.face_extractor.extract_face(webcam_frame, player_coords, player_id)
+                # Store player details for overlay display
+                cached_player_details.append({
+                    'id': player_id,
+                    'confidence': player.get_confidence()
+                })
                 
-                if face_crop is not None:
+                # Use FaceExtractor.extract_face() with bounding box return - no duplication!
+                result = self.face_extractor.extract_face(webcam_frame, player_coords, player_id, return_bbox=True)
+                
+                if result[0] is not None:  # face_crop is not None
+                    face_crop, face_bbox = result
+                    
                     # Store face for display
                     self.current_faces.append(face_crop)
                     
-                    # Extract actual face bounding box from within player bounding box
-                    # This replicates the logic inside FaceExtractor.extract_face()
-                    person_crop = webcam_frame[y1:y2, x1:x2]
-                    if person_crop.size > 0:
-                        from .cuda_utils import cuda_cvt_color
-                        gray_face = cuda_cvt_color(person_crop, cv2.COLOR_BGR2GRAY)
-                        
-                        # Detect faces using same parameters as FaceExtractor
-                        face_detections = self.face_extractor.face_detector.detectMultiScale(
-                            gray_face,
-                            scaleFactor=1.3,
-                            minNeighbors=3,
-                            minSize=(20, 20),
-                            flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING
-                        )
-                        
-                        if len(face_detections) > 0:
-                            # Get the largest face (same logic as FaceExtractor)
-                            face = max(face_detections, key=lambda x: x[2] * x[3])
-                            fx, fy, fw, fh = face
-                            
-                            # Convert face coordinates back to full frame coordinates
-                            face_x1 = x1 + fx
-                            face_y1 = y1 + fy
-                            cached_face_boxes.append((face_x1, face_y1, fw, fh))
+                    # Store face bounding box if we got coordinates
+                    if face_bbox is not None:
+                        face_x1, face_y1, fw, fh = face_bbox
+                        cached_face_boxes.append((face_x1, face_y1, fw, fh))
         
         # Cache both player and face boxes for overlay drawing
         self.cached_player_boxes = cached_player_boxes
+        self.cached_player_details = cached_player_details  # Store player details for face detection mode
         self.cached_faces = cached_face_boxes  # This now contains actual face boxes
-        self.cached_vision_offset = (0, 0)  # No offset needed since we work on full frame
+
+    def process_laser_detection(self, webcam_frame: cv2.UMat):
+        """Process frame for laser detection and player targeting"""
+        if not self.laser_detection_enabled or self.laser_finder is None:
+            return
+            
+        # Track frame timing for FPS calculation
+        current_time = time.time()
+        self.laser_frame_times.append(current_time)
+        
+        # Keep only last 30 frame times for FPS calculation
+        if len(self.laser_frame_times) > 30:
+            self.laser_frame_times.pop(0)
+            
+        # Update FPS every second
+        if current_time - self.last_laser_fps_update >= 1.0:
+            if len(self.laser_frame_times) > 1:
+                time_diff = self.laser_frame_times[-1] - self.laser_frame_times[0]
+                if time_diff > 0:
+                    self.laser_detection_fps = (len(self.laser_frame_times) - 1) / time_diff
+            self.last_laser_fps_update = current_time
+            
+        # Clear previous targeting
+        self.targeted_players = []
+        self.laser_coordinate = None
+        self.laser_confidence = 0.0
+        self.cached_player_details = []
+        
+        # Get vision area for laser detection (same logic as face detection - works with full frame)
+        # Use original setup areas directly since setup mode works in setup coordinate system
+        vision_rects = self.game_settings.areas.get("vision", [])
+        reference_surface = self.game_settings.get_reference_frame()
+        
+        # Create masked frame using vision area masking (exactly same as face detection)
+        masked_webcam_frame = webcam_frame.copy()
+        if vision_rects:
+            # Create a mask for the vision area - zero out areas outside vision zones
+            mask = cv2.cvtColor(webcam_frame, cv2.COLOR_BGR2GRAY)
+            mask[:] = 0  # Initialize mask to zero
+            
+            for rect in vision_rects:
+                # Skip invalid rectangles to prevent division by zero
+                if reference_surface.w == 0 or reference_surface.h == 0 or rect.width == 0 or rect.height == 0:
+                    continue
+                    
+                # Convert rect coordinates from setup space to frame coordinates
+                # Setup coordinates are already in the correct orientation for setup mode
+                x = int(rect.x / reference_surface.w * webcam_frame.shape[1])
+                y = int(rect.y / reference_surface.h * webcam_frame.shape[0])
+                w = int(rect.width / reference_surface.w * webcam_frame.shape[1])
+                h = int(rect.height / reference_surface.h * webcam_frame.shape[0])
+                
+                # Ensure coordinates are within bounds
+                x = max(0, min(x, webcam_frame.shape[1]))
+                y = max(0, min(y, webcam_frame.shape[0]))
+                w = max(0, min(w, webcam_frame.shape[1] - x))
+                h = max(0, min(h, webcam_frame.shape[0] - y))
+                
+                if w > 0 and h > 0:
+                    # The webcam display is horizontally flipped in setup mode (see convert_cv2_to_pygame)
+                    # So we need to flip the x coordinate to match what the user sees
+                    flipped_x = webcam_frame.shape[1] - (x + w)
+                    flipped_x = max(0, flipped_x)  # Ensure x is not negative
+                    # Draw the rectangle on the mask (white = allowed area)
+                    cv2.rectangle(mask, (flipped_x, y), (flipped_x + w, y + h), 255, -1)
+            
+            # Apply the mask to the frame
+            masked_webcam_frame = cv2.bitwise_and(webcam_frame, webcam_frame, mask=mask)
+        
+        # Use neural network to detect players first (same as face detection mode)
+        # Create a temporary NN frame from the masked webcam frame
+        nn_frame = masked_webcam_frame
+        
+        # Run neural network detection to find players (same as face detection mode)
+        detected_players = self.neural_net.process_nn_frame(nn_frame, self.game_settings)
+        
+        # Cache player bounding boxes and details for overlay drawing
+        cached_player_boxes = []
+        cached_player_details = []
+        for player in detected_players:
+            if player is not None:
+                player_coords = player.get_coords()
+                x1, y1, x2, y2 = player_coords
+                cached_player_boxes.append((x1, y1, x2 - x1, y2 - y1))
+                cached_player_details.append({
+                    'id': player.get_id(),
+                    'confidence': player.get_confidence()
+                })
+        
+        self.cached_player_boxes = cached_player_boxes
+        self.cached_player_details = cached_player_details
+        
+        # Run laser detection using LaserFinderNN with full-resolution masked frame
+        try:
+            laser_coord, output_image = self.laser_finder.find_laser(masked_webcam_frame)
+            
+            if self.laser_finder.laser_found() and laser_coord is not None:
+                self.laser_coordinate = laser_coord
+                
+                # Get confidence from the best detection
+                all_detections = self.laser_finder.get_all_detections()
+                if all_detections:
+                    best_detection = max(all_detections, key=lambda d: d['confidence'])
+                    self.laser_confidence = best_detection['confidence']
+                else:
+                    self.laser_confidence = 0.0
+                
+                # Check for player-laser intersection (same criteria as shooting control loop)
+                for idx, (px, py, pw, ph) in enumerate(cached_player_boxes):
+                    # Check if laser coordinate is within player bounding box
+                    laser_x, laser_y = laser_coord
+                    if px <= laser_x <= px + pw and py <= laser_y <= py + ph:
+                        self.targeted_players.append(idx)
+                        
+        except Exception as e:
+            logger.error(f"Laser detection error: {e}")
+            self.laser_coordinate = None
 
     def draw_detected_faces(self):
         """Draw currently detected faces at the bottom of the screen"""
@@ -569,36 +722,23 @@ class GameConfigPhase:
         """Draw player and face detection rectangles on the webcam feed"""
         if not self.face_detection_enabled:
             return
-            
-        offset_x, offset_y = self.cached_vision_offset
         
-        # Draw player bounding boxes in blue
-        if hasattr(self, 'cached_player_boxes'):
-            for (px, py, pw, ph) in self.cached_player_boxes:
-                # Convert to screen coordinates
-                x = int((offset_x + px) * self.webcam_to_screen_ratio)
-                y = int((offset_y + py) * self.webcam_to_screen_ratio)
-                w = int(pw * self.webcam_to_screen_ratio)
-                h = int(ph * self.webcam_to_screen_ratio)
-                
-                # Flip the x coordinate to match pygame orientation (same as neural net preview)
-                x = self.webcam_rect.width - x - w
-                
-                # Apply webcam rect offset
-                screen_x = x + self.webcam_rect.x
-                screen_y = y + self.webcam_rect.y
-                screen_w = w
-                screen_h = h
-                
-                # Draw player detection rectangle in blue
-                pygame.draw.rect(self.screen, (0, 100, 255), (screen_x, screen_y, screen_w, screen_h), 2)
+        # Use unified method to draw player bounding boxes with details
+        player_boxes = getattr(self, 'cached_player_boxes', [])
+        player_details = getattr(self, 'cached_player_details', None)
+        self.draw_player_bboxes_with_info(
+            player_boxes=player_boxes,
+            player_details=player_details,  # Face mode now shows player details too
+            targeted_indices=None,
+            display_mode="face_test"
+        )
         
         # Draw face bounding boxes in green (on top of player boxes)
         faces = self.cached_faces
         for (fx, fy, fw, fh) in faces:
             # Convert to screen coordinates
-            x = int((offset_x + fx) * self.webcam_to_screen_ratio)
-            y = int((offset_y + fy) * self.webcam_to_screen_ratio)
+            x = int(fx * self.webcam_to_screen_ratio)
+            y = int(fy * self.webcam_to_screen_ratio)
             w = int(fw * self.webcam_to_screen_ratio)
             h = int(fh * self.webcam_to_screen_ratio)
             
@@ -618,6 +758,203 @@ class GameConfigPhase:
             center_y = screen_y + screen_h // 2
             pygame.draw.circle(self.screen, (255, 0, 0), (center_x, center_y), 5)
 
+    def draw_player_bboxes_with_info(self, player_boxes, player_details=None, targeted_indices=None, display_mode="default", surface_coords=False, surface_offset=(0, 0)):
+        """
+        Unified method to draw player bounding boxes with information across different setup modes.
+        
+        Args:
+            player_boxes: List of (x, y, width, height) tuples 
+            player_details: Optional list of {'id': player_id, 'confidence': confidence} dicts
+            targeted_indices: Optional list of player indices that are targeted (for laser mode)
+            display_mode: "nn_preview", "face_test", "laser_test", or "default"
+            surface_coords: If True, player_boxes are already in surface coordinates (for nn_preview)
+            surface_offset: Offset to apply when using surface_coords (x_offset, y_offset)
+        """
+        if not player_boxes:
+            return
+        
+        for idx, (px, py, pw, ph) in enumerate(player_boxes):
+            if surface_coords:
+                # Already in surface coordinates (nn_preview mode)
+                screen_x = px + surface_offset[0]
+                screen_y = py + surface_offset[1]
+                screen_w, screen_h = pw, ph
+            else:
+                # Convert from webcam frame coordinates to screen coordinates
+                x = int(px * self.webcam_to_screen_ratio)
+                y = int(py * self.webcam_to_screen_ratio)
+                w = int(pw * self.webcam_to_screen_ratio)
+                h = int(ph * self.webcam_to_screen_ratio)
+                
+                # Flip the x coordinate to match pygame orientation
+                x = self.webcam_rect.width - x - w
+                
+                # Apply webcam rect offset
+                screen_x = x + self.webcam_rect.x
+                screen_y = y + self.webcam_rect.y
+                screen_w = w
+                screen_h = h
+            
+            # Get player details if available
+            player_detail = player_details[idx] if player_details and idx < len(player_details) else None
+            player_id = player_detail['id'] if player_detail else f"P{idx}"
+            player_confidence = player_detail['confidence'] if player_detail else 0.0
+            
+            # Check if this player is being targeted (laser mode only)
+            is_targeted = targeted_indices and idx in targeted_indices
+            
+            # Determine colors and styling based on mode and targeting
+            if display_mode == "laser_test" and is_targeted:
+                # Targeted player in laser mode
+                bbox_color = (255, 0, 0)  # Red
+                bbox_thickness = 4
+                text_color = (255, 255, 255)  # White
+                
+                # Draw red tint overlay for targeted players
+                target_overlay = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
+                target_overlay.fill((255, 0, 0, 80))  # Semi-transparent red
+                self.screen.blit(target_overlay, (screen_x, screen_y))
+                
+                # Add "TARGET LOCKED" text
+                target_text = self.font.render("TARGET LOCKED", True, (255, 255, 255))
+                text_bg = pygame.Surface((target_text.get_width() + 4, target_text.get_height() + 2), pygame.SRCALPHA)
+                text_bg.fill((255, 0, 0, 200))  # Semi-transparent red background
+                text_x = screen_x + max(0, (screen_w - target_text.get_width()) // 2)
+                text_y = screen_y - 25
+                self.screen.blit(text_bg, (text_x - 2, text_y - 1))
+                self.screen.blit(target_text, (text_x, text_y))
+                
+            elif display_mode == "nn_preview":
+                # Neural network preview mode styling
+                bbox_thickness = 3
+                text_color = (255, 255, 255)  # White text
+                
+                # Color code bounding box based on confidence
+                if player_confidence >= 0.8:
+                    bbox_color = (0, 255, 0)  # Bright green
+                elif player_confidence >= 0.6:
+                    bbox_color = (128, 255, 0)  # Yellow-green
+                elif player_confidence >= 0.4:
+                    bbox_color = (255, 165, 0)  # Orange
+                else:
+                    bbox_color = (255, 0, 0)  # Red
+                    
+            elif display_mode == "face_test":
+                # Face detection mode - simple blue boxes
+                bbox_color = (0, 100, 255)  # Blue
+                bbox_thickness = 2
+                text_color = (0, 255, 255)  # Cyan
+                
+            else:
+                # Default styling (laser_test non-targeted, other modes)
+                bbox_color = (0, 100, 255)  # Blue
+                bbox_thickness = 2
+                text_color = (0, 255, 255)  # Cyan
+            
+            # Draw the bounding box
+            pygame.draw.rect(self.screen, bbox_color, (screen_x, screen_y, screen_w, screen_h), bbox_thickness)
+            
+            # Draw player information text (if we have details or it's appropriate for the mode)
+            show_info = display_mode in ["nn_preview", "laser_test", "face_test"] and player_details
+            
+            if show_info:
+                # Get confidence for color coding
+                conf_percentage = int(player_confidence * 100)
+                
+                # Color code confidence text based on confidence level
+                if player_confidence >= 0.8:
+                    conf_color = (0, 255, 0)  # Bright green
+                elif player_confidence >= 0.6:
+                    conf_color = (128, 255, 0)  # Yellow-green
+                elif player_confidence >= 0.4:
+                    conf_color = (255, 165, 0)  # Orange
+                else:
+                    conf_color = (255, 0, 0)  # Red
+                
+                # Draw semi-transparent background for text
+                text_bg_height = 35
+                text_bg = pygame.Surface((max(80, screen_w), text_bg_height), pygame.SRCALPHA)
+                text_bg.fill((0, 0, 0, 180))  # Semi-transparent black
+                
+                # Position text above the bounding box (or below if no room above)
+                text_y_pos = screen_y - text_bg_height if screen_y - text_bg_height > 0 else screen_y + screen_h
+                self.screen.blit(text_bg, (screen_x, text_y_pos))
+                
+                # Draw the player ID
+                id_surf = self.font.render(f"ID:{player_id}", True, text_color)
+                self.screen.blit(id_surf, (screen_x + 2, text_y_pos + 2))
+                
+                # Draw confidence percentage with color coding (if we have confidence data)
+                if player_detail:
+                    conf_surf = self.font.render(f"{conf_percentage}%", True, conf_color)
+                    self.screen.blit(conf_surf, (screen_x + 2, text_y_pos + 17))
+
+    def draw_laser_detection_overlay(self, webcam_frame: cv2.UMat):
+        """Draw player bounding boxes and laser detection visualization"""
+        if not self.laser_detection_enabled:
+            return
+        
+        # Use unified method to draw player bounding boxes with targeting info
+        player_boxes = getattr(self, 'cached_player_boxes', [])
+        player_details = getattr(self, 'cached_player_details', None)
+        targeted_indices = getattr(self, 'targeted_players', [])
+        
+        self.draw_player_bboxes_with_info(
+            player_boxes=player_boxes,
+            player_details=player_details, 
+            targeted_indices=targeted_indices,
+            display_mode="laser_test"
+        )
+        
+        # Draw laser dot if detected
+        if self.laser_coordinate is not None:
+            laser_x, laser_y = self.laser_coordinate
+            
+            # Convert laser coordinates to screen coordinates (no offset needed)
+            screen_laser_x = int(laser_x * self.webcam_to_screen_ratio)
+            screen_laser_y = int(laser_y * self.webcam_to_screen_ratio)
+            
+            # Flip the x coordinate to match pygame orientation
+            screen_laser_x = self.webcam_rect.width - screen_laser_x
+            
+            # Apply webcam rect offset
+            final_x = screen_laser_x + self.webcam_rect.x
+            final_y = screen_laser_y + self.webcam_rect.y
+            
+            # Draw laser dot with crosshairs
+            # Main laser dot (bright green)
+            pygame.draw.circle(self.screen, (0, 255, 0), (final_x, final_y), 8)
+            pygame.draw.circle(self.screen, (255, 255, 255), (final_x, final_y), 8, 2)
+            
+            # Crosshairs
+            crosshair_size = 15
+            pygame.draw.line(self.screen, (0, 255, 0), 
+                           (final_x - crosshair_size, final_y), 
+                           (final_x + crosshair_size, final_y), 3)
+            pygame.draw.line(self.screen, (0, 255, 0), 
+                           (final_x, final_y - crosshair_size), 
+                           (final_x, final_y + crosshair_size), 3)
+            
+            # Draw laser coordinates and confidence text
+            coord_text = f"Laser: ({laser_x}, {laser_y})"
+            confidence_text = f"Conf: {self.laser_confidence:.3f}"
+            coord_surf = self.font.render(coord_text, True, (255, 255, 255))
+            conf_surf = self.font.render(confidence_text, True, (0, 255, 0))
+            
+            # Create background for both texts
+            max_width = max(coord_surf.get_width(), conf_surf.get_width())
+            total_height = coord_surf.get_height() + conf_surf.get_height() + 4
+            text_bg = pygame.Surface((max_width + 8, total_height), pygame.SRCALPHA)
+            text_bg.fill((0, 0, 0, 180))  # Semi-transparent black background
+            
+            coord_x = final_x + 15
+            coord_y = final_y - 45
+            
+            # Draw background and texts
+            self.screen.blit(text_bg, (coord_x - 2, coord_y - 1))
+            self.screen.blit(coord_surf, (coord_x, coord_y))
+            self.screen.blit(conf_surf, (coord_x, coord_y + coord_surf.get_height() + 2))
+
     def draw_ui(self, webcam_surf: pygame.Surface, webcam_frame: cv2.UMat):
 
         self.screen.fill(PINK)
@@ -625,6 +962,10 @@ class GameConfigPhase:
         # Process face detection if in face test mode
         if self.current_mode == "face_test":
             self.process_face_detection(webcam_frame)
+        
+        # Process laser detection if in laser test mode
+        if self.current_mode == "laser_test":
+            self.process_laser_detection(webcam_frame)
 
         if self.current_mode == "nn_preview":
             # Apply the vision frame to the webcam surface
@@ -776,6 +1117,95 @@ class GameConfigPhase:
             )
             label_rect = label_surf.get_rect(center=(self.webcam_rect.centerx, self.webcam_rect.y - 20))
             self.screen.blit(label_surf, label_rect.topleft)
+        elif self.current_mode == "laser_test":
+            # Check if there's a laser detection error to display
+            if self.laser_detection_error is not None:
+                # Show error screen instead of normal laser test interface
+                self.screen.fill((50, 50, 50))  # Dark gray background
+                
+                # Draw error title
+                error_title = self.big_font.render("LASER DETECTION ERROR", True, (255, 50, 50))
+                title_rect = error_title.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 100))
+                self.screen.blit(error_title, title_rect.topleft)
+                
+                # Draw error details
+                error_lines = [
+                    "LaserFinderNN failed to initialize:",
+                    f"Error: {self.laser_detection_error}",
+                    "",
+                    "Common causes:",
+                    "• Missing laser model file (.pt, .onnx, .engine)",
+                    "• PyTorch not installed or not available",
+                    "• Model file corrupted or incompatible",
+                    "",
+                    "Expected model file:",
+                    "yolov5l6_e200_b8_tvt302010_laser_v5.pt",
+                    "",
+                    "Check logs above for more details."
+                ]
+                
+                y_offset = self.screen_height // 2 - 20
+                for line in error_lines:
+                    if line.startswith("Error:"):
+                        color = (255, 100, 100)  # Light red for error message
+                    elif line.startswith("•") or line.endswith(".pt"):
+                        color = (255, 255, 150)  # Light yellow for details
+                    else:
+                        color = (200, 200, 200)  # Light gray for normal text
+                    
+                    if line:  # Skip empty lines for rendering
+                        text_surf = self.font.render(line, True, color)
+                        text_rect = text_surf.get_rect(center=(self.screen_width // 2, y_offset))
+                        self.screen.blit(text_surf, text_rect.topleft)
+                    y_offset += 25
+                
+                # Add instruction to switch modes
+                switch_instruction = "Click another mode to continue setup"
+                instruction_surf = self.font.render(switch_instruction, True, (100, 255, 100))
+                instruction_rect = instruction_surf.get_rect(center=(self.screen_width // 2, self.screen_height - 50))
+                self.screen.blit(instruction_surf, instruction_rect.topleft)
+            else:
+                # Normal laser test interface (no errors)
+                # Resize the webcam surface to fit the screen
+                webcam_surf = pygame.transform.scale(webcam_surf, (self.webcam_rect.w, self.webcam_rect.h))
+                
+                # Draw the webcam feed for laser detection testing
+                self.screen.blit(webcam_surf, self.webcam_rect.topleft)
+                
+                # Draw laser detection overlays (players, laser dot, targeting)
+                self.draw_laser_detection_overlay(webcam_frame)
+                
+                # Draw a rectangle around the laser test preview
+                pygame.draw.rect(self.screen, (255, 165, 0), self.webcam_rect, 2)  # Orange border
+                
+                # Prepare status information
+                if self.laser_coordinate:
+                    laser_status = f"DETECTED (conf: {self.laser_confidence:.3f})"
+                else:
+                    laser_status = "NOT DETECTED"
+                target_count = len(self.targeted_players)
+                target_status = f"TARGETING {target_count} PLAYER(S)" if target_count > 0 else "NO TARGETS"
+                
+                # Add comprehensive label with detection and targeting status
+                label_parts = [
+                    f"Laser Detection Test - FPS: {self.laser_detection_fps:.1f}",
+                    f"Laser: {laser_status}",
+                    f"Players: {len(self.cached_player_boxes) if hasattr(self, 'cached_player_boxes') else 0}",
+                    target_status
+                ]
+                full_label = " | ".join(label_parts)
+                
+                label_surf = self.font.render(full_label, True, (255, 255, 255))
+                label_rect = label_surf.get_rect(center=(self.webcam_rect.centerx, self.webcam_rect.y - 20))
+                self.screen.blit(label_surf, label_rect.topleft)
+                
+                # Add instructions for manual laser testing
+                if not hasattr(self, '_instruction_shown') or self.current_mode == "laser_test":
+                    instruction_text = "Point a laser manually at players to test targeting detection"
+                    instruction_surf = self.font.render(instruction_text, True, (255, 200, 0))
+                    instruction_rect = instruction_surf.get_rect(center=(self.webcam_rect.centerx, self.webcam_rect.bottom + 20))
+                    self.screen.blit(instruction_surf, instruction_rect.topleft)
+                    self._instruction_shown = True
         else:
             # Resize the webcam surface to fit the screen
             webcam_surf = pygame.transform.scale(webcam_surf, (self.webcam_rect.w, self.webcam_rect.h))

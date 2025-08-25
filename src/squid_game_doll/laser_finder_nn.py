@@ -2,8 +2,13 @@ from typing import Optional, Tuple
 import cv2
 import numpy as np
 import os
+import warnings
 from pathlib import Path
 from loguru import logger
+
+# Suppress the specific FutureWarning about torch.cuda.amp.autocast deprecation
+# This warning comes from YOLOv5 library usage of deprecated torch.cuda.amp API
+warnings.filterwarnings("ignore", message=".*torch.cuda.amp.autocast.*is deprecated.*", category=FutureWarning)
 
 try:
     import torch

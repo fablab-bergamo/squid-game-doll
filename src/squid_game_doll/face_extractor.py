@@ -35,14 +35,17 @@ class FaceExtractor:
     def reset_memory(self):
         self._memory = {}
 
-    def extract_face(self, frame: cv2.UMat, bbox: tuple, id: int) -> cv2.UMat:
+    def extract_face(self, frame: cv2.UMat, bbox: tuple, id: int, return_bbox: bool = False):
         """
         Extracts a face from a given person's bounding box.
         Args:
             frame (numpy.ndarray): The input frame.
             bbox (tuple): Bounding box (x1, y1, x2, y2) of the detected player.
+            id (int): Player ID for tracking.
+            return_bbox (bool): If True, return (face_crop, face_bbox). If False, return just face_crop.
         Returns:
             face_crop (numpy.ndarray or None): Cropped face if detected, otherwise None.
+            OR tuple (face_crop, face_bbox) if return_bbox=True, where face_bbox is (x1, y1, w, h) in full frame coordinates.
         """
         x1, y1, x2, y2 = bbox
 
@@ -58,8 +61,8 @@ class FaceExtractor:
         # Detect faces using Haar cascades
         faces = self.face_detector.detectMultiScale(
             gray_face,
-            scaleFactor=1.3,  # Faster detection (was 1.1)
-            minNeighbors=3,   # Faster detection (was 5)
+            scaleFactor=1.2,  # Faster detection (was 1.1)
+            minNeighbors=2,   # Faster detection (was 5)
             minSize=(20, 20), # Larger minimum size for better performance
             flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING  # Additional optimization
         )
@@ -90,10 +93,22 @@ class FaceExtractor:
             face_crop = cuda_resize(face_crop, (PLAYER_SIZE, PLAYER_SIZE), interpolation=cv2.INTER_AREA)  # GPU-accelerated resize
             
             self._memory[id] = face_crop
-            return face_crop
+            
+            if return_bbox:
+                # Return both face crop and bounding box coordinates in full frame
+                # Convert from person crop coordinates to full frame coordinates
+                face_bbox_full_frame = (x1 + fx, y1 + fy, fw, fh)
+                return face_crop, face_bbox_full_frame
+            else:
+                return face_crop
 
         if id in self._memory:
-            return self._memory[id]
+            if return_bbox:
+                return self._memory[id], None  # Return cached face with no bbox info
+            else:
+                return self._memory[id]
 
+        if return_bbox:
+            return None, None
         return None
 
