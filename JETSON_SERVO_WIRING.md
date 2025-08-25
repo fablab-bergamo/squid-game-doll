@@ -15,7 +15,7 @@ This document provides detailed wiring instructions for connecting SG90 servos a
 | Component | GPIO Pin | Board Pin | Function | Notes |
 |-----------|----------|-----------|----------|-------|
 | H-Servo (Pan) | GPIO 13 | Pin 33 | Software PWM | Horizontal laser targeting |
-| V-Servo (Tilt) | GPIO 27 | Pin 15 | Software PWM | Vertical laser targeting |
+| V-Servo (Tilt) | GPIO 22 | Pin 15 | Software PWM | Vertical laser targeting |
 | Head Servo | GPIO 12 | Pin 32 | Software PWM | Doll head rotation |
 | Laser Module | GPIO 5 | Pin 29 | Digital Out | Laser on/off control |
 | Eyes Control | GPIO 23 | Pin 16 | Digital Out | Doll eyes on/off |
@@ -32,7 +32,7 @@ This document provides detailed wiring instructions for connecting SG90 servos a
      GND  [ 9] [10]  GPIO15  ← Ground
   GPIO17  [11] [12]  GPIO18
   GPIO27  [13] [14]  GND     ← Ground
-  GPIO22  [15] [16]  GPIO23
+  GPIO22  [15] [16]  GPIO23  ← V-servo, Eyes control
     3.3V  [17] [18]  GPIO24
   GPIO10  [19] [20]  GND     ← Ground
    GPIO9  [21] [22]  GPIO25
@@ -40,10 +40,10 @@ This document provides detailed wiring instructions for connecting SG90 servos a
      GND  [25] [26]  GPIO7   ← Ground
    GPIO0  [27] [28]  GPIO1
    GPIO5  [29] [30]  GND     ← Laser control, Ground
-   GPIO6  [31] [32]  GPIO12  ← Head servo, V-servo
+   GPIO6  [31] [32]  GPIO12  ← Head servo
   GPIO13  [33] [34]  GND     ← H-servo, Ground
   GPIO19  [35] [36]  GPIO16
-  GPIO26  [37] [38]  GPIO20  ← Eyes PWM
+  GPIO26  [37] [38]  GPIO20
      GND  [39] [40]  GPIO21  ← Ground
 ```
 
@@ -61,7 +61,7 @@ Each SG90 servo has 3 wires:
 - **Ground Wire** → Pin 6, 9, 14, 20, 25, 30, 34, or 39 (GND)
 
 #### V-Axis Servo (Tilt) - Vertical Laser Movement
-- **Signal Wire** → Pin 15 (GPIO 27)
+- **Signal Wire** → Pin 15 (GPIO 22)
 - **Power Wire** → Pin 2 or 4 (5V)
 - **Ground Wire** → Pin 6, 9, 14, 20, 25, 30, 34, or 39 (GND)
 
