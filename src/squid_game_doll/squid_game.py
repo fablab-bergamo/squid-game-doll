@@ -10,7 +10,7 @@ from .player import Player
 from .face_extractor import FaceExtractor
 from .game_camera import GameCamera
 from .cuda_utils import is_cuda_opencv_available
-from .laser_shooter import LaserShooter
+from .laser_controller_factory import create_laser_controller
 from .laser_tracker import LaserTracker
 from .game_settings import GameSettings
 from .async_screen_saver import AsyncScreenSaver
@@ -79,7 +79,7 @@ class SquidGame:
         self.model: str = model
         self.async_screen_saver = AsyncScreenSaver()
         if not self.no_tracker:
-            self.shooter = LaserShooter(ip)
+            self.shooter = create_laser_controller(ip)
             self.laser_tracker = LaserTracker(self.shooter)
 
         logger.info(

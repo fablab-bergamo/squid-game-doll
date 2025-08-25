@@ -7,3 +7,6 @@ warnings.filterwarnings("ignore", message="The value of the smallest subnormal.*
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
 DEBUG_LASER_FIND = True
+
+# Laser controller factory for automatic mode detection
+from .laser_controller_factory import create_laser_controller, detect_available_modes, LaserControllerConfig
