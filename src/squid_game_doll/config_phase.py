@@ -470,30 +470,65 @@ class GameConfigPhase:
         else:
             self.cached_vision_mask = None
         
-        # Detect faces in the masked frame using OpenCV (optimized parameters)
-        gray = cuda_cvt_color(masked_frame, cv2.COLOR_BGR2GRAY)
-        faces = self.face_extractor.face_detector.detectMultiScale(
-            gray,
-            scaleFactor=1.3,  # Faster detection (was 1.1)
-            minNeighbors=3,   # Faster detection (was 5)
-            minSize=(40, 40), # Larger minimum size for better performance
-            flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING  # Additional optimization
-        )
+        # Use neural network to detect players first (same as main game)
+        # Create a temporary NN frame from the masked webcam frame
+        nn_frame = masked_frame
         
-        # Cache faces for reuse in draw_face_detection_overlay
-        self.cached_faces = faces
+        # Run neural network detection to find players (same as main game)
+        detected_players = self.neural_net.process_nn_frame(nn_frame, self.game_settings)
+        
+        # Cache both player and face bounding boxes for overlay drawing
+        cached_player_boxes = []
+        cached_face_boxes = []
+        
+        # Extract faces from detected players using FaceExtractor (same as main game)
+        for player in detected_players:
+            if player is not None:
+                # Get player coordinates (same method as main game)
+                player_coords = player.get_coords()
+                player_id = player.get_id()
+                
+                # Store player bounding box for overlay
+                x1, y1, x2, y2 = player_coords
+                cached_player_boxes.append((x1, y1, x2 - x1, y2 - y1))
+                
+                # Use FaceExtractor.extract_face() - exact same method as main game
+                face_crop = self.face_extractor.extract_face(webcam_frame, player_coords, player_id)
+                
+                if face_crop is not None:
+                    # Store face for display
+                    self.current_faces.append(face_crop)
+                    
+                    # Extract actual face bounding box from within player bounding box
+                    # This replicates the logic inside FaceExtractor.extract_face()
+                    person_crop = webcam_frame[y1:y2, x1:x2]
+                    if person_crop.size > 0:
+                        from .cuda_utils import cuda_cvt_color
+                        gray_face = cuda_cvt_color(person_crop, cv2.COLOR_BGR2GRAY)
+                        
+                        # Detect faces using same parameters as FaceExtractor
+                        face_detections = self.face_extractor.face_detector.detectMultiScale(
+                            gray_face,
+                            scaleFactor=1.3,
+                            minNeighbors=3,
+                            minSize=(20, 20),
+                            flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING
+                        )
+                        
+                        if len(face_detections) > 0:
+                            # Get the largest face (same logic as FaceExtractor)
+                            face = max(face_detections, key=lambda x: x[2] * x[3])
+                            fx, fy, fw, fh = face
+                            
+                            # Convert face coordinates back to full frame coordinates
+                            face_x1 = x1 + fx
+                            face_y1 = y1 + fy
+                            cached_face_boxes.append((face_x1, face_y1, fw, fh))
+        
+        # Cache both player and face boxes for overlay drawing
+        self.cached_player_boxes = cached_player_boxes
+        self.cached_faces = cached_face_boxes  # This now contains actual face boxes
         self.cached_vision_offset = (0, 0)  # No offset needed since we work on full frame
-        
-        # Extract and store only currently detected faces
-        for idx, (fx, fy, fw, fh) in enumerate(faces):
-            # Create bbox in original frame coordinates
-            bbox = (fx, fy, fx + fw, fy + fh)
-            
-            # Extract face using the existing FaceExtractor method
-            face_crop = self.face_extractor.extract_face(webcam_frame, bbox, idx)
-            if face_crop is not None:
-                # Store only current frame's faces
-                self.current_faces.append(face_crop)
 
     def draw_detected_faces(self):
         """Draw currently detected faces at the bottom of the screen"""
@@ -531,17 +566,37 @@ class GameConfigPhase:
             self.screen.blit(face_surface, (x_pos, start_y))
 
     def draw_face_detection_overlay(self, webcam_frame: cv2.UMat):
-        """Draw face detection rectangles on the webcam feed using cached face detections"""
+        """Draw player and face detection rectangles on the webcam feed"""
         if not self.face_detection_enabled:
             return
             
-        # Use cached faces from process_face_detection to avoid duplicate detectMultiScale calls
-        faces = self.cached_faces
         offset_x, offset_y = self.cached_vision_offset
         
-        # Draw face detection rectangles using cached results
+        # Draw player bounding boxes in blue
+        if hasattr(self, 'cached_player_boxes'):
+            for (px, py, pw, ph) in self.cached_player_boxes:
+                # Convert to screen coordinates
+                x = int((offset_x + px) * self.webcam_to_screen_ratio)
+                y = int((offset_y + py) * self.webcam_to_screen_ratio)
+                w = int(pw * self.webcam_to_screen_ratio)
+                h = int(ph * self.webcam_to_screen_ratio)
+                
+                # Flip the x coordinate to match pygame orientation (same as neural net preview)
+                x = self.webcam_rect.width - x - w
+                
+                # Apply webcam rect offset
+                screen_x = x + self.webcam_rect.x
+                screen_y = y + self.webcam_rect.y
+                screen_w = w
+                screen_h = h
+                
+                # Draw player detection rectangle in blue
+                pygame.draw.rect(self.screen, (0, 100, 255), (screen_x, screen_y, screen_w, screen_h), 2)
+        
+        # Draw face bounding boxes in green (on top of player boxes)
+        faces = self.cached_faces
         for (fx, fy, fw, fh) in faces:
-            # Convert to screen coordinates (without offset adjustment first)
+            # Convert to screen coordinates
             x = int((offset_x + fx) * self.webcam_to_screen_ratio)
             y = int((offset_y + fy) * self.webcam_to_screen_ratio)
             w = int(fw * self.webcam_to_screen_ratio)
@@ -556,7 +611,7 @@ class GameConfigPhase:
             screen_w = w
             screen_h = h
             
-            # Draw face detection rectangle
+            # Draw face detection rectangle in bright green
             pygame.draw.rect(self.screen, (0, 255, 0), (screen_x, screen_y, screen_w, screen_h), 3)
             # Draw center point
             center_x = screen_x + screen_w // 2
