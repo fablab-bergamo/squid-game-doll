@@ -44,17 +44,17 @@ class LaserFinderNN:
         self.model = None
         self.laser_coord = None
         self.prev_detections = []
-        self.confidence_threshold = 0.10
+        self.confidence_threshold = 0.05
         self.iou_threshold = 0.01
         self.is_jetson = is_jetson_orin()
         self.frame_count = 0
         
         # Initialize coordinate smoothing filter
         self.coordinate_filter = LaserCoordinateFilter(
-            smoothing_factor=0.6,  # Less smoothing for NN since it's more accurate
-            max_history_size=15,
-            outlier_threshold=150.0,  # Even larger threshold to reduce rejections
-            min_confidence_for_update=0.03  # Lower threshold since NN provides confidence
+            smoothing_factor=0.1,
+            max_history_size=10,
+            outlier_threshold=150.0,
+            min_confidence_for_update=0.05
         )
         
         self._load_optimized_model()
