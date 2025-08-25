@@ -671,15 +671,14 @@ class GameConfigPhase:
         try:
             laser_coord, output_image = self.laser_finder.find_laser(masked_webcam_frame, [], nn_frame)
             
+            # Always get coordinates from filter (including memory state)
+            self.raw_laser_coordinate = self.laser_finder.get_raw_coord()
+            self.smoothed_laser_coordinate = self.laser_finder.get_smoothed_coord()
+            
+            # Use smoothed coordinate as primary (for compatibility with targeting logic)
+            self.laser_coordinate = self.smoothed_laser_coordinate or self.raw_laser_coordinate
+            
             if self.laser_finder.laser_found() and laser_coord is not None:
-                # Get both raw and smoothed coordinates directly from filter
-                self.raw_laser_coordinate = self.laser_finder.get_raw_coord()
-                self.smoothed_laser_coordinate = self.laser_finder.get_smoothed_coord()
-                
-                
-                # Use smoothed coordinate as primary (for compatibility with targeting logic)
-                self.laser_coordinate = self.smoothed_laser_coordinate or self.raw_laser_coordinate
-                
                 # Get confidence from the best detection
                 if hasattr(self.laser_finder, 'get_all_detections'):
                     # Neural network laser finder has confidence
@@ -699,12 +698,23 @@ class GameConfigPhase:
                     laser_x, laser_y = laser_coord
                     if px <= laser_x <= px + pw and py <= laser_y <= py + ph:
                         self.targeted_players.append(idx)
+            else:
+                # No active detection - keep previous confidence or set to 0 for memory mode
+                if not self.smoothed_laser_coordinate:
+                    self.laser_confidence = 0.0
                         
         except Exception as e:
             logger.error(f"Laser detection error: {e}")
-            self.laser_coordinate = None
-            self.raw_laser_coordinate = None
-            self.smoothed_laser_coordinate = None
+            # On error, still try to get memory coordinates from filter
+            try:
+                self.raw_laser_coordinate = self.laser_finder.get_raw_coord() if self.laser_finder else None
+                self.smoothed_laser_coordinate = self.laser_finder.get_smoothed_coord() if self.laser_finder else None
+                self.laser_coordinate = self.smoothed_laser_coordinate or self.raw_laser_coordinate
+            except:
+                # Complete failure - clear everything
+                self.laser_coordinate = None
+                self.raw_laser_coordinate = None
+                self.smoothed_laser_coordinate = None
 
     def draw_detected_faces(self):
         """Draw currently detected faces at the bottom of the screen"""
