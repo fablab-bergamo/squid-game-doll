@@ -8,9 +8,9 @@ from .jetson_gpio_manager import gpio_manager, GPIO
 
 
 class JetsonLaserController:
-    # Pin assignments
-    H_SERVO_PIN = 33; V_SERVO_PIN = 15; HEAD_SERVO_PIN = 32
-    LASER_PIN = 29; EYES_PIN = 16
+    # Pin assignments (Jetson Orin Nano - verify your model!)
+    H_SERVO_PIN = 32; V_SERVO_PIN = 15; HEAD_SERVO_PIN = 7
+    LASER_PIN = 30; EYES_PIN = 36
     
     # Angle limits
     H_MIN = 30; H_MAX = 150; V_MIN = 0; V_MAX = 120
