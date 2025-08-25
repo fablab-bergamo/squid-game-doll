@@ -6,8 +6,9 @@ from .laser_shooter import LaserShooter
 
 
 class LaserTracker:
-    def __init__(self, shooter: LaserShooter):
+    def __init__(self, shooter: LaserShooter, laser_finder=None):
         self.shooter: LaserShooter = shooter
+        self.laser_finder = laser_finder  # Pre-loaded laser finder
         self.thread: Thread = Thread(target=self.track_and_shoot)
         self.target: tuple[int, int] = (0, 0)
         self._shot_done = False
@@ -44,20 +45,17 @@ class LaserTracker:
 
     def track_and_shoot(self) -> None:
         print("track_and_shoot: thread started")
-        try:
-            # Try to use neural network laser finder first, fallback to traditional
-            finder = LaserFinderNN()
-            if finder.model is None:
-                print("LaserFinderNN model not available, falling back to traditional LaserFinder")
-                finder = LaserFinder()
-                use_nn = False
-            else:
-                print("Using LaserFinderNN for laser detection")
-                use_nn = True
-        except Exception as e:
-            print(f"Failed to initialize LaserFinderNN: {e}, using traditional LaserFinder")
+        
+        # Use pre-loaded laser finder if available, otherwise fallback to traditional
+        if self.laser_finder is not None and self.laser_finder.model is not None:
+            finder = self.laser_finder
+            use_nn = True
+            print("Using pre-loaded LaserFinderNN for laser detection")
+        else:
+            # Fallback to traditional laser finder
             finder = LaserFinder()
             use_nn = False
+            print("Using traditional LaserFinder (LaserFinderNN not available)")
             
         while self.shall_run:
             self.shooter.set_laser(True)

@@ -12,6 +12,7 @@ from .game_camera import GameCamera
 from .cuda_utils import is_cuda_opencv_available
 from .laser_shooter import LaserShooter
 from .laser_tracker import LaserTracker
+from .laser_finder_nn import LaserFinderNN
 from .game_settings import GameSettings
 from .async_screen_saver import AsyncScreenSaver
 from .utils.platform import (
@@ -70,6 +71,7 @@ class SquidGame:
         self.no_tracker: bool = disable_tracker
         self.shooter: LaserShooter = None
         self.laser_tracker: LaserTracker = None
+        self.laser_finder: LaserFinderNN = None
         self.joystick: pygame.joystick.JoystickType = joystick
         self.start_registration = time.time()
         self._init_done = False
@@ -80,6 +82,7 @@ class SquidGame:
         self.async_screen_saver = AsyncScreenSaver()
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
+            # LaserTracker will get the laser finder after it's loaded in load_model
             self.laser_tracker = LaserTracker(self.shooter)
 
         logger.info(
@@ -253,6 +256,25 @@ class SquidGame:
 
         logger.debug("Loading face extractor")
         self.face_extractor = FaceExtractor()
+        
+        # Load laser finder if laser features are enabled
+        if not self.no_tracker:
+            logger.debug("Loading laser detection neural network")
+            try:
+                self.laser_finder = LaserFinderNN()
+                if self.laser_finder.model is None:
+                    logger.warning("LaserFinderNN model failed to load - laser detection will be unavailable")
+                    self.laser_finder = None
+                else:
+                    logger.info("🎯 Laser detection neural network loaded successfully")
+                    
+                # Pass the loaded laser finder to the laser tracker
+                if self.laser_tracker is not None:
+                    self.laser_tracker.laser_finder = self.laser_finder
+                    
+            except Exception as e:
+                logger.warning(f"Failed to load LaserFinderNN: {e} - laser detection will be unavailable")
+                self.laser_finder = None
         
         # Log CUDA status
         if is_cuda_opencv_available():
