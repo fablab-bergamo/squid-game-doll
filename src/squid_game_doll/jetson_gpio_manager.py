@@ -44,7 +44,7 @@ class JetsonGPIOManager:
             self.used_pins.discard(pin)
     
     def cleanup_all(self):
-        if GPIO is not None:
+        if GPIO is not None and self.used_pins:
             GPIO.cleanup()
 
 
