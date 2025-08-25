@@ -486,9 +486,9 @@ class SquidGame:
                                     while (
                                         time.time() - start_time < KILL_DELAY_S
                                     ) and not self.laser_tracker.shot_complete():
-                                        ret, webcam_frame = self.cam.read()
-                                        if ret:
-                                            self.laser_tracker.update_frame(webcam_frame)
+                                        nn_frame, webcam_frame, rect_info = self.cam.read_nn(self.settings, self.tracker.get_max_size())
+                                        if webcam_frame is not None:
+                                            self.laser_tracker.update_frame(webcam_frame, nn_frame)
                                         clock.tick(frame_rate)
                                     self.laser_tracker.stop()
                     else:

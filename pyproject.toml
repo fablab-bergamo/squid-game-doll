@@ -36,7 +36,10 @@ dependencies = [
     "lap>=0.5.12",
     "loguru==0.7.2",
     "psutil",
-    "seaborn"
+    "seaborn",
+    "requests>=2.32.2",
+    "setuptools>=70.0.0",
+    "mediapipe==0.10.18"
 ]
 
 [project.optional-dependencies]
