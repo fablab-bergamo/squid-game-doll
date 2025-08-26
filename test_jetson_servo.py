@@ -22,9 +22,20 @@ import time
 import select
 import tty
 import termios
+import logging
 from src.squid_game_doll.jetson_servo_simple import JetsonServoSimple
 from src.squid_game_doll.jetson_laser_controller import JetsonLaserController
 from src.squid_game_doll.jetson_gpio_manager import gpio_manager
+
+# Configure console logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+
+# Create logger for this script
+logger = logging.getLogger(__name__)
 
 
 class ServoTester:
@@ -35,21 +46,26 @@ class ServoTester:
     
     def init_controller(self):
         """Initialize laser controller system."""
+        logger.info("Initializing Jetson Laser Controller system")
         try:
             print("Initializing Jetson Laser Controller...")
             self.controller = JetsonLaserController(enable_laser=True)
+            logger.info("JetsonLaserController initialized successfully")
             print("✓ Controller initialized successfully")
             return True
         except Exception as e:
+            logger.error(f"Controller initialization failed: {e}")
             print(f"✗ Controller initialization failed: {e}")
             return False
     
     def test_single_servo(self, servo_type):
         """Test individual servo movement."""
+        logger.info(f"Starting single servo test for {servo_type}")
+        
         pin_map = {
-            'h': JetsonLaserController.H_SERVO_PIN,    # Pin 33 (GPIO 13)
-            'v': JetsonLaserController.V_SERVO_PIN,    # Pin 32 (GPIO 12)  
-            'head': JetsonLaserController.HEAD_SERVO_PIN # Pin 18 (GPIO 24)
+            'h': JetsonLaserController.H_SERVO_PIN,    # Pin 32 (GPIO 13)
+            'v': JetsonLaserController.V_SERVO_PIN,    # Pin 15 (GPIO 12)  
+            'head': JetsonLaserController.HEAD_SERVO_PIN # Pin 7 (GPIO 09)
         }
         
         limit_map = {
@@ -62,8 +78,11 @@ class ServoTester:
         limits = limit_map.get(servo_type)
         
         if not pin or not limits:
+            logger.error(f"Invalid servo type: {servo_type}")
             print(f"Invalid servo type: {servo_type}")
             return
+        
+        logger.debug(f"Testing {servo_type} servo - Pin: {pin}, Limits: {limits}")
         
         try:
             print(f"Testing {servo_type.upper()}-axis servo on pin {pin}")
@@ -71,21 +90,27 @@ class ServoTester:
             
             servo = JetsonServoSimple(pin)
             servo.update_settings(limits[0], limits[1])
+            logger.debug(f"Servo configured with limits {limits[0]}° to {limits[1]}°")
             
             # Test sequence
             angles = [limits[0], limits[1], (limits[0] + limits[1]) / 2]
             
             for angle in angles:
+                logger.debug(f"Moving {servo_type} servo to {angle}°")
                 print(f"Moving to {angle}°...")
                 servo.move(angle)
                 time.sleep(2)
             
             print("Test complete. Returning to center...")
-            servo.move((limits[0] + limits[1]) / 2)
+            center_angle = (limits[0] + limits[1]) / 2
+            logger.debug(f"Returning {servo_type} servo to center position: {center_angle}°")
+            servo.move(center_angle)
             time.sleep(1)
             servo.cleanup()
+            logger.info(f"Single servo test for {servo_type} completed successfully")
             
         except Exception as e:
+            logger.error(f"Single servo test failed for {servo_type}: {e}")
             print(f"Test failed: {e}")
     
     def test_targeting_system(self):
@@ -307,6 +332,7 @@ class ServoTester:
     
     def run(self):
         """Main test loop."""
+        logger.info("Starting Jetson Servo Test Suite")
         print("Jetson Servo Test Suite")
         print("======================")
         
@@ -326,52 +352,72 @@ class ServoTester:
             
             try:
                 if choice == '1':
+                    logger.info("User selected: Test H-axis servo")
                     self.test_single_servo('h')
                 elif choice == '2':
+                    logger.info("User selected: Test V-axis servo")
                     self.test_single_servo('v')
                 elif choice == '3':
+                    logger.info("User selected: Test head servo")
                     self.test_single_servo('head')
                 elif choice == '4':
+                    logger.info("User selected: Test laser targeting system")
                     self.test_targeting_system()
                 elif choice == '5':
+                    logger.info("User selected: Calibrate servo limits")
                     self.calibrate_limits()
                 elif choice == '6':
+                    logger.info("User selected: Test laser on/off")
                     self.test_laser_control()
                 elif choice == '7':
+                    logger.info("User selected: Test eyes control")
                     self.test_eyes_control()
                 elif choice == '8':
+                    logger.info("User selected: Full system test")
                     self.full_system_test()
                 elif choice == 'q':
+                    logger.info("User selected: Quit")
                     break
                 else:
+                    logger.warning(f"User entered invalid choice: {choice}")
                     print("Invalid choice")
                     
             except KeyboardInterrupt:
+                logger.warning("Test interrupted by user (Ctrl+C)")
                 print("\nTest interrupted by user")
                 break
             except Exception as e:
+                logger.error(f"Test execution error: {e}")
                 print(f"Test error: {e}")
         
         # Cleanup
+        logger.info("Starting cleanup process")
         if self.controller:
             print("Cleaning up...")
+            logger.debug("Cleaning up JetsonLaserController")
             self.controller.cleanup()
         
         # Final GPIO cleanup
+        logger.debug("Performing final GPIO cleanup")
         gpio_manager.cleanup_all()
+        logger.info("Test suite ended successfully")
         print("Test suite ended")
 
 
 def main():
     """Main entry point."""
+    logger.info("=== JETSON SERVO TEST SUITE STARTED ===")
     try:
         tester = ServoTester()
         tester.run()
     except KeyboardInterrupt:
+        logger.warning("Program interrupted by user (Ctrl+C)")
         print("\nProgram interrupted by user")
     except Exception as e:
+        logger.critical(f"Fatal error occurred: {e}")
         print(f"Fatal error: {e}")
     
+    logger.info("=== JETSON SERVO TEST SUITE FINISHED ===")
     print("Goodbye!")
 
 

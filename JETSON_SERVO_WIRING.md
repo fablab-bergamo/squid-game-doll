@@ -43,7 +43,7 @@ cat /proc/device-tree/model
 ⚠️ **IMPORTANT**: This pinout is for **Jetson Orin Nano**. Verify your specific model before wiring.
 
 ```
-           Jetson Orin 40-Pin GPIO Header
+           Jetson Orin Nano 40-Pin GPIO Header
     
     Left Side (Odd)              Right Side (Even)
     ===============              =================
@@ -61,11 +61,11 @@ cat /proc/device-tree/model
    SPI0_SCK[23] [24]  SPI0_CS0
        GND [25] [26]  SPI0_CS1
   I2C0_SDA [27] [28]  I2C0_SCL
-       GND [29] [30]  GPIO11   ← Laser Control
-    GPIO07 [31] [32]  GPIO13   ← H-Servo (Laser Pan)
-       GND [33] [34]  I2S0_FS
-  UART1_CTS[35] [36]  SPI1_MOSI ← Eyes PWM
-  I2S0_SDIN[37] [38]  GND
+    GPIO01 [29] [30]  GND      ← Laser Control
+    GPIO11 [31] [32]  GPIO07   ← H-Servo (Laser Pan)
+    GPIO13 [33] [34]  GND
+   I2S0_FS [35] [36]  UART1_CTS 
+  SPI1_MOSI[37] [38]  I2S0_SDOIN
        GND [39] [40]  I2S0_SDOUT
 ```
 
