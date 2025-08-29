@@ -4,8 +4,8 @@ import time
 import logging
 import numpy as np
 from numpy.linalg import norm
-from .jetson_servo_simple import JetsonServoSimple
-from .jetson_eyes_pwm import JetsonEyesPWM
+from .jetson_servo_stable import JetsonServoStable
+from .jetson_eyes_stable import JetsonEyesStable
 from .jetson_gpio_manager import gpio_manager, GPIO
 
 # Configure logger for laser controller operations
@@ -40,10 +40,10 @@ class JetsonLaserController:
         gpio_manager.setup_pin(self.LASER_PIN, GPIO.OUT, initial=GPIO.LOW)
         logger.info(f"✅ LASER INIT: Pin {self.LASER_PIN} configured as OUTPUT, initially LOW (laser OFF)")
 
-        self.motor_h = JetsonServoSimple(self.H_SERVO_PIN)
-        self.motor_v = JetsonServoSimple(self.V_SERVO_PIN)
-        self.motor_head = JetsonServoSimple(self.HEAD_SERVO_PIN)
-        self.eyes_pwm = JetsonEyesPWM(self.EYES_PIN)
+        self.motor_h = JetsonServoStable(self.H_SERVO_PIN, frequency=50)
+        self.motor_v = JetsonServoStable(self.V_SERVO_PIN, frequency=50)  
+        self.motor_head = JetsonServoStable(self.HEAD_SERVO_PIN, frequency=50)
+        self.eyes_pwm = JetsonEyesStable(self.EYES_PIN, frequency=1000)
 
         self.motor_h.update_settings(self.H_MIN, self.H_MAX)
         self.motor_v.update_settings(self.V_MIN, self.V_MAX)
@@ -66,7 +66,7 @@ class JetsonLaserController:
         return ((self.H_MIN, self.H_MAX), (self.V_MIN, self.V_MAX))
 
     def get_angles(self):
-        return (self.motor_h.current_angle, self.motor_v.current_angle)
+        return (self.motor_h.get_angle(), self.motor_v.get_angle())
 
     def send_angles(self, angles):
         h, v = angles
@@ -97,9 +97,9 @@ class JetsonLaserController:
 
     def set_eyes(self, eyes_on):
         if eyes_on:
-            self.eyes_pwm.set_brightness(50)  # 50% brightness when on
+            self.eyes_pwm.set_brightness_smooth(50, transition_speed=10.0)  # 50% brightness with smooth transition
         else:
-            self.eyes_pwm.set_brightness(0)  # Off
+            self.eyes_pwm.set_brightness_smooth(0, transition_speed=15.0)  # Off with smooth fade
         return True
 
     def track_target(self, laser, target):
