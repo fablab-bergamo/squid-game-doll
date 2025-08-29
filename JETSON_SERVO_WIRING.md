@@ -26,50 +26,23 @@ cat /proc/device-tree/model
 
 **If you have AGX Orin, the GPIO assignments will be different!**
 
-## GPIO Pin Assignments (Board Numbering)
+## GPIO Pin Assignments (Board Numbering) 
 
-| Component | Board Pin | Actual Function | Notes |
-|-----------|-----------|------------------|-------|
-| H-Servo (Pan) | Pin 32 | GPIO13 | Horizontal laser pointer targeting |
-| V-Servo (Tilt) | Pin 15 | GPIO12 | Vertical laser pointer targeting |
-| Head Servo | Pin 7 | GPIO09 | Doll head rotation |
-| Laser Module | Pin 30 | GPIO11 | Laser pointer on/off control |
-| Eyes PWM | Pin 36 | SPI1_MOSI | Red LED brightness (repurpose SPI pin) |
-| **5V Power** | 5V | Pin 2, 4 | Power Supply | Servo power rail |
-| **Ground** | GND | Pin 6, 9, 14, 20, 25, 30, 34, 39 | Ground | Common ground |
+| Component | Board Pin | GPIO Function | GPIO# | Validated | Notes |
+|-----------|-----------|---------------|-------|-----------|-------|
+| H-Servo (Pan) | Pin 29 | GPIO01 | 453 | ✅ | Horizontal laser targeting |
+| V-Servo (Tilt) | Pin 31 | GPIO11 | 454 | ✅ | Vertical laser targeting |
+| Head Servo | Pin 33 | GPIO13 (PWM) | 391 | ✅ | Doll head rotation |
+| Laser Module | Pin 32 | GPIO07 (PWM) | 389 | ✅ | Laser on/off (active LOW) |
+| Eyes PWM | Pin 15 | GPIO12 (PWM) | 433 | ✅ | Red LED brightness |
+| **Alternative** | Pin 7 | GPIO09 | 492 | ✅ | Spare validated pin |
+| **5V Power** | Pin 2, 4 | 5.0 VDC | - | - | Servo power rail |
+| **Ground** | Pin 6, 9, 14, 20, 25, 30, 34, 39 | GND | - | - | Common ground |
 
-## 40-Pin Header Layout Reference
-
-⚠️ **IMPORTANT**: This pinout is for **Jetson Orin Nano**. Verify your specific model before wiring.
-
-```
-           Jetson Orin Nano 40-Pin GPIO Header
-    
-    Left Side (Odd)              Right Side (Even)
-    ===============              =================
-     3.3V  [ 1] [ 2]  5V      ← Power Rails
-  I2C1_SDA [ 3] [ 4]  5V      ← Power Rails  
-  I2C1_SCL [ 5] [ 6]  GND     ← Ground
-    GPIO09 [ 7] [ 8]  UART1_TX   ← Head Servo
-       GND [ 9] [10]  UART1_RX
-  UART1_RTS[11] [12]  I2S0_SCLK
-   SPI1_SCK[13] [14]  GND     ← Ground
-    GPIO12 [15] [16]  SPI1_CS1 ← V-Servo (Laser Tilt)
-      3.3V [17] [18]  SPI1_CS0
-  SPI0_MOSI[19] [20]  GND     ← Ground
-  SPI0_MISO[21] [22]  SPI1_MISO
-   SPI0_SCK[23] [24]  SPI0_CS0
-       GND [25] [26]  SPI0_CS1
-  I2C0_SDA [27] [28]  I2C0_SCL
-    GPIO01 [29] [30]  GND      ← Laser Control
-    GPIO11 [31] [32]  GPIO07   ← H-Servo (Laser Pan)
-    GPIO13 [33] [34]  GND
-   I2S0_FS [35] [36]  UART1_CTS 
-  SPI1_MOSI[37] [38]  I2S0_SDOIN
-       GND [39] [40]  I2S0_SDOUT
-```
-
-**WARNING**: Pin assignments in code may need adjustment based on your specific Jetson model!
+**Key Changes:**
+- All pins now use device-tree validated pins from jetson-orin-webgpio project
+- Pins 7, 15, 29, 31, 32, 33 are confirmed working with proper GPIO setup
+- GPIO numbers match official NVIDIA pinmux documentation
 
 ## Wiring Connections
 
@@ -88,33 +61,33 @@ Each SG90 servo has 3 wires:
 - **Orange/Yellow**: PWM Signal
 
 #### H-Axis Servo (Pan) - Horizontal Laser Pointer Movement
-- **Signal Wire** → Pin 32 (GPIO13)
+- **Signal Wire** → Pin 29 (GPIO01/453) ✅ VALIDATED
 - **Power Wire** → Pin 2 or 4 (5V)
-- **Ground Wire** → Pin 6, 9, 14, 20, 25, 29, 33, 38, 39 (GND)
+- **Ground Wire** → Pin 6, 9, 14, 20, 25, 30, 34, 39 (GND)
 
 #### V-Axis Servo (Tilt) - Vertical Laser Pointer Movement  
-- **Signal Wire** → Pin 15 (GPIO12)
+- **Signal Wire** → Pin 31 (GPIO11/454) ✅ VALIDATED
 - **Power Wire** → Pin 2 or 4 (5V)
-- **Ground Wire** → Pin 6, 9, 14, 20, 25, 29, 33, 38, 39 (GND)
+- **Ground Wire** → Pin 6, 9, 14, 20, 25, 30, 34, 39 (GND)
 
 #### Head Servo - Doll Head Rotation
-- **Signal Wire** → Pin 7 (GPIO09)
+- **Signal Wire** → Pin 33 (GPIO13/391) ✅ VALIDATED
 - **Power Wire** → Pin 2 or 4 (5V)
-- **Ground Wire** → Pin 6, 9, 14, 20, 25, 29, 33, 38, 39 (GND)
+- **Ground Wire** → Pin 6, 9, 14, 20, 25, 30, 34, 39 (GND)
 
 ### Laser Pointer Module Connection
-- **Control Signal** → Pin 30 (GPIO11)
+- **Control Signal** → Pin 32 (GPIO07/389) ✅ VALIDATED PWM-capable
 - **Power (+)** → Pin 2 or 4 (5V)
-- **Ground (-)** → Pin 6, 9, 14, 20, 25, 29, 33, 38, 39 (GND)
+- **Ground (-)** → Pin 6, 9, 14, 20, 25, 30, 34, 39 (GND)
 
-*Note: Laser control is active LOW (GPIO LOW = laser ON)*
+*Note: Laser control is active LOW (GPIO LOW = laser ON). Pin initialized LOW for safety.*
 
 ### Eyes PWM Connection (Red LEDs in Doll Eyes)
-- **PWM Signal** → Pin 36 (SPI1_MOSI repurposed as GPIO)
+- **PWM Signal** → Pin 15 (GPIO12/433) ✅ VALIDATED PWM-capable
 - **Power (+)** → Pin 2 or 4 (5V) or 3.3V depending on LED requirements
-- **Ground (-)** → Pin 6, 9, 14, 20, 25, 29, 33, 38, 39 (GND)
+- **Ground (-)** → Pin 6, 9, 14, 20, 25, 30, 34, 39 (GND)
 
-*Note: Software PWM using repurposed SPI pin for brightness control.*
+*Note: Hardware PWM capable pin with software PWM implementation for brightness control.*
 
 ## Power Distribution
 

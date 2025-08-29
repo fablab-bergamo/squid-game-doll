@@ -8,6 +8,11 @@ class JetsonServoSimple:
     def __init__(self, pin):
         if GPIO is None:
             raise RuntimeError("Jetson.GPIO not available")
+        
+        # Validate pin is in the proven working set
+        validated_pins = {7, 15, 29, 31, 32, 33}
+        if pin not in validated_pins:
+            raise ValueError(f"Pin {pin} not in validated pin set {validated_pins}")
             
         self.pin = pin
         self.current_angle = 90.0
@@ -16,10 +21,12 @@ class JetsonServoSimple:
         self._target_angle = 90.0
         self._pwm_running = False
         
+        # Set pin LOW initially, then start PWM
         gpio_manager.setup_pin(pin, GPIO.OUT, initial=GPIO.LOW)
         self._pwm_running = True
         self._pwm_thread = threading.Thread(target=self._pwm_worker, daemon=True)
         self._pwm_thread.start()
+        # Move to center position (90 degrees)
         self.move(90.0)
     
     def _pwm_worker(self):

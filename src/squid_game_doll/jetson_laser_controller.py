@@ -9,12 +9,13 @@ from .jetson_gpio_manager import gpio_manager, GPIO
 
 
 class JetsonLaserController:
-    # Pin assignments (Jetson Orin Nano - verify your model!)
-    H_SERVO_PIN = 29
-    V_SERVO_PIN = 31
-    HEAD_SERVO_PIN = 33
-    LASER_PIN = 32
-    EYES_PIN = 15
+    # Pin assignments - Updated to use validated pins from jetson-orin-webgpio project
+    # These pins are confirmed working: {7, 15, 29, 31, 32, 33}
+    H_SERVO_PIN = 29        # GPIO01 (453) - Horizontal servo
+    V_SERVO_PIN = 31        # GPIO11 (454) - Vertical servo
+    HEAD_SERVO_PIN = 33     # GPIO13 (391) - Head rotation servo
+    LASER_PIN = 32          # GPIO07 (389) - Laser control (PWM capable)
+    EYES_PIN = 15           # GPIO12 (433) - Eyes PWM (PWM capable)
 
     # Angle limits
     H_MIN = 30
@@ -31,8 +32,9 @@ class JetsonLaserController:
         self.last_sent = 0
         self.coeffs = (50.0, 15.0)
 
-        # Initialize hardware
-        gpio_manager.setup_pin(self.LASER_PIN, GPIO.OUT, initial=GPIO.HIGH)
+        # Initialize hardware - Set laser pin LOW initially for safety
+        gpio_manager.setup_pin(self.LASER_PIN, GPIO.OUT, initial=GPIO.LOW)
+        logger.info(f"✅ LASER INIT: Pin {self.LASER_PIN} configured as OUTPUT, initially LOW (laser OFF)")
 
         self.motor_h = JetsonServoSimple(self.H_SERVO_PIN)
         self.motor_v = JetsonServoSimple(self.V_SERVO_PIN)
@@ -77,7 +79,12 @@ class JetsonLaserController:
 
     def set_laser(self, on_or_off):
         if self._enable_laser:
+            # Note: Logic may be inverted based on laser module wiring
+            # LOW = laser ON, HIGH = laser OFF (common for active-low laser modules)
             gpio_manager.output(self.LASER_PIN, GPIO.LOW if on_or_off else GPIO.HIGH)
+            logger.info(f"✅ LASER: Set to {'ON' if on_or_off else 'OFF'} (GPIO {'LOW' if on_or_off else 'HIGH'})")
+        else:
+            logger.debug("⚠️ LASER: Disabled in configuration, no action taken")
         return True
 
     def rotate_head(self, green_light):

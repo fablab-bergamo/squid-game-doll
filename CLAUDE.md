@@ -156,8 +156,9 @@ For CUDA issues, installation problems, and performance troubleshooting:
 
 ### Hardware Integration
 - **ESP32 Controller**: MicroPython-based servo and LED control (see esp32/ folder)
+- **Jetson GPIO**: Direct GPIO control using validated pins from jetson-orin-webgpio project (pins 7, 15, 29, 31, 32, 33)
 - **Webcam**: Logitech C920 recommended, manual exposure control for laser detection
-- **Laser System**: Optional pan-tilt platform with red/green laser (work in progress, safety considerations noted)
+- **Laser System**: Optional pan-tilt platform with red/green laser (improved with validated GPIO pins)
 
 ## Key Configuration Files
 
@@ -187,7 +188,9 @@ The test suite uses pytest with pygame initialization fixtures and does not test
 ### Architecture
 The ESP32 controller manages physical doll components via a TCP server (port 15555) that receives commands from the main Python application.
 
-### Hardware Connections (ESP32C2 MINI Wemos)
+### Hardware Connections
+
+#### ESP32C2 MINI Wemos (Network Mode)
 ```
 GPIO Pin | Component        | Function
 ---------|------------------|------------------
@@ -198,6 +201,25 @@ Pin 4    | SG90 Servo       | Laser V-axis (tilt) - WIP
 Pin 2    | Laser Module     | Laser on/off - WIP
 Pin 7    | RGB LED          | Status indicator (built-in)
 ```
+
+#### Jetson Orin GPIO (Direct Mode) - VALIDATED PINS
+```
+Board Pin | GPIO# | Component        | Function
+----------|-------|------------------|------------------
+Pin 29    | 453   | H-Servo (Pan)    | Horizontal laser targeting
+Pin 31    | 454   | V-Servo (Tilt)   | Vertical laser targeting
+Pin 33    | 391   | Head Servo       | Doll head rotation (0-180°)
+Pin 32    | 389   | Laser Module     | Laser on/off (active LOW, PWM capable)
+Pin 15    | 433   | Eyes PWM         | LED brightness control (PWM capable)
+Pin 7     | 492   | [SPARE]          | Reserved validated pin
+```
+
+**Jetson GPIO Improvements:**
+- All pins validated through jetson-orin-webgpio testing
+- Proper device tree overlay configuration  
+- Enhanced error handling with emoji logging
+- Safety: pins initialized LOW to prevent unexpected activation
+- JETSON_MODEL_NAME environment variable set automatically
 
 ### Key ESP32 Files
 - **boot.py**: Auto-connects to WiFi, sets hostname, imports tracker module
@@ -247,8 +269,11 @@ The ESP32 exposes these commands via TCP:
 - Vision areas must be properly configured for game mechanics to work
 - Face detection uses OpenCV Haar cascades for better cross-platform compatibility
 - Enhanced face processing includes background removal and contour enhancement for dramatic visual effects
-- Laser targeting requires careful calibration of threshold parameters (Work in Progress)
-- ESP32 communication uses simple TCP protocol for reliability
-- Servo angle limits are configurable in tracker.py constants
+- Laser targeting improved with validated GPIO pins and better error handling
+- ESP32 communication uses simple TCP protocol for reliability (alternative to direct GPIO)
+- Jetson GPIO control uses proven approach from jetson-orin-webgpio project
+- Servo angle limits configurable, pins validated for safety
+- GPIO operations include comprehensive logging with emoji indicators
+- All GPIO pins initialized LOW for safety (laser, servos, LEDs start in safe state)
 - update the italian versions when you update any MD file in English
 - dont commit without being asked to

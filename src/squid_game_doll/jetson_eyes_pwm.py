@@ -8,13 +8,19 @@ class JetsonEyesPWM:
     def __init__(self, pin, frequency=1000):
         if GPIO is None:
             raise RuntimeError("Jetson.GPIO not available")
+        
+        # Validate pin is in the proven working set
+        validated_pins = {7, 15, 29, 31, 32, 33}
+        if pin not in validated_pins:
+            raise ValueError(f"Pin {pin} not in validated pin set {validated_pins}")
             
         self.pin = pin
         self.frequency = frequency
         self.period_s = 1.0 / frequency
-        self._duty_cycle = 0.0  # 0-100%
+        self._duty_cycle = 0.0  # 0-100% (start with LEDs off)
         self._pwm_running = False
         
+        # Set pin LOW initially (LEDs off)
         gpio_manager.setup_pin(pin, GPIO.OUT, initial=GPIO.LOW)
         self._pwm_running = True
         self._pwm_thread = threading.Thread(target=self._pwm_worker, daemon=True)
