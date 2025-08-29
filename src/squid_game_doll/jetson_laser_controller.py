@@ -1,11 +1,15 @@
 """Minimal Jetson Laser Controller - Essential functionality only"""
 
 import time
+import logging
 import numpy as np
 from numpy.linalg import norm
 from .jetson_servo_simple import JetsonServoSimple
 from .jetson_eyes_pwm import JetsonEyesPWM
 from .jetson_gpio_manager import gpio_manager, GPIO
+
+# Configure logger for laser controller operations
+logger = logging.getLogger(__name__)
 
 
 class JetsonLaserController:
