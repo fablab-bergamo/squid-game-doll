@@ -82,7 +82,7 @@ class JetsonGPIOManager:
         if GPIO is not None:
             try:
                 GPIO.output(pin, value)
-                logger.debug(f"✍️ WRITE: Pin {pin} -> {'HIGH' if value else 'LOW'}")
+                # Removed debug logging to reduce PWM noise
             except Exception as e:
                 logger.error(f"💥 WRITE: Failed to write {'HIGH' if value else 'LOW'} to pin {pin}: {e}")
                 raise
