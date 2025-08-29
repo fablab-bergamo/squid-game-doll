@@ -28,17 +28,24 @@ class JetsonEyesPWM:
     
     def _pwm_worker(self):
         while self._pwm_running:
-            if self._duty_cycle > 0:
-                on_time = (self._duty_cycle / 100.0) * self.period_s
-                off_time = self.period_s - on_time
-                
-                gpio_manager.output(self.pin, GPIO.HIGH)
-                time.sleep(on_time)
-                gpio_manager.output(self.pin, GPIO.LOW)
-                time.sleep(off_time)
-            else:
-                gpio_manager.output(self.pin, GPIO.LOW)
-                time.sleep(self.period_s)
+            try:
+                if self._duty_cycle > 0:
+                    on_time = (self._duty_cycle / 100.0) * self.period_s
+                    off_time = self.period_s - on_time
+                    
+                    gpio_manager.output(self.pin, GPIO.HIGH)
+                    time.sleep(on_time)
+                    gpio_manager.output(self.pin, GPIO.LOW)
+                    time.sleep(off_time)
+                else:
+                    gpio_manager.output(self.pin, GPIO.LOW)
+                    time.sleep(self.period_s)
+            except RuntimeError:
+                # GPIO pin was cleaned up, exit gracefully
+                break
+            except Exception:
+                # Other errors, exit gracefully
+                break
     
     def set_brightness(self, brightness):
         """Set brightness 0-100%"""
@@ -59,10 +66,13 @@ class JetsonEyesPWM:
             time.sleep(delay)
     
     def cleanup(self):
+        # Stop PWM thread first, then cleanup GPIO
         self._pwm_running = False
         if self._pwm_thread and self._pwm_thread.is_alive():
-            self._pwm_thread.join(timeout=0.1)
-        gpio_manager.cleanup_pin(self.pin)
+            self._pwm_thread.join(timeout=0.5)  # Increased timeout
+        # Only cleanup GPIO after thread has stopped
+        if hasattr(self, 'pin'):
+            gpio_manager.cleanup_pin(self.pin)
     
     def __del__(self):
         try:

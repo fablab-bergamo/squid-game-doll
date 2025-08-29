@@ -32,15 +32,22 @@ class JetsonServoSimple:
     def _pwm_worker(self):
         period_s = 0.02  # 20ms for 50Hz
         while self._pwm_running:
-            # Convert angle to pulse width (0.5ms to 2.5ms for SG90)
-            angle = max(self.min_angle, min(self.max_angle, self._target_angle))
-            pulse_ms = 0.5 + (angle / 180.0) * 2.0
-            pulse_s = pulse_ms / 1000.0
-            
-            gpio_manager.output(self.pin, GPIO.HIGH)
-            time.sleep(pulse_s)
-            gpio_manager.output(self.pin, GPIO.LOW)
-            time.sleep(period_s - pulse_s)
+            try:
+                # Convert angle to pulse width (0.5ms to 2.5ms for SG90)
+                angle = max(self.min_angle, min(self.max_angle, self._target_angle))
+                pulse_ms = 0.5 + (angle / 180.0) * 2.0
+                pulse_s = pulse_ms / 1000.0
+                
+                gpio_manager.output(self.pin, GPIO.HIGH)
+                time.sleep(pulse_s)
+                gpio_manager.output(self.pin, GPIO.LOW)
+                time.sleep(period_s - pulse_s)
+            except RuntimeError:
+                # GPIO pin was cleaned up, exit gracefully
+                break
+            except Exception:
+                # Other errors, exit gracefully
+                break
     
     def move(self, angle):
         self._target_angle = max(self.min_angle, min(self.max_angle, round(angle, 1)))
@@ -51,10 +58,13 @@ class JetsonServoSimple:
         self.max_angle = max_angle
     
     def cleanup(self):
+        # Stop PWM thread first, then cleanup GPIO
         self._pwm_running = False
         if self._pwm_thread and self._pwm_thread.is_alive():
-            self._pwm_thread.join(timeout=0.1)
-        gpio_manager.cleanup_pin(self.pin)
+            self._pwm_thread.join(timeout=0.5)  # Increased timeout
+        # Only cleanup GPIO after thread has stopped
+        if hasattr(self, 'pin'):
+            gpio_manager.cleanup_pin(self.pin)
     
     def __del__(self):
         try:
