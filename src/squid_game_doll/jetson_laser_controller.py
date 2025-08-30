@@ -4,8 +4,7 @@ import time
 import logging
 import numpy as np
 from numpy.linalg import norm
-from .jetson_servo_stable import JetsonServoStable
-from .jetson_eyes_stable import JetsonEyesStable
+from .jetson_pwm import JetsonServoStable, JetsonEyesStable
 from .jetson_gpio_manager import gpio_manager, GPIO
 
 # Configure logger for laser controller operations
