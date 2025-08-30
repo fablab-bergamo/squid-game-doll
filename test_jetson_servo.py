@@ -1,29 +1,14 @@
 #!/usr/bin/env python3
 """
-Independent test script for Jetson servo control.
-Tests servo movement, limits, and calibration.
+Jetson servo test - optimized version with 30s+ tests
 
-Usage:
-    python test_jetson_servo.py
-    
-Controls:
-    1 - Test single servo (H-axis)
-    2 - Test single servo (V-axis) 
-    3 - Test head servo
-    4 - Test laser targeting system
-    5 - Calibrate servo limits
-    6 - Test laser on/off
-    7 - Test eyes control
-    8 - Full system test
-    q - Quit
+Usage: python test_jetson_servo.py
+
+1-H axis, 2-V axis, 3-Head, 4-Targeting, 5-Laser, 6-Eyes, 7-Full, q-Quit
 """
-import sys
 import time
-import select
-import tty
-import termios
 import logging
-from src.squid_game_doll.jetson_servo_simple import JetsonServoSimple
+from src.squid_game_doll.jetson_pwm import JetsonServoStable
 from src.squid_game_doll.jetson_laser_controller import JetsonLaserController
 from src.squid_game_doll.jetson_gpio_manager import gpio_manager
 
@@ -59,91 +44,61 @@ class ServoTester:
             return False
     
     def test_single_servo(self, servo_type):
-        """Test individual servo movement."""
-        logger.info(f"Starting single servo test for {servo_type}")
+        """Test servo with 30s+ duration."""
+        pins = {'h': 29, 'v': 31, 'head': 33}
+        limits = {'h': (30, 150), 'v': (0, 120), 'head': (0, 180)}
         
-        pin_map = {
-            'h': JetsonLaserController.H_SERVO_PIN,    # Pin 32 (GPIO 13)
-            'v': JetsonLaserController.V_SERVO_PIN,    # Pin 15 (GPIO 12)  
-            'head': JetsonLaserController.HEAD_SERVO_PIN # Pin 7 (GPIO 09)
-        }
-        
-        limit_map = {
-            'h': (JetsonLaserController.H_MIN, JetsonLaserController.H_MAX),
-            'v': (JetsonLaserController.V_MIN, JetsonLaserController.V_MAX),
-            'head': (JetsonLaserController.HEAD_MIN, JetsonLaserController.HEAD_MAX)
-        }
-        
-        pin = pin_map.get(servo_type)
-        limits = limit_map.get(servo_type)
-        
-        if not pin or not limits:
-            logger.error(f"Invalid servo type: {servo_type}")
-            print(f"Invalid servo type: {servo_type}")
+        pin, lim = pins.get(servo_type), limits.get(servo_type)
+        if not pin:
+            print(f"Invalid servo: {servo_type}")
             return
         
-        logger.debug(f"Testing {servo_type} servo - Pin: {pin}, Limits: {limits}")
-        
         try:
-            print(f"Testing {servo_type.upper()}-axis servo on pin {pin}")
-            print(f"Limits: {limits[0]}° to {limits[1]}°")
+            print(f"Testing {servo_type} servo (30s sweep test)")
+            servo = JetsonServoStable(pin, min_angle=lim[0], max_angle=lim[1])
             
-            servo = JetsonServoSimple(pin)
-            servo.update_settings(limits[0], limits[1])
-            logger.debug(f"Servo configured with limits {limits[0]}° to {limits[1]}°")
+            # 30+ second continuous sweep test
+            start_time = time.time()
+            while time.time() - start_time < 35:
+                # Sweep back and forth
+                for angle in [lim[0], lim[1], (lim[0]+lim[1])/2]:
+                    servo.move(angle)
+                    time.sleep(3)
+                    print(f"{servo_type}: {angle:.0f}° ({time.time()-start_time:.1f}s)")
+                    if time.time() - start_time >= 35:
+                        break
             
-            # Test sequence
-            angles = [limits[0], limits[1], (limits[0] + limits[1]) / 2]
-            
-            for angle in angles:
-                logger.debug(f"Moving {servo_type} servo to {angle}°")
-                print(f"Moving to {angle}°...")
-                servo.move(angle)
-                time.sleep(2)
-            
-            print("Test complete. Returning to center...")
-            center_angle = (limits[0] + limits[1]) / 2
-            logger.debug(f"Returning {servo_type} servo to center position: {center_angle}°")
-            servo.move(center_angle)
+            servo.move((lim[0]+lim[1])/2)  # Center
             time.sleep(1)
             servo.cleanup()
-            logger.info(f"Single servo test for {servo_type} completed successfully")
+            print(f"{servo_type} test complete")
             
         except Exception as e:
-            logger.error(f"Single servo test failed for {servo_type}: {e}")
             print(f"Test failed: {e}")
     
     def test_targeting_system(self):
-        """Test complete laser targeting system."""
+        """30s+ targeting pattern test."""
         if not self.controller:
             if not self.init_controller():
                 return
         
-        print("Testing targeting system...")
-        print("Moving to center position...")
+        print("Targeting system test (30s pattern)")
+        positions = [(30,0), (150,0), (150,120), (30,120), (90,60)]  # Square + center
+        names = ["BL", "BR", "TR", "TL", "Center"]
         
-        # Reset to center
+        start_time = time.time()
+        cycles = 0
+        while time.time() - start_time < 32:
+            for pos, name in zip(positions, names):
+                self.controller.send_angles(pos)
+                time.sleep(2.5)
+                print(f"{name}: H={pos[0]}, V={pos[1]} ({time.time()-start_time:.1f}s)")
+                if time.time() - start_time >= 32:
+                    break
+            cycles += 1
+        
         self.controller.reset_pos()
-        time.sleep(2)
-        
-        # Test corner positions
-        limits = self.controller.get_limits()
-        positions = [
-            (limits[0][0], limits[1][0]),  # Bottom-left
-            (limits[0][1], limits[1][0]),  # Bottom-right  
-            (limits[0][1], limits[1][1]),  # Top-right
-            (limits[0][0], limits[1][1]),  # Top-left
-            ((limits[0][0] + limits[0][1])/2, (limits[1][0] + limits[1][1])/2)  # Center
-        ]
-        
-        position_names = ["Bottom-left", "Bottom-right", "Top-right", "Top-left", "Center"]
-        
-        for pos, name in zip(positions, position_names):
-            print(f"Moving to {name}: H={pos[0]:.1f}°, V={pos[1]:.1f}°")
-            self.controller.send_angles(pos)
-            time.sleep(2)
-        
-        print("Targeting system test complete")
+        print(f"Targeting complete - {cycles} cycles")
     
     def calibrate_limits(self):
         """Interactive servo limit calibration."""
@@ -205,130 +160,97 @@ class ServoTester:
             print("\nCalibration complete")
     
     def test_laser_control(self):
-        """Test laser on/off control."""
+        """30s laser pattern test."""
         if not self.controller:
             if not self.init_controller():
                 return
         
-        print("Testing laser control...")
-        print("WARNING: Ensure laser is pointed in a safe direction!")
-        input("Press Enter to continue...")
+        print("Laser control test (30s patterns)")
+        input("WARNING: Point laser safely! Press Enter...")
         
-        print("Laser ON for 2 seconds...")
-        self.controller.set_laser(True)
-        time.sleep(2)
+        patterns = [
+            ("Solid 5s", [(True, 5)]),
+            ("Fast blink", [(True, 0.2), (False, 0.2)] * 10),
+            ("Slow pulse", [(True, 1), (False, 1)] * 5),
+            ("Morse SOS", [(True, 0.2), (False, 0.2)] * 3 + [(True, 0.6), (False, 0.2)] * 3 + [(True, 0.2), (False, 0.2)] * 3),
+        ]
         
-        print("Laser OFF")
+        for name, pattern in patterns:
+            print(f"{name}...")
+            for state, duration in pattern:
+                self.controller.set_laser(state)
+                time.sleep(duration)
+        
         self.controller.set_laser(False)
-        
-        print("Blinking test...")
-        for i in range(5):
-            self.controller.set_laser(True)
-            time.sleep(0.2)
-            self.controller.set_laser(False)
-            time.sleep(0.2)
-        
-        print("Laser control test complete")
+        print("Laser test complete")
     
     def test_eyes_control(self):
-        """Test doll eyes PWM control."""
+        """30s eyes pattern test."""
         if not self.controller:
             if not self.init_controller():
                 return
         
-        print("Testing eyes PWM control...")
+        print("Eyes control test (30s patterns)")
         
-        print("Eyes brightness test - 25% for 2 seconds...")
-        self.controller.eyes_pwm.set_brightness(25)
-        time.sleep(2)
+        # Brightness levels test (10s)
+        for brightness in [25, 50, 75, 100]:
+            print(f"Brightness {brightness}%")
+            self.controller.eyes_pwm.set_brightness(brightness)
+            time.sleep(2.5)
         
-        print("Eyes brightness test - 75% for 2 seconds...")
-        self.controller.eyes_pwm.set_brightness(75)
-        time.sleep(2)
+        # Pulsing patterns (20s)
+        print("Pulsing patterns...")
+        for _ in range(4):
+            self.controller.eyes_pwm.pulse(min_brightness=10, max_brightness=90, steps=15, delay=0.15)
+            time.sleep(1)
         
-        print("Eyes OFF")
         self.controller.set_eyes(False)
-        time.sleep(1)
-        
-        print("Pulsing test...")
-        for i in range(2):
-            self.controller.eyes_pwm.pulse(min_brightness=10, max_brightness=80, steps=10, delay=0.1)
-        
-        print("Eyes PWM control test complete")
+        print("Eyes test complete")
     
-    def test_head_rotation(self):
-        """Test head rotation for red/green light."""
-        if not self.controller:
-            if not self.init_controller():
-                return
-        
-        print("Testing head rotation...")
-        
-        print("Green light - head turned away")
-        self.controller.rotate_head(True)
-        time.sleep(2)
-        
-        print("Red light - head facing forward")  
-        self.controller.rotate_head(False)
-        time.sleep(2)
-        
-        print("Alternating test...")
-        for i in range(3):
-            self.controller.rotate_head(True)
-            time.sleep(1)
-            self.controller.rotate_head(False)
-            time.sleep(1)
-        
-        print("Head rotation test complete")
     
     def full_system_test(self):
-        """Complete system functionality test."""
+        """60s full system test."""
         if not self.controller:
             if not self.init_controller():
                 return
         
-        print("=== FULL SYSTEM TEST ===")
+        print("=== FULL SYSTEM TEST (60s) ===")
         
-        # Test 1: Basic positioning
-        print("1. Testing servo positioning...")
-        self.test_targeting_system()
-        time.sleep(1)
+        # Game simulation sequence (30s)
+        for cycle in range(3):
+            print(f"Game cycle {cycle+1}/3")
+            
+            # Green light (10s)
+            print("GREEN LIGHT")
+            self.controller.rotate_head(True)  # Head away
+            self.controller.set_eyes(False)
+            for i in range(4):
+                pos = [(30,0), (150,0), (150,120), (30,120)][i]
+                self.controller.send_angles(pos)
+                time.sleep(2.5)
+            
+            # Red light (10s)
+            print("RED LIGHT")
+            self.controller.rotate_head(False)  # Head forward
+            self.controller.set_eyes(True)
+            time.sleep(5)
+            
+            # Laser test (optional)
+            if cycle == 1:
+                response = input("Test laser? (y/N): ").strip().lower()
+                if response == 'y':
+                    self.controller.set_laser(True)
+                    time.sleep(2)
+                    self.controller.set_laser(False)
+            else:
+                time.sleep(2)
         
-        # Test 2: Head rotation
-        print("2. Testing head rotation...")
-        self.test_head_rotation()
-        time.sleep(1)
-        
-        # Test 3: Eyes control  
-        print("3. Testing eyes...")
-        self.test_eyes_control()
-        time.sleep(1)
-        
-        # Test 4: Laser control (with safety check)
-        response = input("Test laser control? (y/N): ").strip().lower()
-        if response == 'y':
-            self.test_laser_control()
-        
-        # Test 5: Simulated game sequence
-        print("5. Simulating game sequence...")
-        print("Green light phase...")
-        self.controller.rotate_head(True)   # Head away
-        self.controller.set_eyes(False)     # Eyes off
-        time.sleep(2)
-        
-        print("Red light phase...")
-        self.controller.rotate_head(False)  # Head forward
-        self.controller.set_eyes(True)      # Eyes on
-        time.sleep(2)
-        
-        # Reset all
-        print("Resetting to safe state...")
+        # Reset
         self.controller.set_laser(False)
         self.controller.set_eyes(False)
         self.controller.rotate_head(False)
         self.controller.reset_pos()
-        
-        print("=== FULL SYSTEM TEST COMPLETE ===")
+        print("=== FULL TEST COMPLETE ===")
     
     def run(self):
         """Main test loop."""
@@ -337,16 +259,7 @@ class ServoTester:
         print("======================")
         
         while True:
-            print("\nTest Options:")
-            print("1 - Test H-axis servo")
-            print("2 - Test V-axis servo")
-            print("3 - Test head servo")
-            print("4 - Test laser targeting system")
-            print("5 - Calibrate servo limits")
-            print("6 - Test laser on/off")
-            print("7 - Test eyes control")
-            print("8 - Full system test")
-            print("q - Quit")
+            print("\n1-H servo, 2-V servo, 3-Head, 4-Targeting, 5-Laser, 6-Eyes, 7-Full, q-Quit")
             
             choice = input("\nEnter choice: ").strip().lower()
             
@@ -364,15 +277,12 @@ class ServoTester:
                     logger.info("User selected: Test laser targeting system")
                     self.test_targeting_system()
                 elif choice == '5':
-                    logger.info("User selected: Calibrate servo limits")
-                    self.calibrate_limits()
-                elif choice == '6':
-                    logger.info("User selected: Test laser on/off")
+                    logger.info("User selected: Test laser control")
                     self.test_laser_control()
-                elif choice == '7':
+                elif choice == '6':
                     logger.info("User selected: Test eyes control")
                     self.test_eyes_control()
-                elif choice == '8':
+                elif choice == '7':
                     logger.info("User selected: Full system test")
                     self.full_system_test()
                 elif choice == 'q':
