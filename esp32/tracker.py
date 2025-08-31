@@ -5,11 +5,11 @@ import random
 import neopixel
 from Servo import Servo
 
-H_SERVO_PIN = 5
-V_SERVO_PIN = 4
-HEAD_SERVO_PIN = 3
+H_SERVO_PIN = 6
+V_SERVO_PIN = 8
+HEAD_SERVO_PIN = 10
 EYES_PIN = 1
-LASER_PIN = 2
+LASER_PIN = 5
 INTEGRATED_RGB = 7
 
 H_MIN = 0 + 30
@@ -39,7 +39,7 @@ laser = Pin(LASER_PIN, Pin.OUT)
 laser.value(1)
 
 # Initialize PWM on the pin
-eyes_pwm = PWM(Pin(EYES_PIN), freq=1024)
+eyes_pwm = PWM(Pin(EYES_PIN), freq=512)
 
 
 def set_brightness(duty):
@@ -58,12 +58,12 @@ async def rotate_head():
         for angle in range(0, 181, 1):
             motor_head.move(angle)
             await asyncio.sleep_ms(25)
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
         for angle in range(180, 0, -1):
             motor_head.move(angle)
             await asyncio.sleep_ms(25)
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
 
 async def pulse_eyes():
@@ -73,21 +73,21 @@ async def pulse_eyes():
     step = 40
     while True:
         if not eyes_on:
-            set_brightness(1023)
+            set_brightness(0)
             await asyncio.sleep_ms(25)
         else:
             # Gradually decrease brightness
-            for duty in range(1023, 256, -step):
+            for duty in range(0, 1024, step):
                 set_brightness(duty)
                 if not eyes_on:
-                    continue
+                    break
                 await asyncio.sleep_ms(25)
 
             # Gradually increase brightness
-            for duty in range(256, 1024, step):  # Steps of 10 for smooth effect
+            for duty in range(1023, 0, -step):  # Steps of 10 for smooth effect
                 set_brightness(duty)
                 if not eyes_on:
-                    continue
+                    break
                 await asyncio.sleep_ms(25)  # Small delay for smooth transition
 
 
@@ -135,7 +135,7 @@ async def blink_laser():
         else:
             laser.value(blink_state)
         blink_state = not blink_state
-        await asyncio.sleep_ms(100)
+        await asyncio.sleep_ms(250)
 
 
 async def handle_client(reader, writer):
@@ -148,6 +148,7 @@ async def handle_client(reader, writer):
 
     try:
         while True:
+            await asyncio.sleep_ms(5)
             try:
                 data = await asyncio.wait_for(reader.read(128), timeout=0.5)
                 if not data:
@@ -373,14 +374,15 @@ async def check_limits():
 
 
 async def main():
-    set_brightness(1023)
+    global eyes_on
+    eyes_on = True
 
-    # asyncio.create_task(blink_laser())
+    asyncio.create_task(blink_laser())
     asyncio.create_task(blink())
-    # asyncio.create_task(test_movement())
+    asyncio.create_task(test_movement())
     asyncio.create_task(head_positionning())
     asyncio.create_task(pulse_eyes())
-    # asyncio.create_task(rotate_head())
+    asyncio.create_task(rotate_head())
     await test(motor_h)
     await test(motor_v)
     await asyncio.gather(run_server())  # , run_tracking())
