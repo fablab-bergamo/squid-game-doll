@@ -1,6 +1,17 @@
 from typing import Optional, Tuple, List
 import numpy as np
 import time
+from loguru import logger
+
+# Default configuration constants
+DEFAULT_SMOOTHING_FACTOR = 0.8
+DEFAULT_MAX_HISTORY_SIZE = 10
+DEFAULT_OUTLIER_THRESHOLD = 50.0
+DEFAULT_MIN_CONFIDENCE = 0.1
+DEFAULT_MAX_CONSECUTIVE_OUTLIERS = 5
+DEFAULT_MEMORY_TIMEOUT_SECONDS = 3.0
+DEFAULT_MAX_NO_DETECTION_FRAMES = 30
+RECOVERY_MODE_ALPHA = 0.7
 
 
 class LaserCoordinateFilter:
@@ -17,10 +28,10 @@ class LaserCoordinateFilter:
     """
     
     def __init__(self, 
-                 smoothing_factor: float = 0.8, 
-                 max_history_size: int = 10,
-                 outlier_threshold: float = 50.0,
-                 min_confidence_for_update: float = 0.1):
+                 smoothing_factor: float = DEFAULT_SMOOTHING_FACTOR, 
+                 max_history_size: int = DEFAULT_MAX_HISTORY_SIZE,
+                 outlier_threshold: float = DEFAULT_OUTLIER_THRESHOLD,
+                 min_confidence_for_update: float = DEFAULT_MIN_CONFIDENCE):
         """
         Initialize the coordinate filter.
         
@@ -49,14 +60,14 @@ class LaserCoordinateFilter:
         
         # Outlier recovery mechanism
         self.consecutive_outliers = 0
-        self.max_consecutive_outliers = 5  # Force acceptance after this many rejections
+        self.max_consecutive_outliers = DEFAULT_MAX_CONSECUTIVE_OUTLIERS  # Force acceptance after this many rejections
         self.recovery_mode = False
         
         # Memory persistence mechanism
         self.last_valid_update_time = None
-        self.memory_timeout = 3.0  # Seconds to keep smoothed position without updates
+        self.memory_timeout = DEFAULT_MEMORY_TIMEOUT_SECONDS  # Seconds to keep smoothed position without updates
         self.consecutive_no_detections = 0
-        self.max_no_detection_frames = 30  # Frames with no detection before forgetting
+        self.max_no_detection_frames = DEFAULT_MAX_NO_DETECTION_FRAMES  # Frames with no detection before forgetting
         
         # Statistics
         self.total_updates = 0
@@ -111,7 +122,7 @@ class LaserCoordinateFilter:
                     force_acceptance = True
                     self.recovery_mode = True
                     self.forced_acceptances += 1
-                    print(f"FILTER RECOVERY: Forcing acceptance after {self.consecutive_outliers} consecutive outliers (distance: {distance:.1f})")
+                    logger.debug(f"FILTER RECOVERY: Forcing acceptance after {self.consecutive_outliers} consecutive outliers (distance: {distance:.1f})")
                 else:
                     # Normal outlier rejection
                     self.rejected_outliers += 1
@@ -146,7 +157,7 @@ class LaserCoordinateFilter:
         elif force_acceptance:
             # Recovery mode: Reset smoothed position more aggressively
             # Use higher update rate to quickly adapt to new laser position
-            recovery_alpha = 0.7  # Higher alpha for faster adaptation
+            recovery_alpha = RECOVERY_MODE_ALPHA  # Higher alpha for faster adaptation
             self.smoothed_x = recovery_alpha * x + (1 - recovery_alpha) * self.smoothed_x
             self.smoothed_y = recovery_alpha * y + (1 - recovery_alpha) * self.smoothed_y
             # Reset consecutive outlier counter after forced acceptance
@@ -162,9 +173,9 @@ class LaserCoordinateFilter:
         """Internal method to forget the smoothed position after prolonged absence."""
         if self.last_valid_update_time is not None:
             time_diff = time.time() - self.last_valid_update_time
-            print(f"FILTER MEMORY: Forgetting smoothed position after {self.consecutive_no_detections} frames / {time_diff:.1f}s without detection")
+            logger.debug(f"FILTER MEMORY: Forgetting smoothed position after {self.consecutive_no_detections} frames / {time_diff:.1f}s without detection")
         else:
-            print(f"FILTER MEMORY: Forgetting smoothed position after {self.consecutive_no_detections} frames without detection")
+            logger.debug(f"FILTER MEMORY: Forgetting smoothed position after {self.consecutive_no_detections} frames without detection")
         self.smoothed_x = None
         self.smoothed_y = None
         self.is_initialized = False
@@ -257,15 +268,28 @@ class LaserCoordinateFilter:
         self.smoothing_factor = max(0.0, min(1.0, smoothing_factor))
 
     def set_outlier_threshold(self, threshold: float) -> None:
-        """Update the outlier rejection threshold (pixels)."""
+        """Update the outlier rejection threshold (pixels).
+        
+        Args:
+            threshold: Maximum pixel distance from previous position to accept update
+        """
         self.outlier_threshold = max(0.0, threshold)
 
     def set_recovery_params(self, max_consecutive_outliers: int) -> None:
-        """Update the recovery mechanism parameters."""
+        """Update the recovery mechanism parameters.
+        
+        Args:
+            max_consecutive_outliers: Force acceptance after this many consecutive rejections
+        """
         self.max_consecutive_outliers = max(1, max_consecutive_outliers)
 
     def set_memory_params(self, memory_timeout: float, max_no_detection_frames: int) -> None:
-        """Update the memory persistence parameters."""
+        """Update the memory persistence parameters.
+        
+        Args:
+            memory_timeout: Seconds to keep smoothed position without updates
+            max_no_detection_frames: Frames with no detection before forgetting position
+        """
         self.memory_timeout = max(0.1, memory_timeout)
         self.max_no_detection_frames = max(1, max_no_detection_frames)
 

@@ -26,6 +26,15 @@ from .utils.platform import (
 
 DEBUG_LASER_FIND_NN = False
 
+# Default configuration constants
+DEFAULT_CONFIDENCE_THRESHOLD = 0.05
+DEFAULT_IOU_THRESHOLD = 0.01
+DEFAULT_NN_SMOOTHING_FACTOR = 0.1
+DEFAULT_NN_MAX_HISTORY_SIZE = 10
+DEFAULT_NN_OUTLIER_THRESHOLD = 150.0
+DEFAULT_NN_MIN_CONFIDENCE = 0.05
+PERFORMANCE_LOG_INTERVAL_FRAMES = 30
+
 
 class LaserFinderNN:
     """
@@ -44,22 +53,22 @@ class LaserFinderNN:
         self.model = None
         self.laser_coord = None
         self.prev_detections = []
-        self.confidence_threshold = 0.05
-        self.iou_threshold = 0.01
+        self.confidence_threshold = DEFAULT_CONFIDENCE_THRESHOLD
+        self.iou_threshold = DEFAULT_IOU_THRESHOLD
         self.is_jetson = is_jetson_orin()
         self.frame_count = 0
         
         # Initialize coordinate smoothing filter
         self.coordinate_filter = LaserCoordinateFilter(
-            smoothing_factor=0.1,
-            max_history_size=10,
-            outlier_threshold=150.0,
-            min_confidence_for_update=0.05
+            smoothing_factor=DEFAULT_NN_SMOOTHING_FACTOR,
+            max_history_size=DEFAULT_NN_MAX_HISTORY_SIZE,
+            outlier_threshold=DEFAULT_NN_OUTLIER_THRESHOLD,
+            min_confidence_for_update=DEFAULT_NN_MIN_CONFIDENCE
         )
         
         self._load_optimized_model()
 
-    def _find_optimal_model_format(self) -> tuple[str, str]:
+    def _find_optimal_model_format(self) -> Tuple[str, str]:
         """Find the optimal model format and path"""
         # Check for optimized model formats in priority order: TensorRT > ONNX > PyTorch
         
@@ -129,8 +138,11 @@ class LaserFinderNN:
             self.frame_count = 0
             return True
             
-        except Exception as e:
+        except (ImportError, FileNotFoundError, RuntimeError) as e:
             logger.error(f"Error loading YOLOv5 laser model: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error loading YOLOv5 laser model: {e}")
             return False
 
     def _optimize_for_jetson(self) -> None:
@@ -145,8 +157,10 @@ class LaserFinderNN:
             else:
                 logger.warning("CUDA not available on Jetson, using CPU for laser detection")
                     
-        except Exception as e:
+        except (RuntimeError, AttributeError) as e:
             logger.warning(f"Jetson laser detection optimization failed: {e}")
+        except Exception as e:
+            logger.warning(f"Unexpected error during Jetson optimization: {e}")
 
     def laser_found(self) -> bool:
         """Check if laser was found in the last detection."""
@@ -165,7 +179,11 @@ class LaserFinderNN:
         return self.coordinate_filter.get_smoothed_coordinate()
 
     def get_winning_strategy(self) -> str:
-        """Get information about the detection strategy used."""
+        """Get information about the detection strategy used.
+        
+        Returns:
+            str: Description of detection method and parameters if laser found, empty string otherwise
+        """
         if self.laser_found():
             return f"YOLOv5_NN(conf={self.confidence_threshold}, iou={self.iou_threshold})"
         return ""
@@ -185,7 +203,7 @@ class LaserFinderNN:
         """
         if self.model is None:
             if DEBUG_LASER_FIND_NN:
-                print("Model not loaded, cannot detect laser")
+                logger.debug("Model not loaded, cannot detect laser")
             self.laser_coord = None
             return (None, None)
         
@@ -214,9 +232,9 @@ class LaserFinderNN:
                 
             if DEBUG_LASER_FIND_NN:
                 frame_type = "NN frame" if use_nn_frame else "full frame"
-                print(f"Running YOLOv5 inference on {frame_type} shape: {img_np.shape}")
+                logger.debug(f"Running YOLOv5 inference on {frame_type} shape: {img_np.shape}")
                 if use_nn_frame:
-                    print(f"Scale factors for coordinate mapping: {scale_x:.3f}x{scale_y:.3f}")
+                    logger.debug(f"Scale factors for coordinate mapping: {scale_x:.3f}x{scale_y:.3f}")
             
             # Run inference
             results = self.model(img_np)
@@ -230,7 +248,7 @@ class LaserFinderNN:
                 predictions = results.xyxy[0].cpu().numpy()  # xyxy format
                 
                 if DEBUG_LASER_FIND_NN:
-                    print(f"Found {len(predictions)} detections")
+                    logger.debug(f"Found {len(predictions)} detections")
                 
                 for pred in predictions:
                     x1, y1, x2, y2, conf, class_id = pred
@@ -269,7 +287,7 @@ class LaserFinderNN:
                     
                     if DEBUG_LASER_FIND_NN:
                         coord_info = f"(scaled to full frame)" if use_nn_frame else "(original coordinates)"
-                        print(f"Detected laser: {class_name} (conf: {conf:.3f}) at center ({center_x}, {center_y}) {coord_info}")
+                        logger.debug(f"Detected laser: {class_name} (conf: {conf:.3f}) at center ({center_x}, {center_y}) {coord_info}")
             
             # Select best detection (highest confidence)
             if detections:
@@ -300,7 +318,7 @@ class LaserFinderNN:
                               cv2.FONT_HERSHEY_COMPLEX, 0.4, (255, 255, 0), 1)  # Yellow for smoothed
                 
                 if DEBUG_LASER_FIND_NN:
-                    print(f"Selected best detection at {self.laser_coord} with confidence {best_detection['confidence']:.3f}")
+                    logger.debug(f"Selected best detection at {self.laser_coord} with confidence {best_detection['confidence']:.3f}")
                 
                 end_time = cv2.getTickCount()
                 time_taken = (end_time - start_time) / cv2.getTickFrequency()
@@ -308,7 +326,7 @@ class LaserFinderNN:
                 self.fps = 1 / time_taken if time_taken > 0 else 0
                 
                 # Log total processing time (very reduced frequency)
-                if self.frame_count % 30 == 0:  # Log every 30 frames (~2 seconds at 15 FPS)
+                if self.frame_count % PERFORMANCE_LOG_INTERVAL_FRAMES == 0:  # Log every 30 frames (~2 seconds at 15 FPS)
                     logger.info(f"🎯 Laser detection performance: {total_time_ms:.1f}ms ({self.fps:.1f} FPS) | Detections: {len(detections)} | Frame: {self.frame_count}")
                 
                 return (self.laser_coord, output_image)
@@ -319,26 +337,41 @@ class LaserFinderNN:
                 self.prev_detections = []
                 
                 if DEBUG_LASER_FIND_NN:
-                    print("No laser detections found")
+                    logger.debug("No laser detections found")
                 
                 return (None, None)
                 
+        except (RuntimeError, ValueError, AttributeError) as e:
+            if DEBUG_LASER_FIND_NN:
+                logger.error(f"Error during YOLOv5 inference: {e}")
+            # Update filter with None on error
+            self.coordinate_filter.update(None, confidence=0.0)
+            self.laser_coord = None
+            return (None, None)
         except Exception as e:
             if DEBUG_LASER_FIND_NN:
-                print(f"Error during YOLOv5 inference: {e}")
+                logger.error(f"Unexpected error during YOLOv5 inference: {e}")
             # Update filter with None on error
             self.coordinate_filter.update(None, confidence=0.0)
             self.laser_coord = None
             return (None, None)
 
     def set_confidence_threshold(self, threshold: float):
-        """Set the confidence threshold for detections."""
+        """Set the confidence threshold for detections.
+        
+        Args:
+            threshold: Minimum confidence (0.0-1.0) required for laser detection
+        """
         self.confidence_threshold = threshold
         if self.model is not None:
             self.model.conf = threshold
 
     def set_iou_threshold(self, threshold: float):
-        """Set the IoU threshold for non-maximum suppression."""
+        """Set the IoU threshold for non-maximum suppression.
+        
+        Args:
+            threshold: IoU threshold (0.0-1.0) for filtering overlapping detections
+        """
         self.iou_threshold = threshold
         if self.model is not None:
             self.model.iou = threshold
