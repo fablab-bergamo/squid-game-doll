@@ -33,6 +33,7 @@ from .constants import (
     LOADING,
     GAMEOVER,
     VICTORY,
+    VICTORY_ANIMATION,
     WHITE,
 )
 import platform
@@ -150,12 +151,20 @@ class SquidGame:
 
     def switch_to_endgame(self, endgame_str: str) -> bool:
         logger.info("Switch to ENDGAME")
-        self.game_state = endgame_str
         if endgame_str == VICTORY:
+            # Start victory animation instead of going directly to VICTORY
+            self.game_state = VICTORY_ANIMATION
             self.victory_sound.play()
+            # Start the victory animation with current winners
+            winners = [player for player in self.players if player.is_winner()]
+            if winners:
+                self.game_screen.start_victory_animation(winners)
+        else:
+            self.game_state = endgame_str
+            self.game_screen.reset_active_buttons()
+            self.game_screen.set_active_button(0, self.switch_to_loading)
+        
         self.last_switch_time = time.time()
-        self.game_screen.reset_active_buttons()
-        self.game_screen.set_active_button(0, self.switch_to_loading)
         if not self.no_tracker:
             self.shooter.rotate_head(False)
             self.shooter.set_eyes(False)
@@ -519,6 +528,16 @@ class SquidGame:
 
                 # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
                 self.check_endgame_conditions(crop_info, nn_frame, screen)
+
+            elif self.game_state == VICTORY_ANIMATION:
+                # Update victory animation and check if complete
+                self.game_screen.update_victory_animation(clock.get_time() / 1000.0)
+                if self.game_screen.is_victory_animation_complete():
+                    # Transition to VICTORY state and show buttons
+                    self.game_state = VICTORY
+                    self.game_screen.reset_active_buttons()
+                    self.game_screen.set_active_button(0, self.switch_to_loading)
+                    self.last_switch_time = time.time()
 
             elif self.game_state in [GAMEOVER, VICTORY]:
                 # Restart after 10 seconds

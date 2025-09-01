@@ -7,6 +7,7 @@ from .img_processing import opencv_to_pygame
 from .player import Player
 from .laser_shooter import LaserShooter
 from .game_settings import GameSettings
+from .victory_animation import VictoryAnimation
 from .constants import (
     RED,
     ROOT,
@@ -19,6 +20,7 @@ from .constants import (
     PLAYER_SIZE,
     FADE_COLOR,
     VICTORY,
+    VICTORY_ANIMATION,
     GAMEOVER,
     INIT,
     GREEN_LIGHT,
@@ -57,6 +59,10 @@ class GameScreen:
         self._first_run = True
         self._active_buttons = {}
         self._click_callback = None
+        
+        # Victory animation system
+        self._victory_animation = None
+        self._victory_started = False
 
     def reset_active_buttons(self):
         self._active_buttons = {}
@@ -219,7 +225,15 @@ class GameScreen:
                 ),
             )
 
-        if game_state == VICTORY:
+        # Handle victory animation state
+        if game_state == VICTORY_ANIMATION:
+            # Use the same background as normal game, NO webcam feed
+            fullscreen.blit(self._background_image, (0, 0))
+            
+            # Render victory animation on top of game background
+            self.render_victory_animation(fullscreen, None)  # No webcam surface
+            return  # Skip normal rendering
+        elif game_state == VICTORY:
             text = self._font_bigger.render("VICTORY!", True, GREEN)
             fullscreen.blit(
                 text,
@@ -627,6 +641,84 @@ class GameScreen:
                 text = self._font_lcd.render(str(player["id"]), True, color)
                 text_rect = text.get_rect(center=(x + PLAYER_SIZE // 2, y + PLAYER_SIZE * 0.7))
             screen.blit(text, text_rect.topleft)
+    
+    def start_victory_animation(self, winners: list[Player]) -> None:
+        """
+        Start the victory animation sequence.
+        
+        Args:
+            winners: List of winning Player objects
+        """
+        # Create victory animation instance
+        self._victory_animation = VictoryAnimation(
+            self.get_desktop_width(), 
+            self.get_desktop_height()
+        )
+        
+        # Convert winners to animation format
+        winner_data = []
+        current_positions = []
+        
+        # Get current player positions (from bottom player area)
+        all_players = []  # This will be passed from the game
+        for player in winners:
+            # Convert face from cv2.UMat to pygame Surface
+            face_cv2 = player.get_face()
+            if face_cv2 is not None:
+                # Convert from cv2.UMat to pygame Surface
+                face_surface = opencv_to_pygame(face_cv2, face_cv2.shape[:2][::-1])
+            else:
+                # Create default face if none available
+                face_surface = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE))
+                face_surface.fill((128, 128, 128))  # Gray default
+            
+            winner_info = {
+                "id": player.get_id(),
+                "image": face_surface,
+                "total_eliminated": 1  # Will be calculated properly
+            }
+            winner_data.append(winner_info)
+            
+            # Calculate current position on screen
+            # This approximates where the player badge currently is
+            player_area_y = self.get_desktop_height() - (PLAYER_SIZE * 1.4 + 20)
+            pos_x = 100 + len(current_positions) * (PLAYER_SIZE + 20)  # Approximate spacing
+            pos_y = player_area_y + PLAYER_SIZE // 2
+            current_positions.append((pos_x, pos_y))
+        
+        # Start the animation
+        self._victory_animation.start_animation(winner_data, current_positions)
+        self._victory_started = True
+    
+    def update_victory_animation(self, dt: float) -> None:
+        """
+        Update the victory animation.
+        
+        Args:
+            dt: Delta time since last frame
+        """
+        if self._victory_animation:
+            self._victory_animation.update(dt)
+    
+    def render_victory_animation(self, fullscreen: pygame.Surface, webcam_surface: pygame.Surface = None) -> None:
+        """
+        Render the victory animation.
+        
+        Args:
+            fullscreen: Main screen surface
+            webcam_surface: Webcam surface to fade out (optional)
+        """
+        if self._victory_animation:
+            self._victory_animation.render(fullscreen, webcam_surface)
+    
+    def is_victory_animation_complete(self) -> bool:
+        """Check if victory animation is complete."""
+        return self._victory_animation and self._victory_animation.is_complete()
+    
+    def reset_victory_animation(self) -> None:
+        """Reset victory animation state."""
+        self._victory_animation = None
+        self._victory_started = False
 
     @staticmethod
     def get_desktop(preferred_monitor=0) -> tuple[tuple[int, int], int]:
