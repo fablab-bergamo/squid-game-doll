@@ -14,9 +14,41 @@ DEBUG_LASER_FIND = False
 # source tbc https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/
 # source tbc https://www.pyimagesearch.com/2016/02/15/determining-object-color-with-opencv/
 class LaserFinder:
+    """
+    Traditional computer vision-based laser detection system.
+    
+    This class implements multiple laser detection strategies using classical
+    computer vision techniques including color filtering, thresholding, 
+    morphological operations, and Hough circle detection.
+    
+    The LaserFinder provides:
+    - Multiple detection strategies with automatic fallback
+    - Red laser dot detection using color space analysis
+    - Circle detection using Hough transforms
+    - Adaptive thresholding for different lighting conditions
+    - Coordinate smoothing and filtering
+    - Strategy performance tracking and selection
+    
+    Detection strategies (in priority order):
+    1. Circle detection with threshold adaptation
+    2. Color-based red laser detection
+    3. Grayscale intensity-based detection
+    4. Secondary threshold-based detection
+    
+    Example:
+        finder = LaserFinder()
+        laser_coord, output_img = finder.find_laser(camera_frame)
+        if finder.laser_found():
+            print(f"Laser detected at: {laser_coord}")
+            print(f"Detection method: {finder.get_winning_strategy()}")
+    """
+    
     def __init__(self):
         """
-        Initializes the LaserFinder object.
+        Initialize the LaserFinder with default detection strategies.
+        
+        Sets up coordinate filtering and registers multiple detection
+        strategies for robust laser detection under various conditions.
         """
         self.prev_strategy = None
         self.prev_threshold = None
@@ -33,6 +65,11 @@ class LaserFinder:
         )
 
     def laser_found(self) -> bool:
+        """Check if laser was detected in the last detection attempt.
+        
+        Returns:
+            bool: True if laser was found, False otherwise
+        """
         return self.laser_coord is not None
 
     def get_laser_coord(self) -> Optional[Tuple[int, int]]:

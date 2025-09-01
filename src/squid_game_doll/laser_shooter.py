@@ -25,15 +25,40 @@ MAX_CONNECTION_ATTEMPTS = 3
 
 
 class LaserShooter:
+    """
+    ESP32-based laser targeting system controller.
+    
+    This class handles communication with an ESP32 microcontroller that controls
+    servo motors for laser positioning. It provides PID-controlled targeting,
+    rate limiting, and network communication with the ESP32 device.
+    
+    The LaserShooter can:
+    - Control servo positions for horizontal and vertical laser aiming
+    - Apply PID control for smooth and accurate targeting
+    - Rate limit movement to prevent jerky motion
+    - Handle network communication failures gracefully
+    - Configure movement parameters and targeting coefficients
+    
+    Example:
+        shooter = LaserShooter("192.168.1.100", deadband_px=15)
+        shooter.set_coeffs((55.0, 18.0))  # Set pixel-to-degree conversion
+        if shooter.is_online():
+            shooter.aim_at_target((320, 240))  # Aim at center of 640x480 image
+    """
 
     def __init__(self, ipaddress: str, deadband_px: int = DEFAULT_DEADBAND_PX, max_frequency_hz: int = DEFAULT_MAX_FREQUENCY_HZ, enable_laser: bool = True):
         """
-        Initializes the LaserShooter object with the given IP address, deadband, and maximum frequency.
+        Initialize the LaserShooter with network and control parameters.
 
-        Parameters:
-        ipaddress (str): The IP address of the ESP32.
-        deadband_px (int): The deadband in pixels.
-        max_frequency_hz (int): The maximum frequency in Hz.
+        Args:
+            ipaddress: IP address of the ESP32 controller
+            deadband_px: Minimum pixel movement required to trigger servo update
+            max_frequency_hz: Maximum servo update frequency to prevent overload
+            enable_laser: Whether laser functionality is enabled (safety feature)
+            
+        Note:
+            The ESP32 must be running the laser controller firmware and be
+            accessible on the specified IP address at port 15555.
         """
         self._is_online = False
         self.ip_address = ipaddress

@@ -8,7 +8,38 @@ from .laser_shooter import LaserShooter
 
 
 class LaserTracker:
+    """
+    Laser detection and targeting coordination system.
+    
+    This class coordinates between laser detection (via LaserFinder/LaserFinderNN)
+    and laser targeting (via LaserShooter) to create a complete laser tracking system.
+    It runs in a separate thread to continuously detect and track laser positions.
+    
+    The LaserTracker:
+    - Manages laser detection using traditional or neural network methods
+    - Coordinates with ESP32-based laser shooter for targeting
+    - Handles frame updates from camera systems
+    - Provides thread-safe laser tracking operations
+    - Supports both full-frame and optimized NN frame processing
+    
+    Example:
+        shooter = LaserShooter("192.168.1.100")
+        nn_finder = LaserFinderNN("laser_model.pt")
+        tracker = LaserTracker(shooter, laser_finder=nn_finder)
+        
+        tracker.set_target((100, 200))  # Set target player position
+        tracker.start()  # Begin tracking
+    """
+    
     def __init__(self, shooter: LaserShooter, laser_finder=None):
+        """
+        Initialize laser tracker with shooter and optional laser finder.
+        
+        Args:
+            shooter: LaserShooter instance for controlling laser hardware
+            laser_finder: Pre-loaded LaserFinder or LaserFinderNN instance.
+                         If None, will use traditional LaserFinder as fallback.
+        """
         self.shooter: LaserShooter = shooter
         self.laser_finder = laser_finder  # Pre-loaded laser finder
         self.thread: Thread = Thread(target=self.track_and_shoot)
@@ -20,12 +51,18 @@ class LaserTracker:
         self._picture: cv2.UMat = None
 
     def set_target(self, player: Tuple[int, int]) -> None:
+        """Set the target player position for laser tracking.
+        
+        Args:
+            player: Target coordinates (x, y) in image space
+        """
         if player != self.target:
             self._shot_done = False
 
         self.target = player
 
     def start(self):
+        """Start the laser tracking thread."""
         if self.thread.is_alive():
             self.shall_run = False
             self.thread.join()
@@ -35,10 +72,17 @@ class LaserTracker:
         self.thread.start()
 
     def update_frame(self, webcam: cv2.UMat, nn_frame: cv2.UMat = None) -> None:
+        """Update frames for laser detection.
+        
+        Args:
+            webcam: Full resolution webcam frame
+            nn_frame: Optional optimized frame for neural network processing
+        """
         self.last_frame = webcam.copy()
         self.last_nn_frame = nn_frame.copy() if nn_frame is not None else None
 
     def stop(self):
+        """Stop laser tracking and disable laser."""
         self.shooter.set_laser(False)
         if self.thread.is_alive():
             self.shall_run = False
@@ -82,7 +126,17 @@ class LaserTracker:
         self.shooter.set_laser(False)
 
     def shot_complete(self) -> bool:
+        """Check if shot is complete.
+        
+        Returns:
+            bool: True if shot is complete, False otherwise
+        """
         return self._shot_done
 
     def get_picture(self) -> cv2.UMat:
+        """Get the last processed laser detection image.
+        
+        Returns:
+            cv2.UMat: Last output image with detection annotations, or None
+        """
         return self._picture
