@@ -93,8 +93,8 @@ class TestLaserFinder:
         # Create dummy image
         dummy_img = np.zeros((300, 400, 3), dtype=np.uint8)
         
-        # Test find_laser method (may not find anything in dummy image)
-        result = finder.find_laser(dummy_img)
+        # Test find_laser method with required rects parameter (may not find anything in dummy image)
+        result = finder.find_laser(dummy_img, rects=[])
         assert isinstance(result, tuple)
         assert len(result) == 2  # (coordinate, output_image)
 
@@ -145,17 +145,21 @@ class TestLaserFinderNN:
 class TestLaserShooter:
     """Test LaserShooter class loading and functionality."""
     
-    @patch('squid_game_doll.laser_shooter.socket.socket')
-    def test_import_and_instantiation(self, mock_socket):
+    @patch('squid_game_doll.laser_shooter.LaserShooter.get_limits')
+    @patch('squid_game_doll.laser_shooter.LaserShooter.init_PID')
+    def test_import_and_instantiation(self, mock_init_pid, mock_get_limits):
         """Test that LaserShooter can be imported and instantiated without ESP32."""
-        # Mock socket to prevent actual connection attempts
-        mock_socket_instance = MagicMock()
-        mock_socket_instance.connect.side_effect = OSError("Mocked connection failure")
-        mock_socket.return_value = mock_socket_instance
+        # Mock the methods that try to connect to ESP32
+        mock_get_limits.return_value = None  # Return None for limits (no connection)
+        mock_init_pid.return_value = False   # Return False for PID init failure
         
         shooter = LaserShooter("192.168.1.100", enable_laser=False)
         assert shooter is not None
         assert not shooter.is_laser_enabled()
+        
+        # Verify mocks were called
+        mock_get_limits.assert_called_once()
+        mock_init_pid.assert_called_once()
     
     def test_constants_accessible(self):
         """Test that configuration constants are accessible."""
@@ -181,13 +185,13 @@ class TestLaserShooter:
         assert SOCKET_RECV_BUFFER_SIZE > 0
         assert MAX_CONNECTION_ATTEMPTS > 0
     
-    @patch('squid_game_doll.laser_shooter.socket.socket')
-    def test_configuration_methods(self, mock_socket):
+    @patch('squid_game_doll.laser_shooter.LaserShooter.get_limits')
+    @patch('squid_game_doll.laser_shooter.LaserShooter.init_PID')
+    def test_configuration_methods(self, mock_init_pid, mock_get_limits):
         """Test configuration methods."""
-        # Mock socket to prevent connection attempts
-        mock_socket_instance = MagicMock()
-        mock_socket_instance.connect.side_effect = OSError("Mocked connection failure")
-        mock_socket.return_value = mock_socket_instance
+        # Mock the methods that try to connect to ESP32
+        mock_get_limits.return_value = None
+        mock_init_pid.return_value = False
         
         shooter = LaserShooter("192.168.1.100", enable_laser=False)
         
@@ -199,13 +203,13 @@ class TestLaserShooter:
 class TestLaserTracker:
     """Test LaserTracker class loading and functionality."""
     
-    @patch('squid_game_doll.laser_shooter.socket.socket')
-    def test_import_and_instantiation(self, mock_socket):
+    @patch('squid_game_doll.laser_shooter.LaserShooter.get_limits')
+    @patch('squid_game_doll.laser_shooter.LaserShooter.init_PID')
+    def test_import_and_instantiation(self, mock_init_pid, mock_get_limits):
         """Test that LaserTracker can be imported and instantiated."""
-        # Mock socket to prevent ESP32 connection
-        mock_socket_instance = MagicMock()
-        mock_socket_instance.connect.side_effect = OSError("Mocked connection failure")
-        mock_socket.return_value = mock_socket_instance
+        # Mock ESP32 connection methods
+        mock_get_limits.return_value = None
+        mock_init_pid.return_value = False
         
         shooter = LaserShooter("192.168.1.100", enable_laser=False)
         tracker = LaserTracker(shooter)
@@ -213,13 +217,13 @@ class TestLaserTracker:
         assert tracker is not None
         assert tracker.target == (0, 0)
     
-    @patch('squid_game_doll.laser_shooter.socket.socket')  
-    def test_basic_methods(self, mock_socket):
+    @patch('squid_game_doll.laser_shooter.LaserShooter.get_limits')
+    @patch('squid_game_doll.laser_shooter.LaserShooter.init_PID')
+    def test_basic_methods(self, mock_init_pid, mock_get_limits):
         """Test basic tracker methods."""
-        # Mock socket to prevent ESP32 connection
-        mock_socket_instance = MagicMock()
-        mock_socket_instance.connect.side_effect = OSError("Mocked connection failure")
-        mock_socket.return_value = mock_socket_instance
+        # Mock ESP32 connection methods
+        mock_get_limits.return_value = None
+        mock_init_pid.return_value = False
         
         shooter = LaserShooter("192.168.1.100", enable_laser=False)
         tracker = LaserTracker(shooter)
