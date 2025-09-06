@@ -215,8 +215,22 @@ def run():
         os.environ["SDL_VIDEO_WINDOW_POS"] = "centered"
         os.environ["SDL_VIDEO_CENTERED"] = "1"
 
-        # Create window
-        screen = pygame.display.set_mode(size)
+        # Create fullscreen window for setup mode with fallback handling
+        try:
+            # Try fullscreen mode first
+            screen = pygame.display.set_mode(size, flags=pygame.FULLSCREEN, display=monitor)
+            logger.info(f"✅ Setup mode fullscreen initialized: {size} on display {monitor}")
+        except pygame.error as e:
+            # Fallback to borderless fullscreen if exclusive fullscreen fails
+            logger.warning(f"⚠️ Setup exclusive fullscreen failed ({e}), trying borderless fullscreen")
+            try:
+                screen = pygame.display.set_mode(size, flags=pygame.NOFRAME, display=monitor)
+                logger.info(f"✅ Setup mode borderless fullscreen initialized: {size}")
+            except pygame.error as e2:
+                # Last resort: regular fullscreen without display parameter
+                logger.warning(f"⚠️ Setup borderless fullscreen failed ({e2}), trying basic fullscreen")
+                screen = pygame.display.set_mode(size, flags=pygame.FULLSCREEN)
+                logger.info(f"✅ Setup mode basic fullscreen initialized: {size}")
 
         # Use the EXACT same neural network loading logic as game mode
         nn = load_neural_network(args.model)
