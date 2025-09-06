@@ -377,11 +377,11 @@ async def main():
     global eyes_on
     eyes_on = True
 
-    asyncio.create_task(blink_laser())
+    # asyncio.create_task(blink_laser())
     asyncio.create_task(blink())
     asyncio.create_task(test_movement())
-    asyncio.create_task(head_positionning())
-    asyncio.create_task(pulse_eyes())
+    # asyncio.create_task(head_positionning())
+    # asyncio.create_task(pulse_eyes())
     asyncio.create_task(rotate_head())
     await test(motor_h)
     await test(motor_v)

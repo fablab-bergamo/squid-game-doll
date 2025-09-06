@@ -516,12 +516,37 @@ class SquidGame:
 
     def start_game(self) -> None:
         """Start the Squid Game (Green Light Red Light)"""
-        # Initialize screen
-        screen: pygame.Surface = pygame.display.set_mode(
-            (self.game_screen.get_desktop_width(), self.game_screen.get_desktop_height()),
-            flags=pygame.FULLSCREEN,
-            display=self.game_screen.get_display_idx(),
-        )
+        # Initialize screen with robust fullscreen handling
+        desktop_size = (self.game_screen.get_desktop_width(), self.game_screen.get_desktop_height())
+        display_idx = self.game_screen.get_display_idx()
+        
+        try:
+            # Try fullscreen mode first
+            screen: pygame.Surface = pygame.display.set_mode(
+                desktop_size,
+                flags=pygame.FULLSCREEN,
+                display=display_idx,
+            )
+            logger.info(f"✅ Fullscreen mode initialized: {desktop_size} on display {display_idx}")
+        except pygame.error as e:
+            # Fallback to borderless fullscreen if exclusive fullscreen fails
+            logger.warning(f"⚠️ Exclusive fullscreen failed ({e}), trying borderless fullscreen")
+            try:
+                screen: pygame.Surface = pygame.display.set_mode(
+                    desktop_size,
+                    flags=pygame.NOFRAME,
+                    display=display_idx,
+                )
+                logger.info(f"✅ Borderless fullscreen mode initialized: {desktop_size}")
+            except pygame.error as e2:
+                # Last resort: regular fullscreen without display parameter
+                logger.warning(f"⚠️ Borderless fullscreen failed ({e2}), trying basic fullscreen")
+                screen: pygame.Surface = pygame.display.set_mode(
+                    desktop_size,
+                    flags=pygame.FULLSCREEN,
+                )
+                logger.info(f"✅ Basic fullscreen mode initialized: {desktop_size}")
+        
         pygame.display.set_caption("Squid Games - Green Light, Red Light")
 
         self.loading_screen(screen)
