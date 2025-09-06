@@ -110,7 +110,7 @@ def command_line_args() -> argparse.Namespace:
         help="sets the esp32 tracker IP address",
         dest="ip",
         type=str,
-        default="192.168.45.50",
+        default="192.168.137.7",
         required=False,
     )
     parser.add_argument(

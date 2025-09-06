@@ -1,38 +1,91 @@
 import numpy as np
 import socket
+from typing import Tuple
 from numpy.linalg import norm
 from time import time, sleep
 from simple_pid import PID
 import ast
+from loguru import logger
+
+# Configuration constants
+DEFAULT_ESP32_PORT = 15555
+DEFAULT_DEADBAND_PX = 10
+DEFAULT_MAX_FREQUENCY_HZ = 10
+DEFAULT_PX_PER_DEGREE_H = 50.0
+DEFAULT_PX_PER_DEGREE_V = 15.0
+DEFAULT_PID_KP = 0.1
+PID_KI_FACTOR = 0.6
+PID_KD_FACTOR = 0.3
+MIN_STEP_SIZE = 0.8
+MAX_STEP_SIZE = 20
+RATE_LIMIT_MAX_CHANGE = 100
+SOCKET_RECV_BUFFER_SIZE = 128
+SOCKET_RECV_BUFFER_SIZE_SMALL = 64
+MAX_CONNECTION_ATTEMPTS = 3
 
 
 class LaserShooter:
+    """
+    ESP32-based laser targeting system controller.
+    
+    This class handles communication with an ESP32 microcontroller that controls
+    servo motors for laser positioning. It provides PID-controlled targeting,
+    rate limiting, and network communication with the ESP32 device.
+    
+    The LaserShooter can:
+    - Control servo positions for horizontal and vertical laser aiming
+    - Apply PID control for smooth and accurate targeting
+    - Rate limit movement to prevent jerky motion
+    - Handle network communication failures gracefully
+    - Configure movement parameters and targeting coefficients
+    
+    Example:
+        shooter = LaserShooter("192.168.1.100", deadband_px=15)
+        shooter.set_coeffs((55.0, 18.0))  # Set pixel-to-degree conversion
+        if shooter.is_online():
+            shooter.aim_at_target((320, 240))  # Aim at center of 640x480 image
+    """
 
-    def __init__(self, ipaddress: str, deadband_px: int = 10, max_frequency_hz: int = 10, enable_laser: bool = True):
+    def __init__(self, ipaddress: str, deadband_px: int = DEFAULT_DEADBAND_PX, max_frequency_hz: int = DEFAULT_MAX_FREQUENCY_HZ, enable_laser: bool = True):
         """
-        Initializes the LaserShooter object with the given IP address, deadband, and maximum frequency.
+        Initialize the LaserShooter with network and control parameters.
 
-        Parameters:
-        ipaddress (str): The IP address of the ESP32.
-        deadband_px (int): The deadband in pixels.
-        max_frequency_hz (int): The maximum frequency in Hz.
+        Args:
+            ipaddress: IP address of the ESP32 controller
+            deadband_px: Minimum pixel movement required to trigger servo update
+            max_frequency_hz: Maximum servo update frequency to prevent overload
+            enable_laser: Whether laser functionality is enabled (safety feature)
+            
+        Note:
+            The ESP32 must be running the laser controller firmware and be
+            accessible on the specified IP address at port 15555.
         """
         self._is_online = False
         self.ip_address = ipaddress
-        self.port = 15555
+        self.port = DEFAULT_ESP32_PORT
         self.aliensocket: socket = None
         self.last_sent: int = 0
         self.deadband: int = deadband_px
         self.min_period_S: float = 1.0 / max_frequency_hz
-        self.limits: tuple = self.get_limits()
+        self.limits: Tuple[float, float] = self.get_limits()
         self.pid_ok: bool = self.init_PID()
-        self.coeffs: tuple[float, float] = (50.0, 15.0)
+        self.coeffs: Tuple[float, float] = (DEFAULT_PX_PER_DEGREE_H, DEFAULT_PX_PER_DEGREE_V)
         self._enable_laser = enable_laser
 
     def is_laser_enabled(self) -> bool:
+        """Check if laser functionality is enabled.
+        
+        Returns:
+            bool: True if laser is enabled, False otherwise
+        """
         return self._enable_laser
 
-    def set_coeffs(self, px_per_degree: tuple):
+    def set_coeffs(self, px_per_degree: Tuple[float, float]):
+        """Set the pixel per degree conversion coefficients.
+        
+        Args:
+            px_per_degree: Tuple of (horizontal_coeff, vertical_coeff) for pixel to degree conversion
+        """
         if px_per_degree is not None:
             self.coeffs = px_per_degree
 
@@ -45,19 +98,19 @@ class LaserShooter:
 
         if self.limits is not None:
             zero = self.__getzeropos()
-            k = 0.1
+            k = DEFAULT_PID_KP
             self.pid_v = PID(
                 k,
-                k * 0.6,
-                k * 0.3,
+                k * PID_KI_FACTOR,
+                k * PID_KD_FACTOR,
                 setpoint=0,
                 output_limits=(self.limits[1][0], self.limits[1][1]),
                 starting_output=zero[1],
             )
             self.pid_h = PID(
                 k,
-                k * 0.6,
-                k * 0.3,
+                k * PID_KI_FACTOR,
+                k * PID_KD_FACTOR,
                 setpoint=0,
                 output_limits=(self.limits[0][0], self.limits[0][1]),
                 starting_output=zero[0],
@@ -69,7 +122,7 @@ class LaserShooter:
             self.prev_output_v = zero[1]
             return True
 
-        print("PID init failure")
+            logger.error("PID initialization failure")
         return False
 
     def set_laser(self, on_or_off: bool) -> bool:
@@ -133,12 +186,12 @@ class LaserShooter:
         elif horizontal_error > self.deadband:
             left = True
 
-        step_v = min(max(0.8, abs(vertical_error / self.coeffs[1])), 20)
-        step_h = min(max(0.8, abs(horizontal_error / self.coeffs[0])), 20)
+        step_v = min(max(MIN_STEP_SIZE, abs(vertical_error / self.coeffs[1])), MAX_STEP_SIZE)
+        step_h = min(max(MIN_STEP_SIZE, abs(horizontal_error / self.coeffs[0])), MAX_STEP_SIZE)
 
-        print(f"Laser {laser} Target {target}")
-        print(f"Up:{up}, Down:{down}, Left:{left}, Right:{right}")
-        print(f"Step V {step_v}, step H {step_h}")
+        logger.debug(f"Laser {laser} Target {target}")
+        logger.debug(f"Up:{up}, Down:{down}, Left:{left}, Right:{right}")
+        logger.debug(f"Step V {step_v}, step H {step_h}")
 
         self.send_instructions(up, down, left, right, step_v, step_h)
         # Send the updated angles to ESP32
@@ -155,12 +208,12 @@ class LaserShooter:
         Returns:
         float: The positioning error in absolute distance.
         """
-        RATE_OF_CHANGE = 100
+        RATE_OF_CHANGE = RATE_LIMIT_MAX_CHANGE
 
         if not self.pid_ok:
             self.pid_ok = self.init_PID()
             if not self.pid_ok:
-                print("PID not initialized")
+                logger.warning("PID not initialized")
                 return 0.0
 
         if target is None or laser is None:
@@ -175,14 +228,14 @@ class LaserShooter:
         output_v = self.pid_v(vertical_error)
 
         if abs(output_h - self.prev_output_h) > RATE_OF_CHANGE:
-            print(f"Rate limiting H from {output_h} to {RATE_OF_CHANGE}")
+            logger.debug(f"Rate limiting H from {output_h} to {RATE_OF_CHANGE}")
             if output_h > self.prev_output_h:
                 output_h = self.prev_output_h + RATE_OF_CHANGE
             else:
                 output_h = self.prev_output_h - RATE_OF_CHANGE
 
         if abs(output_v - self.prev_output_v) > RATE_OF_CHANGE:
-            print(f"Rate limiting V from {output_v} to {RATE_OF_CHANGE}")
+            logger.debug(f"Rate limiting V from {output_v} to {RATE_OF_CHANGE}")
             if output_v > self.prev_output_v:
                 output_v = self.prev_output_v + RATE_OF_CHANGE
             else:
@@ -213,7 +266,12 @@ class LaserShooter:
             return self.send_angles(self.__getzeropos())
         return False
 
-    def get_angles(self) -> tuple:
+    def get_angles(self) -> Tuple:
+        """Get current servo angles from ESP32.
+        
+        Returns:
+            Tuple of (horizontal_angle, vertical_angle) or None if communication fails
+        """
         """
         Gets the current angles of the servos from the ESP32.
 
@@ -226,14 +284,18 @@ class LaserShooter:
             return None
 
         try:
-            print(f"--> {data}")
+            logger.debug(f"Sending to ESP32: {data}")
             self.aliensocket.sendall(data)
             response = self.aliensocket.recv(128)
-            print(f"<-- {response}")
+            logger.debug(f"ESP32 response: {response}")
             self._is_online = True
             return ast.literal_eval(response.decode("utf-8"))
+        except (socket.error, ConnectionError, OSError) as e:
+            logger.error(f"get_angles: network failure to contact ESP32: {e}")
+        except (ValueError, SyntaxError) as e:
+            logger.error(f"get_angles: data parsing error from ESP32: {e}")
         except Exception as e:
-            print(f"get_angles: failure to contact ESP32: {e}")
+            logger.error(f"get_angles: unexpected error contacting ESP32: {e}")
             try:
                 self.aliensocket.close()
             except:
@@ -242,7 +304,12 @@ class LaserShooter:
             self._is_online = False
             return None
 
-    def get_limits(self) -> tuple:
+    def get_limits(self) -> Tuple:
+        """Get servo angle limits from ESP32.
+        
+        Returns:
+            Tuple of ((h_min, h_max), (v_min, v_max)) or None if communication fails
+        """
         """
         Gets the servo limits from the ESP32.
 
@@ -253,16 +320,20 @@ class LaserShooter:
         if not self.__checksocket():
             return None
         try:
-            print(f"--> {data}")
+            logger.debug(f"Sending to ESP32: {data}")
             self.aliensocket.sendall(data)
-            response = self.aliensocket.recv(64)
-            print(f"<-- {response}")
+            response = self.aliensocket.recv(SOCKET_RECV_BUFFER_SIZE_SMALL)
+            logger.debug(f"ESP32 response: {response}")
             self._is_online = True
             retval = ast.literal_eval(response.decode("utf-8"))
-            print(f"get_limits={retval}")
+            logger.debug(f"get_limits={retval}")
             return retval
+        except (socket.error, ConnectionError, OSError) as e:
+            logger.error(f"get_limits: network failure to contact ESP32: {e}")
+        except (ValueError, SyntaxError) as e:
+            logger.error(f"get_limits: data parsing error from ESP32: {e}")
         except Exception as e:
-            print(f"get_limits: failure to contact ESP32: {e}")
+            logger.error(f"get_limits: unexpected error contacting ESP32: {e}")
             try:
                 self.aliensocket.close()
             except:
@@ -277,14 +348,16 @@ class LaserShooter:
             attempt = 0
             while attempt < 5:
                 try:
-                    print(f"__checksocket: connecting to {self.ip_address}:{self.port} (attempt {attempt+1})")
+                    logger.debug(f"__checksocket: connecting to {self.ip_address}:{self.port} (attempt {attempt+1})")
                     self.aliensocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.aliensocket.settimeout(0.5)  # ### CHANGED: Slightly longer timeout for reconnection
                     self.aliensocket.connect((self.ip_address, self.port))
                     self._is_online = True
                     return True
+                except (socket.error, ConnectionError, OSError) as e:
+                    logger.debug(f"__checksocket: connection attempt {attempt+1} failed: {e}")
                 except Exception as e:
-                    print(f"__checksocket: connection attempt {attempt+1} failed: {e}")
+                    logger.debug(f"__checksocket: unexpected error on attempt {attempt+1}: {e}")
                     try:
                         self.aliensocket.close()
                     except:
@@ -297,18 +370,20 @@ class LaserShooter:
         return True
 
     def _send_msg(self, message: str) -> bool:
-        print(f"send_msg: message={message}")
+        logger.debug(f"send_msg: message={message}")
 
         if not self.__checksocket():
             return False
 
         data = bytes(str(message) + "\n", "utf-8")  # ### CHANGED: Append newline as delimiter
         try:
-            print(f"<-- {data}")
+            logger.debug(f"Sending to ESP32: {data}")
             self.aliensocket.sendall(data)
-            self.aliensocket.recv(128)
+            self.aliensocket.recv(SOCKET_RECV_BUFFER_SIZE)
+        except (socket.error, ConnectionError, OSError) as e:
+            logger.error(f"_send_msg: network failure to contact ESP32: {e}")
         except Exception as e:
-            print(f"_send_msg: failure to contact ESP32: {e}")
+            logger.error(f"_send_msg: unexpected error contacting ESP32: {e}")
             self.aliensocket.close()
             self.aliensocket = None
             self._is_online = False
@@ -327,7 +402,7 @@ class LaserShooter:
         Returns:
         bool: True if the angles are successfully sent, False otherwise.
         """
-        print(f"send_angles: target (H,V)=({round(angles[0],2)}, {round(angles[1],2)})")
+        logger.debug(f"send_angles: target (H,V)=({round(angles[0],2)}, {round(angles[1],2)})")
 
         if not self.__checksocket():
             return False
@@ -336,11 +411,13 @@ class LaserShooter:
         target = (round(angles[0], 2), round(angles[1], 2))
         data = bytes(str(target) + "\n", "utf-8")  # ### CHANGED: Added newline delimiter
         try:
-            print(f"<-- {data}")
+            logger.debug(f"Sending to ESP32: {data}")
             self.aliensocket.sendall(data)
-            self.aliensocket.recv(128)
+            self.aliensocket.recv(SOCKET_RECV_BUFFER_SIZE)
+        except (socket.error, ConnectionError, OSError) as e:
+            logger.error(f"send_angles: network failure to contact ESP32: {e}")
         except Exception as e:
-            print(f"send_angles: failure to contact ESP32: {e}")
+            logger.error(f"send_angles: unexpected error contacting ESP32: {e}")
             self.aliensocket.close()
             self.aliensocket = None
             self._is_online = False
@@ -380,7 +457,7 @@ class LaserShooter:
         self.current_pos = self.get_angles()
 
         if self.current_pos is None:
-            print("Failure to get current angles!")
+            logger.error("Failure to get current angles!")
             return False
 
         target = self.current_pos

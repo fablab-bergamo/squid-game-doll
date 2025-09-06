@@ -12,6 +12,7 @@ from .game_camera import GameCamera
 from .cuda_utils import is_cuda_opencv_available
 from .laser_shooter import LaserShooter
 from .laser_tracker import LaserTracker
+from .laser_finder_nn import LaserFinderNN
 from .game_settings import GameSettings
 from .async_screen_saver import AsyncScreenSaver
 from .utils.platform import (
@@ -32,6 +33,7 @@ from .constants import (
     LOADING,
     GAMEOVER,
     VICTORY,
+    VICTORY_ANIMATION,
     WHITE,
 )
 import platform
@@ -70,6 +72,7 @@ class SquidGame:
         self.no_tracker: bool = disable_tracker
         self.shooter: LaserShooter = None
         self.laser_tracker: LaserTracker = None
+        self.laser_finder: LaserFinderNN = None
         self.joystick: pygame.joystick.JoystickType = joystick
         self.start_registration = time.time()
         self._init_done = False
@@ -80,6 +83,7 @@ class SquidGame:
         self.async_screen_saver = AsyncScreenSaver()
         if not self.no_tracker:
             self.shooter = LaserShooter(ip)
+            # LaserTracker will get the laser finder after it's loaded in load_model
             self.laser_tracker = LaserTracker(self.shooter)
 
         logger.info(
@@ -147,12 +151,20 @@ class SquidGame:
 
     def switch_to_endgame(self, endgame_str: str) -> bool:
         logger.info("Switch to ENDGAME")
-        self.game_state = endgame_str
         if endgame_str == VICTORY:
+            # Start victory animation instead of going directly to VICTORY
+            self.game_state = VICTORY_ANIMATION
             self.victory_sound.play()
+            # Start the victory animation with current winners
+            winners = [player for player in self.players if player.is_winner()]
+            if winners:
+                self.game_screen.start_victory_animation(winners)
+        else:
+            self.game_state = endgame_str
+            self.game_screen.reset_active_buttons()
+            self.game_screen.set_active_button(0, self.switch_to_loading)
+        
         self.last_switch_time = time.time()
-        self.game_screen.reset_active_buttons()
-        self.game_screen.set_active_button(0, self.switch_to_loading)
         if not self.no_tracker:
             self.shooter.rotate_head(False)
             self.shooter.set_eyes(False)
@@ -253,6 +265,25 @@ class SquidGame:
 
         logger.debug("Loading face extractor")
         self.face_extractor = FaceExtractor()
+        
+        # Load laser finder if laser features are enabled
+        if not self.no_tracker:
+            logger.debug("Loading laser detection neural network")
+            try:
+                self.laser_finder = LaserFinderNN()
+                if self.laser_finder.model is None:
+                    logger.warning("LaserFinderNN model failed to load - laser detection will be unavailable")
+                    self.laser_finder = None
+                else:
+                    logger.info("🎯 Laser detection neural network loaded successfully")
+                    
+                # Pass the loaded laser finder to the laser tracker
+                if self.laser_tracker is not None:
+                    self.laser_tracker.laser_finder = self.laser_finder
+                    
+            except Exception as e:
+                logger.warning(f"Failed to load LaserFinderNN: {e} - laser detection will be unavailable")
+                self.laser_finder = None
         
         # Log CUDA status
         if is_cuda_opencv_available():
@@ -486,9 +517,9 @@ class SquidGame:
                                     while (
                                         time.time() - start_time < KILL_DELAY_S
                                     ) and not self.laser_tracker.shot_complete():
-                                        ret, webcam_frame = self.cam.read()
-                                        if ret:
-                                            self.laser_tracker.update_frame(webcam_frame)
+                                        nn_frame, webcam_frame, rect_info = self.cam.read_nn(self.settings, self.tracker.get_max_size())
+                                        if webcam_frame is not None:
+                                            self.laser_tracker.update_frame(webcam_frame, nn_frame)
                                         clock.tick(frame_rate)
                                     self.laser_tracker.stop()
                     else:
@@ -497,6 +528,16 @@ class SquidGame:
 
                 # The game state will switch to VICTORY / GAMEOVER when all players are either winners or eliminated.
                 self.check_endgame_conditions(crop_info, nn_frame, screen)
+
+            elif self.game_state == VICTORY_ANIMATION:
+                # Update victory animation and check if complete
+                self.game_screen.update_victory_animation(clock.get_time() / 1000.0)
+                if self.game_screen.is_victory_animation_complete():
+                    # Transition to VICTORY state and show buttons
+                    self.game_state = VICTORY
+                    self.game_screen.reset_active_buttons()
+                    self.game_screen.set_active_button(0, self.switch_to_loading)
+                    self.last_switch_time = time.time()
 
             elif self.game_state in [GAMEOVER, VICTORY]:
                 # Restart after 10 seconds
