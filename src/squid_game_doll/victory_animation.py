@@ -368,13 +368,13 @@ class VictoryAnimation:
         font_large = pygame.font.Font(None, 72)
         font_medium = pygame.font.Font(None, 48)
         
-        # Victory text
+        # Victory text - positioned above the badges
         victory_text = font_large.render("VITTORIA!", True, GREEN)
-        victory_rect = victory_text.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 150))
+        victory_rect = victory_text.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 200))
         
-        # Prize amount text
+        # Prize amount text - positioned above the badges, below victory text
         prize_text = font_medium.render(f"Ogni vincitore: ₩ {prize_per_winner:,}", True, YELLOW)
-        prize_rect = prize_text.get_rect(center=(self.screen_width // 2, self.screen_height // 2 + 200))
+        prize_rect = prize_text.get_rect(center=(self.screen_width // 2, self.screen_height // 2 - 150))
         
         # Apply alpha if fading in
         if self.prize_alpha < 255:
