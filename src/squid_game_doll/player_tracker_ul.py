@@ -311,9 +311,6 @@ class PlayerTrackerUL(BasePlayerTracker):
             results = self.yolo.track(nn_frame, **inference_kwargs)
             tracking_end = cv2.getTickCount()
             tracking_ms = ((tracking_end - tracking_start) / cv2.getTickFrequency()) * 1000
-            # Only log tracking time if it's unusually slow or occasionally
-            if tracking_ms > 80.0 or self.frame_count % 60 == 0:
-                logger.debug(f"🎯 Tracking: {tracking_ms:.1f}ms [{self.model_format}]")
             
         except Exception as e:
             logger.exception(f"process_nn_frame: error: {type(e).__name__}: {str(e)}")
@@ -347,7 +344,7 @@ class PlayerTrackerUL(BasePlayerTracker):
         
         # Log total processing time (very reduced frequency)
         if self.frame_count % 30 == 0:  # Log every 30 frames (~2 seconds at 15 FPS)
-            logger.info(f"🎯 Performance: {total_time_ms:.1f}ms ({self.fps:.1f} FPS) | Players: {len(players)} | Frame: {self.frame_count}")
+            logger.info(f"🎯 Player detection performance: {total_time_ms:.1f}ms ({self.fps:.1f} FPS) | Players: {len(players)} | Frame: {self.frame_count}")
         elif total_time_ms > 100.0:  # Only log individual frames if they're really slow
             logger.warning(f"🐌 Slow frame: {total_time_ms:.1f}ms ({self.fps:.1f} FPS) | Players: {len(players)}")
         return players

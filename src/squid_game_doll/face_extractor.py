@@ -1,48 +1,35 @@
 import cv2
 import numpy as np
+import mediapipe as mp
 from .constants import PLAYER_SIZE
 from .cuda_utils import cuda_cvt_color, cuda_resize, is_cuda_opencv_available
 
 
 class FaceExtractor:
     def __init__(self):
-        # OpenCV Haar Cascade Face Detector
-        try:
-            # Try standard OpenCV data path
-            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            self.face_detector = cv2.CascadeClassifier(cascade_path)
-        except AttributeError:
-            # Fallback for custom OpenCV builds without cv2.data
-            import os
-            cascade_paths = [
-                '/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml',
-                '/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml',
-                '/opt/opencv/data/haarcascades/haarcascade_frontalface_default.xml'
-            ]
-            cascade_path = None
-            for path in cascade_paths:
-                if os.path.exists(path):
-                    cascade_path = path
-                    break
-            
-            if cascade_path:
-                self.face_detector = cv2.CascadeClassifier(cascade_path)
-                print(f"✅ Using Haar cascade from: {cascade_path}")
-            else:
-                raise RuntimeError("Could not find haarcascade_frontalface_default.xml. Please install opencv-data package.")
+        # MediaPipe face detector (Google's ultra-fast)
+        self.mp_face_detection = mp.solutions.face_detection
+        self.face_detector = self.mp_face_detection.FaceDetection(
+            model_selection=0,  # 0 for short-range (< 2m), 1 for full-range
+            min_detection_confidence=0.5
+        )
+        print("✅ Using MediaPipe face detector (Google)")
         self._memory = {}
 
     def reset_memory(self):
         self._memory = {}
 
-    def extract_face(self, frame: cv2.UMat, bbox: tuple, id: int) -> cv2.UMat:
+    def extract_face(self, frame: cv2.UMat, bbox: tuple, id: int, return_bbox: bool = False):
         """
         Extracts a face from a given person's bounding box.
         Args:
             frame (numpy.ndarray): The input frame.
             bbox (tuple): Bounding box (x1, y1, x2, y2) of the detected player.
+            id (int): Player ID for tracking.
+            return_bbox (bool): If True, return (face_crop, face_bbox). If False, return just face_crop.
         Returns:
             face_crop (numpy.ndarray or None): Cropped face if detected, otherwise None.
+            OR tuple (face_crop, face_bbox) if return_bbox=True, where face_bbox is (x1, y1, w, h) in full frame coordinates.
         """
         x1, y1, x2, y2 = bbox
 
@@ -52,17 +39,22 @@ class FaceExtractor:
         if person_crop.size == 0:
             return None
 
-        # Convert to grayscale for OpenCV Haar cascades (GPU accelerated if available)
-        gray_face = cuda_cvt_color(person_crop, cv2.COLOR_BGR2GRAY)
-
-        # Detect faces using Haar cascades
-        faces = self.face_detector.detectMultiScale(
-            gray_face,
-            scaleFactor=1.3,  # Faster detection (was 1.1)
-            minNeighbors=3,   # Faster detection (was 5)
-            minSize=(20, 20), # Larger minimum size for better performance
-            flags=cv2.CASCADE_SCALE_IMAGE | cv2.CASCADE_DO_CANNY_PRUNING  # Additional optimization
-        )
+        # MediaPipe detection (Google's ultra-fast)
+        rgb_image = cv2.cvtColor(person_crop, cv2.COLOR_BGR2RGB)
+        results = self.face_detector.process(rgb_image)
+        
+        # Convert MediaPipe format to (x, y, w, h) for compatibility
+        faces = []
+        if results.detections:
+            h, w = person_crop.shape[:2]
+            for detection in results.detections:
+                bbox = detection.location_data.relative_bounding_box
+                # Convert relative coordinates to absolute pixels
+                x = int(bbox.xmin * w)
+                y = int(bbox.ymin * h) 
+                width = int(bbox.width * w)
+                height = int(bbox.height * h)
+                faces.append([x, y, width, height])
 
         if len(faces) > 0:
             # Get the largest face (most confident detection)
@@ -75,7 +67,7 @@ class FaceExtractor:
             extra_h = int(fh * margin)
 
             # New bounding box with margin, ensuring it stays within image bounds
-            h, w = gray_face.shape
+            h, w = person_crop.shape[:2]
             x_start = max(fx - extra_w, 0)
             y_start = max(fy - extra_h, 0)
             x_end = min(fx + fw + extra_w, w)
@@ -90,10 +82,22 @@ class FaceExtractor:
             face_crop = cuda_resize(face_crop, (PLAYER_SIZE, PLAYER_SIZE), interpolation=cv2.INTER_AREA)  # GPU-accelerated resize
             
             self._memory[id] = face_crop
-            return face_crop
+            
+            if return_bbox:
+                # Return both face crop and bounding box coordinates in full frame
+                # Convert from person crop coordinates to full frame coordinates
+                face_bbox_full_frame = (x1 + fx, y1 + fy, fw, fh)
+                return face_crop, face_bbox_full_frame
+            else:
+                return face_crop
 
         if id in self._memory:
-            return self._memory[id]
+            if return_bbox:
+                return self._memory[id], None  # Return cached face with no bbox info
+            else:
+                return self._memory[id]
 
+        if return_bbox:
+            return None, None
         return None
 

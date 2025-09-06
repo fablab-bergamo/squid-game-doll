@@ -1,10 +1,11 @@
-from typing import Callable
+from typing import Callable, Tuple, Optional
 import cv2
 
 # from drafts.gradient_search import test_gradient
 # from drafts.motion_pattern import motion_pattern_analysis
 from .display import add_exclusion_rectangles
 from .img_processing import brightness
+from .laser_coordinate_filter import LaserCoordinateFilter
 
 DEBUG_LASER_FIND = False
 
@@ -13,37 +14,94 @@ DEBUG_LASER_FIND = False
 # source tbc https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/
 # source tbc https://www.pyimagesearch.com/2016/02/15/determining-object-color-with-opencv/
 class LaserFinder:
+    """
+    Traditional computer vision-based laser detection system.
+    
+    This class implements multiple laser detection strategies using classical
+    computer vision techniques including color filtering, thresholding, 
+    morphological operations, and Hough circle detection.
+    
+    The LaserFinder provides:
+    - Multiple detection strategies with automatic fallback
+    - Red laser dot detection using color space analysis
+    - Circle detection using Hough transforms
+    - Adaptive thresholding for different lighting conditions
+    - Coordinate smoothing and filtering
+    - Strategy performance tracking and selection
+    
+    Detection strategies (in priority order):
+    1. Circle detection with threshold adaptation
+    2. Color-based red laser detection
+    3. Grayscale intensity-based detection
+    4. Secondary threshold-based detection
+    
+    Example:
+        finder = LaserFinder()
+        laser_coord, output_img = finder.find_laser(camera_frame)
+        if finder.laser_found():
+            print(f"Laser detected at: {laser_coord}")
+            print(f"Detection method: {finder.get_winning_strategy()}")
+    """
+    
     def __init__(self):
         """
-        Initializes the LaserFinder object.
+        Initialize the LaserFinder with default detection strategies.
+        
+        Sets up coordinate filtering and registers multiple detection
+        strategies for robust laser detection under various conditions.
         """
         self.prev_strategy = None
         self.prev_threshold = None
         self.laser_coord = None
         self.prev_img = None
         self.prev_candidates = []
+        
+        # Initialize coordinate smoothing filter
+        self.coordinate_filter = LaserCoordinateFilter(
+            smoothing_factor=0.7,  # Moderate smoothing
+            max_history_size=10,
+            outlier_threshold=100.0,  # Increased threshold to reduce rejections
+            min_confidence_for_update=0.05  # Lower threshold
+        )
 
     def laser_found(self) -> bool:
+        """Check if laser was detected in the last detection attempt.
+        
+        Returns:
+            bool: True if laser was found, False otherwise
+        """
         return self.laser_coord is not None
 
-    def get_laser_coord(self) -> tuple[int, int]:
-        return self.laser_coord
+    def get_laser_coord(self) -> Optional[Tuple[int, int]]:
+        """Get the smoothed laser coordinate (default behavior for compatibility)."""
+        return self.get_smoothed_coord()
+
+    def get_raw_coord(self) -> Optional[Tuple[int, int]]:
+        """Get the raw (unsmoothed) laser coordinate."""
+        return self.coordinate_filter.get_raw_coordinate()
+
+    def get_smoothed_coord(self) -> Optional[Tuple[int, int]]:
+        """Get the smoothed laser coordinate."""
+        return self.coordinate_filter.get_smoothed_coordinate()
 
     def get_winning_strategy(self) -> str:
         if self.laser_found():
             return f"{self.prev_strategy}(THR={self.prev_threshold})"
         return ""
 
-    def find_laser(self, img: cv2.UMat, rects: list) -> (tuple, cv2.UMat):
+    def find_laser(self, img: cv2.UMat, rects: list, nn_frame: cv2.UMat = None) -> (tuple, cv2.UMat):
         """
         Finds the laser in the given image using different strategies.
 
         Parameters:
-        img (cv2.UMat): The input image.
+        img (cv2.UMat): The input image (full webcam frame).
+        rects: List of exclusion rectangles.
+        nn_frame (cv2.UMat): Optional preprocessed NN frame (ignored in traditional method).
 
         Returns:
-        tuple: The coordinates of the laser, the output image, the strategy used, and the threshold value.
+        tuple: The coordinates of the laser in full frame space, the output image.
         """
+        # Note: nn_frame parameter is ignored in traditional LaserFinder - always uses full frame
         add_exclusion_rectangles(img, rects, (0, 0, 0))
         strategies = [
             self.find_laser_by_red_color,
@@ -54,9 +112,27 @@ class LaserFinder:
             if DEBUG_LASER_FIND:
                 print(f"Trying strategy {strategy.__name__}")
 
-            (coord, output) = strategy(img.copy())
+            # Handle both cv2.UMat and numpy arrays
+            if isinstance(img, cv2.UMat):
+                # Convert to numpy, copy, then back to UMat
+                img_np = cv2.UMat.get(img)
+                img_copy = cv2.UMat(img_np.copy())
+            else:
+                img_copy = img.copy()
+            (coord, output) = strategy(img_copy)
             if coord is not None:
                 print(f"Found laser at {coord}")
+                
+                # Update the coordinate filter with raw detection
+                # Traditional laser finder doesn't have confidence, so use 1.0
+                self.coordinate_filter.update(coord, confidence=1.0)
+                
+                # Store raw coordinate for compatibility
+                self.laser_coord = coord
+                
+                # Get smoothed coordinate for display
+                smoothed_coord = self.coordinate_filter.get_smoothed_coordinate()
+                
                 cv2.putText(
                     output,
                     text=strategy.__name__,
@@ -73,10 +149,31 @@ class LaserFinder:
                     fontScale=0.5,
                     color=(0, 255, 0),
                 )
+                
+                # Show both raw and smoothed coordinates
+                cv2.putText(
+                    output,
+                    text=f"Raw: {coord}",
+                    org=(10, 80),
+                    fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                    fontScale=0.4,
+                    color=(0, 255, 255),  # Cyan for raw
+                )
+                if smoothed_coord:
+                    cv2.putText(
+                        output,
+                        text=f"Smooth: {smoothed_coord}",
+                        org=(10, 100),
+                        fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                        fontScale=0.4,
+                        color=(255, 255, 0),  # Yellow for smoothed
+                    )
+                
                 self.prev_strategy = strategy.__name__
-                self.laser_coord = coord
                 return (coord, output)
 
+        # No laser found - update filter with None
+        self.coordinate_filter.update(None, confidence=0.0)
         self.laser_coord = None
 
         if DEBUG_LASER_FIND:
@@ -280,7 +377,7 @@ class LaserFinder:
         cv2.imshow("Contours", result)
         return detected_centroids
 
-    def find_laser_by_threshold_2(self, channel: cv2.UMat) -> tuple[tuple, cv2.UMat]:
+    def find_laser_by_threshold_2(self, channel: cv2.UMat) -> Tuple[Tuple, cv2.UMat]:
         """
         Finds the laser in the given channel using a thresholding strategy.
 
@@ -367,7 +464,7 @@ class LaserFinder:
         self.laser_coord = (1, 1)
         return ((1, 1), None)
 
-    def find_laser_by_grayscale(self, img: cv2.UMat) -> tuple[tuple, cv2.UMat]:
+    def find_laser_by_grayscale(self, img: cv2.UMat) -> Tuple[Tuple, cv2.UMat]:
         """
         Finds the laser in the given image using a grayscale strategy.
 
@@ -381,7 +478,7 @@ class LaserFinder:
         normalized_gray_image = cv2.normalize(gray_image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
         return self.find_laser_by_threshold(normalized_gray_image, searchfunction=self.search_by_hough_circles)
 
-    def find_laser_by_red_color(self, img: cv2.UMat) -> tuple[tuple, cv2.UMat]:
+    def find_laser_by_red_color(self, img: cv2.UMat) -> Tuple[Tuple, cv2.UMat]:
         """
         Finds the laser in the given image using the red color channel.
 

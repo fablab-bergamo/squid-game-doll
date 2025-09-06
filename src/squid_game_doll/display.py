@@ -17,7 +17,11 @@ def add_exclusion_rectangles(frame: cv2.UMat, rectangles: list, color=(128, 64, 
             cv2.rectangle(frame, rect.top_left, rect.bottom_right, color, -1)
 
     # Add 2 px around frame
-    height, width, _ = frame.shape
+    if isinstance(frame, cv2.UMat):
+        frame_np = cv2.UMat.get(frame)
+        height, width, _ = frame_np.shape
+    else:
+        height, width, _ = frame.shape
     cv2.rectangle(frame, (1, 1), (width - 1, height - 1), (0, 0, 0), thickness=2)
     return frame
 
@@ -42,7 +46,11 @@ def add_camera_settings(cap: cv2.VideoCapture, frame: cv2.UMat) -> cv2.UMat:
     time_diff = (current_time - last_render) / cv2.getTickFrequency()
     last_render = current_time
     fps = int(1.0 / time_diff)
-    height, width, _ = frame.shape
+    if isinstance(frame, cv2.UMat):
+        frame_np = cv2.UMat.get(frame)
+        height, width, _ = frame_np.shape
+    else:
+        height, width, _ = frame.shape
 
     cv2.putText(
         frame,

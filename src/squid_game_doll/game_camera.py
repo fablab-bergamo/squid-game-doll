@@ -286,10 +286,8 @@ class GameCamera:
             h = max(0, min(h, nn_frame.shape[0] - y))
             
             if w > 0 and h > 0:
-                # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
-                x = nn_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
-                x = max(0, x)  # Ensure x is not negative
                 # Draw the rectangle on the mask
+                # Note: coordinates are already transformed by get_gameplay_areas()
                 cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
 
         # Apply the mask to the frame
@@ -306,9 +304,9 @@ class GameCamera:
         w = int(w_ratio * nn_frame.shape[1])
         h = int(h_ratio * nn_frame.shape[0])
 
-        # webcam surface is mirrored-flipped, so we need to adjust the x coordinate for cropping correctly
-        x = nn_frame.shape[1] - (x + w)  # Adjust x coordinate for mirrored image
-        nn_frame = nn_frame[y : y + h, x : x + w]  # Crop the frame to the bounding rectangle
+        # Crop the frame to the bounding rectangle
+        # Note: coordinates are already transformed by get_gameplay_areas()
+        nn_frame = nn_frame[y : y + h, x : x + w]
 
         if settings.get_param("img_normalization", False):
             # Normalize brightness and contrast using histogram equalization
