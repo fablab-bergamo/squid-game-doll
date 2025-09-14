@@ -33,7 +33,7 @@ async def main():
     )
 
     status_led = StatusLED(pin=INTEGRATED_RGB)
-    test_manager = TestModeManager(head, eyes, laser)
+    test_manager = TestModeManager(head, eyes, laser, status_led)
     server = TrackerServer(head, eyes, laser, test_manager)
 
     # Start test mode initially (will run until first client connects)
@@ -48,6 +48,7 @@ async def main():
         asyncio.create_task(laser._tracking_task()),
         asyncio.create_task(laser._test_movement_task()),
         asyncio.create_task(status_led.blink_task()),
+        asyncio.create_task(status_led.test_led_task()),
         asyncio.create_task(server.run_server())
     ]
 

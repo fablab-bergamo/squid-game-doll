@@ -2,10 +2,11 @@ import asyncio
 
 
 class TestModeManager:
-    def __init__(self, head_controller, eyes_controller, laser_controller):
+    def __init__(self, head_controller, eyes_controller, laser_controller, status_led):
         self.head = head_controller
         self.eyes = eyes_controller
         self.laser = laser_controller
+        self.status_led = status_led
         self.test_mode_active = True  # Start in test mode
         self.client_count = 0
 
@@ -18,6 +19,7 @@ class TestModeManager:
             await self.head.start_test_mode()
             await self.eyes.start_test_mode()
             await self.laser.start_test_mode()
+            await self.status_led.start_test_mode()
 
     async def stop_test_mode(self):
         """Stop all test modes and set default state"""
@@ -26,6 +28,7 @@ class TestModeManager:
         await self.head.stop_test_mode()
         await self.eyes.stop_test_mode()
         await self.laser.stop_test_mode()
+        await self.status_led.stop_test_mode()
 
         await asyncio.sleep(2)
 
