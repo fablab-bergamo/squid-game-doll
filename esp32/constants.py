@@ -1,0 +1,31 @@
+# Hardware pin definitions
+H_SERVO_PIN = 6
+V_SERVO_PIN = 8
+HEAD_SERVO_PIN = 10
+EYES_PIN = 1
+LASER_PIN = 5
+INTEGRATED_RGB = 7
+
+# Servo angle limits
+H_MIN = 60
+H_MAX = 180 - 30
+V_MIN = 60
+V_MAX = 120
+HEAD_MIN = 15
+HEAD_MAX = 160
+
+# Starting positions
+H_START_ANGLE = (H_MIN + H_MAX) / 2
+V_START_ANGLE = (V_MIN + V_MAX) / 2
+HEAD_START_ANGLE = HEAD_MIN
+
+# Communication settings
+SERVER_PORT = 15555
+SERVER_HOST = "0.0.0.0"
+
+# Timing constants (milliseconds)
+SERVO_STEP_DELAY = 25
+PULSE_STEP_DELAY = 25
+LASER_BLINK_DELAY = 250
+STATUS_BLINK_DELAY = 1000
+TEST_MOVEMENT_DELAY = 50
