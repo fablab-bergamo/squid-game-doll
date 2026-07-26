@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "A game using AI for player tracking inspired by Squid Game TV series, featuring an animated doll with laser."
 authors = [ { name = "Pascal Brunot", email="pascal.brunot@fablabbergamo.it"}]
 license = "MIT"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = { file = "README.md", content-type = "text/markdown" }
 keywords = [
     "squid game",
@@ -18,22 +18,22 @@ keywords = [
 ]
 dependencies = [
     "Camera==1.3.0",
-    "cv2_enumerate_cameras==1.1.18.2",
+    "cv2_enumerate_cameras==1.3.3",
     "imutils==0.5.4",
-    "lmfit==1.3.2",
+    "lmfit==1.3.4",
     "matplotlib",
     "numpy (<2)",
-    "pandas==2.2.3",
+    "pandas==2.3.3",
     "perlin-numpy==0.0.1",
-    "Pillow==11.1.0",
+    "Pillow==12.3.0",
     "pygame==2.6.1",
-    "scikit-learn==1.6.1",
+    "scikit-learn==1.7.2",
     "scipy",
     "simple-pid==2.0.1",
     "scikit-image",
     "supervision",
     "lap>=0.5.12",
-    "loguru==0.7.2",
+    "loguru",
     "psutil",
 ]
 
@@ -66,9 +66,9 @@ cuda = [
 squid-game-doll = "squid_game_doll.__main__:main"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.5"
-black = "^25.1.0"
-flake8 = "^7.2.0"
+pytest = "^9.1.1"
+black = "^26.5.1"
+flake8 = "^7.3.0"
 snakeviz = "^2.2.2"
 
 [build-system]

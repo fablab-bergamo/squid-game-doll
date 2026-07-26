@@ -17,7 +17,7 @@ An AI-powered "Red Light, Green Light" robot inspired by the Squid Game TV serie
 ## 🎮 Quick Start
 
 ### Prerequisites
-- Python 3.9+ with Poetry
+- Python 3.10+ with Poetry
 - Webcam (Logitech C920 recommended)
 - Optional: ESP32 for doll control, laser targeting hardware
 
