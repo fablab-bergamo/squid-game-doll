@@ -17,7 +17,7 @@ Un robot "Uno, Due, Tre... Stella!" alimentato da AI ispirato alla serie TV Squi
 ## 🎮 Avvio Rapido
 
 ### Prerequisiti
-- Python 3.9+ con Poetry
+- Python 3.10+ con Poetry
 - Webcam (Logitech C920 consigliata)
 - Opzionale: ESP32 per controllo bambola, hardware puntamento laser
 
