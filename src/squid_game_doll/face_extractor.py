@@ -1,18 +1,25 @@
 import cv2
 import numpy as np
 import mediapipe as mp
-from .constants import PLAYER_SIZE
+from mediapipe.tasks.python import BaseOptions
+from mediapipe.tasks.python.vision import FaceDetector, FaceDetectorOptions, RunningMode
+from .constants import PLAYER_SIZE, ROOT
 from .cuda_utils import cuda_cvt_color, cuda_resize, is_cuda_opencv_available
+
+# Short-range (< 2m) BlazeFace model, bundled locally so face detection works offline.
+_FACE_MODEL_PATH = ROOT + "/media/blaze_face_short_range.tflite"
 
 
 class FaceExtractor:
     def __init__(self):
-        # MediaPipe face detector (Google's ultra-fast)
-        self.mp_face_detection = mp.solutions.face_detection
-        self.face_detector = self.mp_face_detection.FaceDetection(
-            model_selection=0,  # 0 for short-range (< 2m), 1 for full-range
-            min_detection_confidence=0.5
+        # MediaPipe face detector (Google's ultra-fast), new Tasks API
+        # (mp.solutions.face_detection was removed in mediapipe >= 0.10.30)
+        options = FaceDetectorOptions(
+            base_options=BaseOptions(model_asset_path=_FACE_MODEL_PATH),
+            running_mode=RunningMode.IMAGE,
+            min_detection_confidence=0.5,
         )
+        self.face_detector = FaceDetector.create_from_options(options)
         print("✅ Using MediaPipe face detector (Google)")
         self._memory = {}
 
@@ -41,20 +48,16 @@ class FaceExtractor:
 
         # MediaPipe detection (Google's ultra-fast)
         rgb_image = cv2.cvtColor(person_crop, cv2.COLOR_BGR2RGB)
-        results = self.face_detector.process(rgb_image)
-        
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
+        results = self.face_detector.detect(mp_image)
+
         # Convert MediaPipe format to (x, y, w, h) for compatibility
+        # (Tasks API bounding_box is already in absolute pixel coordinates)
         faces = []
         if results.detections:
-            h, w = person_crop.shape[:2]
             for detection in results.detections:
-                bbox = detection.location_data.relative_bounding_box
-                # Convert relative coordinates to absolute pixels
-                x = int(bbox.xmin * w)
-                y = int(bbox.ymin * h) 
-                width = int(bbox.width * w)
-                height = int(bbox.height * h)
-                faces.append([x, y, width, height])
+                bbox = detection.bounding_box
+                faces.append([bbox.origin_x, bbox.origin_y, bbox.width, bbox.height])
 
         if len(faces) > 0:
             # Get the largest face (most confident detection)
