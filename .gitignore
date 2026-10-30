@@ -181,7 +181,6 @@ yolov11m.hef
 *.pt
 *.hef
 config.yaml
-poetry.lock
 config-test.yaml
 .claude/settings.local.json
 *.engine

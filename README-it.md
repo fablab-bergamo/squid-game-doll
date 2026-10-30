@@ -17,9 +17,14 @@ Un robot "Uno, Due, Tre... Stella!" alimentato da AI ispirato alla serie TV Squi
 ## 🎮 Avvio Rapido
 
 ### Prerequisiti
-- Python 3.10+ con Poetry
+- Python 3.11+ con Poetry
 - Webcam (Logitech C920 consigliata)
 - Opzionale: ESP32 per controllo bambola, hardware puntamento laser
+
+Le dipendenze aggiornate per la sicurezza richiedono Python 3.11 o successivo.
+Le wheel Jetson per Python 3.10 (`cp310`) negli esempi precedenti non sono
+compatibili con questa versione: servono build di PyTorch, torchvision,
+ONNX Runtime e OpenCV adatte alla versione di Python e a JetPack installati.
 
 ### Installazione
 

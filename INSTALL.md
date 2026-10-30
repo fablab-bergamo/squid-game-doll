@@ -64,17 +64,17 @@ sudo nvpmodel -m 0 && sudo jetson_clocks
 
 ```bash
 # Configure vision areas
-poetry run python -m src.squid_game_doll.run --setup -w 0
+poetry run python -m squid_game_doll --setup -w 0
 
 # Run the game
-poetry run python -m src.squid_game_doll.run -w 0
+poetry run python -m squid_game_doll -w 0
 ```
 
 ---
 
 # Setup on Raspberry Pi 5 + AI KIT
 
-> **Note**: This installation guide is specifically for Raspberry Pi 5 with Hailo AI KIT hardware. For other platforms (PC/Windows, Jetson Nano), see the main [README.md](README.md) and [CLAUDE.md](CLAUDE.md) files.
+> **Note**: This installation guide is specifically for Raspberry Pi 5 with Hailo AI KIT hardware. For other platforms (PC/Windows, Jetson Nano), see the main [README.md](README.md) and [AGENTS.md](AGENTS.md) files.
 
 ## Prerequisites
 
@@ -157,7 +157,7 @@ wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.
 Test the application to identify the correct camera device:
 
 ```bash
-poetry run python -m src.squid_game_doll.run
+poetry run python -m squid_game_doll
 ```
 
 The application will list available cameras. Look for USB webcam devices (typically lower numbers) among the Raspberry Pi specific devices:
@@ -180,7 +180,7 @@ Run the setup mode to configure detection areas:
 
 ```bash
 # Use the webcam index you identified (e.g., 0 for USB camera)
-poetry run python -m src.squid_game_doll.run --setup -w 0
+poetry run python -m squid_game_doll --setup -w 0
 ```
 
 Follow the on-screen instructions to define:
@@ -194,7 +194,7 @@ Start the game with your configured camera:
 
 ```bash
 # Replace 0 with your actual camera index
-poetry run python -m src.squid_game_doll.run -w 0
+poetry run python -m squid_game_doll -w 0
 ```
 
 ## Optional: ESP32 Laser Integration
@@ -203,7 +203,7 @@ To enable the animated doll with laser targeting:
 
 ```bash
 # Enable ESP32 tracker with specific IP
-poetry run python -m src.squid_game_doll.run -w 0 -k -i 192.168.45.50
+poetry run python -m squid_game_doll -w 0 -k -i 192.168.45.50
 ```
 
 See the [ESP32 documentation](esp32/) for hardware setup details.
@@ -220,4 +220,4 @@ See the [ESP32 documentation](esp32/) for hardware setup details.
 - Check `dmesg | grep hailo` for hardware messages
 - Verify Hailo installation: `hailortcli scan`
 
-For additional help, see [CLAUDE.md](CLAUDE.md) for detailed development information.
+For additional help, see [AGENTS.md](AGENTS.md) for detailed development information.

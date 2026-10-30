@@ -1,6 +1,6 @@
 # Guida all'Installazione - Raspberry Pi 5 + Hailo AI KIT
 
-> **Nota**: Questa guida all'installazione è specifica per Raspberry Pi 5 con hardware Hailo AI KIT. Per altre piattaforme (PC/Windows, Jetson Nano), consultare i file [README.md](README.md) ([Italiano](README-it.md)) e [CLAUDE.md](CLAUDE.md) principali.
+> **Nota**: Questa guida all'installazione è specifica per Raspberry Pi 5 con hardware Hailo AI KIT. Per altre piattaforme (PC/Windows, Jetson Nano), consultare i file [README.md](README.md) ([Italiano](README-it.md)) e [AGENTS.md](AGENTS.md) principali.
 
 ## Prerequisiti
 
@@ -83,7 +83,7 @@ wget https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.14.
 Testare l'applicazione per identificare il dispositivo camera corretto:
 
 ```bash
-poetry run python -m src.squid_game_doll.run
+poetry run python -m squid_game_doll
 ```
 
 L'applicazione elencherà le camere disponibili. Cercare i dispositivi webcam USB (tipicamente numeri più bassi) tra i dispositivi specifici del Raspberry Pi:
@@ -106,7 +106,7 @@ Eseguire la modalità setup per configurare le aree di rilevamento:
 
 ```bash
 # Usare l'indice webcam identificato (es. 0 per camera USB)
-poetry run python -m src.squid_game_doll.run --setup -w 0
+poetry run python -m squid_game_doll --setup -w 0
 ```
 
 Seguire le istruzioni sullo schermo per definire:
@@ -120,7 +120,7 @@ Avviare il gioco con la camera configurata:
 
 ```bash
 # Sostituire 0 con l'indice camera effettivo
-poetry run python -m src.squid_game_doll.run -w 0
+poetry run python -m squid_game_doll -w 0
 ```
 
 ## Opzionale: Integrazione Laser ESP32
@@ -129,7 +129,7 @@ Per abilitare la bambola animata con puntamento laser:
 
 ```bash
 # Abilitare il tracker ESP32 con IP specifico
-poetry run python -m src.squid_game_doll.run -w 0 -k -i 192.168.45.50
+poetry run python -m squid_game_doll -w 0 -k -i 192.168.45.50
 ```
 
 Vedere la [documentazione ESP32](esp32/) per i dettagli di configurazione hardware.
@@ -146,4 +146,4 @@ Vedere la [documentazione ESP32](esp32/) per i dettagli di configurazione hardwa
 - Controllare `dmesg | grep hailo` per messaggi hardware
 - Verificare l'installazione Hailo: `hailortcli scan`
 
-Per ulteriore aiuto, consultare [CLAUDE.md](CLAUDE.md) per informazioni dettagliate sullo sviluppo.
+Per ulteriore aiuto, consultare [AGENTS.md](AGENTS.md) per informazioni dettagliate sullo sviluppo.

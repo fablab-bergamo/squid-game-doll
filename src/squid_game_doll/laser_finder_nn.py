@@ -34,6 +34,9 @@ DEFAULT_NN_MAX_HISTORY_SIZE = 10
 DEFAULT_NN_OUTLIER_THRESHOLD = 150.0
 DEFAULT_NN_MIN_CONFIDENCE = 0.05
 PERFORMANCE_LOG_INTERVAL_FRAMES = 30
+# Pin the Hub code as well as the Python dependencies. Trust only this official
+# revision, so unattended startup does not prompt or follow a moving branch.
+YOLOV5_HUB_REPO = "ultralytics/yolov5:af08ba156fd58ed5b0fe7e4e58a22c72c3cdd0ce"
 
 
 class LaserFinderNN:
@@ -112,14 +115,10 @@ class LaserFinderNN:
             
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             
-            if device == 'cuda':
-                self.model = torch.hub.load('ultralytics/yolov5', 'custom', 
-                                         path=self.model_path, force_reload=True)
-                self.model.to("cuda")
-            else:
-                self.model = torch.hub.load('ultralytics/yolov5', 'custom', 
-                                         path=self.model_path, force_reload=True,
-                                         map_location=torch.device('cpu'))
+            self.model = torch.hub.load(
+                YOLOV5_HUB_REPO, 'custom', path=self.model_path,
+                device="0" if device == "cuda" else "cpu", trust_repo=True,
+            )
             
             self.model.eval()
             

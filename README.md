@@ -17,9 +17,14 @@ An AI-powered "Red Light, Green Light" robot inspired by the Squid Game TV serie
 ## 🎮 Quick Start
 
 ### Prerequisites
-- Python 3.10+ with Poetry
+- Python 3.11+ with Poetry
 - Webcam (Logitech C920 recommended)
 - Optional: ESP32 for doll control, laser targeting hardware
+
+The security-updated dependencies require Python 3.11 or newer. The Python 3.10
+(`cp310`) Jetson wheels in the legacy installation examples below cannot be used
+with this release; use PyTorch, torchvision, ONNX Runtime and OpenCV builds for
+your Python version and JetPack installation.
 
 ### Installation
 

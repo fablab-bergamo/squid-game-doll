@@ -4,7 +4,7 @@ version = "0.3.0"
 description = "A game using AI for player tracking inspired by Squid Game TV series, featuring an animated doll with laser."
 authors = [ { name = "Pascal Brunot", email="pascal.brunot@fablabbergamo.it"}]
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = { file = "README.md", content-type = "text/markdown" }
 keywords = [
     "squid game",
@@ -25,7 +25,7 @@ dependencies = [
     "numpy (<2)",
     "pandas==2.3.3",
     "perlin-numpy==0.0.1",
-    "Pillow==12.3.0",
+    "Pillow==13.0.0",
     "pygame==2.6.1",
     "scikit-learn==1.7.2",
     "scipy",
@@ -37,7 +37,11 @@ dependencies = [
     "psutil",
     "seaborn",
     "requests>=2.32.2",
-    "setuptools>=70.0.0",
+    "setuptools>=84.1.0",
+    # Security floors for transitive HTTP and model-cache dependencies.
+    "certifi>=2026.10.18",
+    "urllib3>=2.8.0",
+    "filelock>=4.2.1",
     # 0.10.18 pinned protobuf<5 (CVE-2026-0994 / GHSA-7gcm-g887-7qv7); 1.0.1 lifts that cap.
     # NOTE: this drops the legacy mp.solutions API (removed >=0.10.30) in favor of
     # mediapipe.tasks.python.vision.FaceDetector, see face_extractor.py.
@@ -49,7 +53,7 @@ dependencies = [
 standard = [
     "torch",
     "torchvision",
-    "ultralytics"
+    "ultralytics>=8.4.164"
 ]
 
 # Jetson Orin optimized dependencies
@@ -74,12 +78,14 @@ squid-game-doll = "squid_game_doll.__main__:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.1.1"
-black = "^26.5.1"
+black = "^26.10.1"
 flake8 = "^7.3.0"
 snakeviz = "^2.2.2"
-# Pinned to close GHSA-mpf4-983q-p7j4 / GHSA-8423-8fgw-73v.. (event-loop DoS in tornado <6.5.8).
-# tornado is a transitive dependency of snakeviz, which only requires ">=2.0".
-tornado = ">=6.5.8"
+# snakeviz only requires tornado>=2.0; require the patched HTTP implementation.
+tornado = ">=6.6"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
